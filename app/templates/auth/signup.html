@@ -1,0 +1,66 @@
+{% extends "auth/base.html" %}
+{% block body_class %}auth-body{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="/static/auth/css/signup.css">
+{% endblock %}
+{% block content %}
+<section class="auth-shell">
+    <div class="auth-panel auth-panel--brand auth-panel--brand-signup">
+        <p class="eyebrow">Plan with confidence</p>
+        <h1>Build a more reliable logistics workflow</h1>
+        <p class="auth-copy">
+            Create your workspace and give your team a calmer way to manage operations, schedules, and delivery priorities.
+        </p>
+        <div class="auth-stats">
+            <div class="stat-card">
+                <strong>1 dashboard</strong>
+                <span>For planning, coordination, and progress visibility.</span>
+            </div>
+            <div class="stat-card">
+                <strong>Less friction</strong>
+                <span>Reduce manual follow-ups and scattered updates.</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="auth-panel auth-panel--form">
+        <div class="auth-card-header">
+            <p class="eyebrow">Create account</p>
+            <h2>Start your workspace</h2>
+            <p>Set up your account to begin organizing routes, teams, and schedules.</p>
+        </div>
+
+        <button type="button" onclick="googleLogin()" style="background:#4285F4; color:white; border:none; padding:12px; margin-bottom:15px; border-radius:6px; cursor:pointer; width:100%">
+            <img src="/static/auth/img/google-g.svg" alt="Google" style="height:20px;vertical-align:middle;margin-right:8px;">Continue with Google
+        </button>
+        <form id="signupForm" class="auth-form">
+            <label class="field">
+                <span>Full Name</span>
+                <input type="text" id="full_name" placeholder="Your name">
+            </label>
+
+            <label class="field">
+                <span>Email</span>
+                <input type="email" id="email" placeholder="you@company.com" autocomplete="email" required>
+            </label>
+
+            <label class="field">
+                <span>Password</span>
+                <input type="password" id="password" placeholder="Create a password" autocomplete="new-password" required>
+            </label>
+
+            <div class="auth-actions">
+                <button type="submit" class="auth-button auth-button--success">Sign Up</button>
+                <a href="/login" class="auth-link">Already have an account?</a>
+            </div>
+        </form>
+
+        <div id="signupMessage" class="message" aria-live="polite"></div>
+
+        <!-- Verification card and resend logic removed. All verification is now handled on the dedicated verify-email page. -->
+    </div>
+</section>
+{% endblock %}
+{% block extra_js %}
+<script src="/static/auth/js/signup.js"></script>
+{% endblock %}

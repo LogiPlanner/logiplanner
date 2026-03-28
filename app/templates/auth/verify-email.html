@@ -1,0 +1,61 @@
+{% extends "auth/base.html" %}
+{% block body_class %}auth-body{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="/static/auth/css/verify-email.css">
+{% endblock %}
+{% block content %}
+<section class="auth-shell auth-shell--single">
+    <div class="auth-panel auth-panel--brand auth-panel--brand-verify">
+        <img src="/static/auth/img/email-verify.svg" alt="Verify Email" style="width:64px;height:64px;margin-bottom:1rem;">
+        <p class="eyebrow">Welcome to Logiplanner!</p>
+        <h1>Verify your email to unlock your workspace</h1>
+        <p class="auth-copy">
+            For your security, we need to confirm your email address. Please check your inbox for a verification link.<br>
+            If you haven't received it, you can request a new one below.
+        </p>
+    </div>
+
+    <div class="auth-panel auth-panel--form">
+        <div class="auth-card-header">
+            <p class="eyebrow">Verification status</p>
+            <h2>Check your email</h2>
+            <p id="verificationSubtitle">We are checking your link and preparing the next step.</p>
+        </div>
+
+        <section class="status-card">
+            <div id="verificationBadge" class="status-badge status-badge--pending">
+                <span id="statusIcon" style="vertical-align:middle;">
+                    <!-- Icon will be set by JS -->
+                </span>
+                <span id="statusText">Pending</span>
+            </div>
+            <h3 id="verificationTitle">Waiting for verification token</h3>
+            <p id="verificationMessage" class="status-copy">
+                Open the link from your verification email, or request a new one below.
+            </p>
+            <div class="auth-actions auth-actions--compact">
+                <a id="verificationLoginLink" href="/login" class="auth-button auth-button--ghost is-hidden">Go to login</a>
+                <a href="/signup" class="auth-link">Back to signup</a>
+            </div>
+        </section>
+
+        <section class="info-card">
+            <div class="info-card__header">
+                <h3>Didn't get the email?</h3>
+                <p>Enter your email below and we'll send a new verification link.</p>
+            </div>
+            <form id="verifyResendForm" class="inline-form">
+                <label class="field">
+                    <span>Email</span>
+                    <input type="email" id="verifyResendEmail" placeholder="you@company.com" autocomplete="email" required>
+                </label>
+                <button type="submit" class="auth-button auth-button--secondary">Send new link</button>
+            </form>
+            <div id="verifyResendMessage" class="message" aria-live="polite"></div>
+        </section>
+    </div>
+</section>
+{% endblock %}
+{% block extra_js %}
+<script src="/static/auth/js/verify-email.js"></script>
+{% endblock %}

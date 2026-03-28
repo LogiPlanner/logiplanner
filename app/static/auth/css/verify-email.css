@@ -1,0 +1,11 @@
+.auth-panel--brand-verify::after {
+    content: "";
+    width: 190px;
+    height: 190px;
+    border-radius: 999px;
+    background: radial-gradient(circle, rgba(14, 165, 233, 0.28) 0%, rgba(14, 165, 233, 0) 72%);
+    position: absolute;
+    right: 22px;
+    bottom: 22px;
+    pointer-events: none;
+}

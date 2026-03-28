@@ -1,0 +1,11 @@
+.auth-panel--brand-login::after {
+    content: "";
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(245, 158, 11, 0.32) 0%, rgba(245, 158, 11, 0) 70%);
+    position: absolute;
+    right: 28px;
+    bottom: 28px;
+    pointer-events: none;
+}
