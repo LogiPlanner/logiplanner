@@ -1,135 +1,82 @@
+# LogiPlanner — Plans With Logic 🧠
 
-# LogiPlanner Authentication System
+[![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql)](https://www.postgresql.org)
+[![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org)
 
-**An Intelligent Project Management Platform**
-
----
-
-## 🚀 Overview
-
-LogiPlanner is a modern, AI-powered logistics and project management platform. This repository contains the complete authentication system, including:
-
-- Email/password login & signup
-- Social login (Google, GitHub, Apple*)
-- Email verification flow
-- Team onboarding
-- AI Brain initialization
-
-> *Apple login coming in Phase 5
-
-The authentication flow strictly follows the diagrams in `auth.pdf`.
+**LogiPlanner** is an AI-driven project management and **project memory** system. It unifies scattered information — from Miro boards and Slack chats to meeting notes and Drive files — into a single intelligent, searchable, and evolving **"Project Brain."**
 
 ---
 
-## 🛠️ Tech Stack
+## 🚀 The Vision
 
-- **Backend:** FastAPI (Python 3.11+)
-- **Database:** PostgreSQL, SQLAlchemy 2.0, Alembic
-- **Auth:** JWT (access & refresh tokens), bcrypt
-- **Email:** SMTP / Resend (for verification)
-- **Social Login:** Google, GitHub, Apple (planned)
+Modern teams suffer from **context loss**. Decisions are forgotten, updates are fragmented, and onboarding is a bottleneck. LogiPlanner solves this with:
+- **Intelligent Context:** A RAG-powered brain that remembers everything.
+- **Human Verification:** Humans review AI insights before they enter the "Project Memory," ensuring zero hallucinations.
+- **Seamless Ingestion:** Automatic sync with your existing tools (GitHub, Drive, Miro).
+
 
 ---
 
 ## 📁 Project Structure
 
-```
-logiplanner-auth/
-├── app/                  # Main application code
-│   ├── core/             # Config, security, DB
-│   ├── models/           # SQLAlchemy models (User, Team, etc.)
-│   ├── schemas/          # Pydantic request/response models
-│   ├── api/v1/           # All API endpoints
-│   └── main.py
-├── migrations/           # Alembic migrations
-├── main.py               # Entrypoint (run with: python main.py)
-├── requirements.txt      # Python dependencies
-├── .env                  # Environment variables (never commit this!)
-└── README.md
+```text
+logiplanner/
+├── app/                  # FastAPI Application
+│   ├── core/             # Config, Security, Database
+│   ├── api/v1/           # API Endpoints (Auth, OAuth, Teams)
+│   ├── models/           # SQLAlchemy Models
+│   ├── schemas/          # Pydantic Models
+│   ├── templates/        # Jinja2 HTML Pages
+│   └── static/           # Vanilla CSS & JavaScript
+├── migrations/           # Alembic Versioning
+├── CODEBASE_CONTEXT.md   # [CRITICAL] Full Developer Context
+└── main.py               # Application Entrypoint
 ```
 
 ---
 
 ## ⚡ Quick Start
 
-1. **Clone & Setup Environment**
-  ```bash
-  git clone <your-repo-url>
-  cd logiplanner
-  python -m venv venv
-  # Windows
-  venv\Scripts\activate
-  # macOS/Linux
-  source venv/bin/activate
-  ```
-2. **Install dependencies**
-  ```bash
-  pip install -r requirements.txt
-  ```
-3. **Setup PostgreSQL**
-  - Create a database: `logiplanner`
-  - Copy `.env.example` to `.env` and update with your credentials
-4. **Run migrations**
-  ```bash
-  alembic upgrade head
-  ```
-5. **Start the server**
-  ```bash
-  python main.py
-  ```
-  Open [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs) for Swagger UI.
+### 1. Setup Environment
+```bash
+git clone <repo-url>
+cd logiplanner
+python -m venv venv
+source venv/bin/activate  # venv\Scripts\activate on Windows
+pip install -r requirements.txt
+```
+
+### 2. Configure Database
+- Ensure **PostgreSQL** is running.
+- Create a database: `logiplanner`
+- Create a `.env` file based on the reference in `CODEBASE_CONTEXT.md`.
+
+### 3. Run Migrations & Start
+```bash
+alembic upgrade head
+python main.py
+```
+Visit `http://127.0.0.1:8000` to get started.
 
 ---
 
-## 🌐 API Documentation
+## 📕 Documentation
 
-- Interactive API docs: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
-- Redoc: [http://127.0.0.1:8000/redoc](http://127.0.0.1:8000/redoc)
+For a deep-dive into the architecture, database schema, and coding conventions, please refer to:
+👉 **[CODEBASE_CONTEXT.md](./CODEBASE_CONTEXT.md)**
 
----
-
-## 🧩 Features
-
-- Secure JWT authentication (access & refresh tokens)
-- Email verification with automatic and manual flows
-- Social login (Google, GitHub, Apple*)
-- Team onboarding and profile completion
-- AI Brain initialization (future)
-- Clean, modern UI (Jinja2 + custom CSS/JS)
+This file is the **Ground Truth** for all developers and AI assistants working on this project.
 
 ---
 
-## 📝 Environment Variables
+## 🤝 Roadmap
 
-Copy `.env.example` to `.env` and fill in your real values:
-
-- `DATABASE_URL` (PostgreSQL connection string)
-- `SECRET_KEY` (for sessions & JWT)
-- `EMAIL_*` (SMTP or Resend credentials)
-- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` (for Google OAuth)
-- ...and others as needed
+- [ ] AI Brain (RAG) implementation.
+- [ ] AI Actionable Tasks.
+- [ ] Confluence-style "Pages & Channels."
+- [ ] Interactive Project Timeline.
 
 ---
 
-## 🐞 Troubleshooting
-
-- **ModuleNotFoundError:** Make sure you are using the correct Python version and all dependencies are installed.
-- **Database errors:** Check your PostgreSQL connection and credentials in `.env`.
-- **Email not sending:** Verify your SMTP/Resend settings.
-- **OAuth issues:** Ensure your Google/GitHub credentials are correct and callback URLs are set up in the provider dashboard.
-
----
-
-## 🤝 Contributing
-
-1. Create a new branch: `git checkout -b feature/your-feature`
-2. Make your changes
-3. Run `alembic revision --autogenerate -m "description"` if you changed any models
-4. Test locally
-5. Open a Pull Request with a clear description
-
----
-
-## 📄 License
-
-MIT License. See [LICENSE](LICENSE) for details.
+**LogiPlanner** — *Plans With Logic*

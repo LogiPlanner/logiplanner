@@ -1,66 +1,80 @@
 {% extends "auth/base.html" %}
-{% block body_class %}auth-body{% endblock %}
-{% block extra_css %}
-<link rel="stylesheet" href="/static/auth/css/signup.css">
-{% endblock %}
+{% block title %}Create Account — LogiPlanner{% endblock %}
+{% block body_class %}auth-page{% endblock %}
 {% block content %}
-<section class="auth-shell">
-    <div class="auth-panel auth-panel--brand auth-panel--brand-signup">
-        <p class="eyebrow">Plan with confidence</p>
-        <h1>Build a more reliable logistics workflow</h1>
-        <p class="auth-copy">
-            Create your workspace and give your team a calmer way to manage operations, schedules, and delivery priorities.
-        </p>
-        <div class="auth-stats">
-            <div class="stat-card">
-                <strong>1 dashboard</strong>
-                <span>For planning, coordination, and progress visibility.</span>
+<div class="auth-brand">
+    <div class="auth-brand__logo">
+        <div class="auth-brand__logo-icon">
+            <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+        </div>
+        <div class="auth-brand__logo-text">
+            <span class="auth-brand__logo-name">LogiPlanner</span>
+            <span class="auth-brand__logo-tag">Plans With Logic</span>
+        </div>
+    </div>
+    <div class="auth-brand__content">
+        <h1 class="auth-brand__title">Build your<br><em>Project Brain.</em></h1>
+        <p class="auth-brand__desc">Create a unified memory for your team. Every meeting note, decision, and document — automatically captured and intelligently organized by AI.</p>
+        <div class="auth-brand__features">
+            <div class="auth-brand__feature">
+                <div class="auth-brand__feature-icon auth-brand__feature-icon--purple">📄</div>
+                <div><strong>Auto Ingestion</strong><span>Connect Google Drive, Miro, GitHub — your Project Brain updates itself.</span></div>
             </div>
-            <div class="stat-card">
-                <strong>Less friction</strong>
-                <span>Reduce manual follow-ups and scattered updates.</span>
+            <div class="auth-brand__feature">
+                <div class="auth-brand__feature-icon auth-brand__feature-icon--teal">🔍</div>
+                <div><strong>Decision Tracking</strong><span>Never forget why a decision was made. The timeline remembers everything.</span></div>
+            </div>
+            <div class="auth-brand__feature">
+                <div class="auth-brand__feature-icon auth-brand__feature-icon--blue">💬</div>
+                <div><strong>AI Chat</strong><span>Ask questions about your project. Get answers from your team's collective knowledge.</span></div>
             </div>
         </div>
     </div>
-
-    <div class="auth-panel auth-panel--form">
-        <div class="auth-card-header">
-            <p class="eyebrow">Create account</p>
-            <h2>Start your workspace</h2>
-            <p>Set up your account to begin organizing routes, teams, and schedules.</p>
+    <div class="auth-brand__footer">&copy; 2026 LogiPlanner — IIS Semester 4 Project</div>
+</div>
+<div class="auth-form-panel">
+    <div class="auth-form-container">
+        <div class="auth-form-container__mobile-logo">
+            <div class="auth-brand__logo-icon" style="width:32px;height:32px;"><svg viewBox="0 0 24 24" style="width:18px;height:18px;"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
+            <span style="font-size:1.1rem;font-weight:800;">LogiPlanner</span>
         </div>
-
-        <button type="button" onclick="googleLogin()" style="background:#4285F4; color:white; border:none; padding:12px; margin-bottom:15px; border-radius:6px; cursor:pointer; width:100%">
-            <img src="/static/auth/img/google-g.svg" alt="Google" style="height:20px;vertical-align:middle;margin-right:8px;">Continue with Google
-        </button>
-        <form id="signupForm" class="auth-form">
-            <label class="field">
-                <span>Full Name</span>
-                <input type="text" id="full_name" placeholder="Your name">
-            </label>
-
-            <label class="field">
-                <span>Email</span>
-                <input type="email" id="email" placeholder="you@company.com" autocomplete="email" required>
-            </label>
-
-            <label class="field">
-                <span>Password</span>
-                <input type="password" id="password" placeholder="Create a password" autocomplete="new-password" required>
-            </label>
-
-            <div class="auth-actions">
-                <button type="submit" class="auth-button auth-button--success">Sign Up</button>
-                <a href="/login" class="auth-link">Already have an account?</a>
+        <h2 class="auth-form-container__heading">Create your account</h2>
+        <p class="auth-form-container__subtext">Start building your team's project memory in minutes.</p>
+        <form id="signupForm">
+            <div class="form-group">
+                <label for="full_name">Full name</label>
+                <input type="text" id="full_name" name="full_name" class="form-input" placeholder="Jane Doe" autocomplete="name" required>
             </div>
+            <div class="form-group">
+                <label for="email">Email address</label>
+                <input type="email" id="email" name="email" class="form-input" placeholder="you@company.com" autocomplete="email" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <div class="input-wrapper">
+                    <input type="password" id="password" name="password" class="form-input form-input--with-icon" placeholder="Create a strong password" autocomplete="new-password" required>
+                    <button type="button" class="input-wrapper__toggle" id="togglePassword" aria-label="Toggle password visibility">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </button>
+                </div>
+                <div class="password-strength" id="passwordStrength">
+                    <div class="password-strength__bar" id="str1"></div>
+                    <div class="password-strength__bar" id="str2"></div>
+                    <div class="password-strength__bar" id="str3"></div>
+                    <div class="password-strength__bar" id="str4"></div>
+                </div>
+                <div class="password-strength__text" id="strengthText"></div>
+            </div>
+            <button type="submit" id="signupBtn" class="btn btn--primary btn--full" style="margin-top:8px;">Create account</button>
         </form>
-
+        <div class="auth-divider">or continue with</div>
+        <button type="button" id="googleBtn" class="btn btn--outline btn--full">
+            <svg width="18" height="18" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+            Sign up with Google
+        </button>
+        <p class="auth-footer-text">Already have an account? <a href="/login">Sign in</a></p>
         <div id="signupMessage" class="message" aria-live="polite"></div>
-
-        <!-- Verification card and resend logic removed. All verification is now handled on the dedicated verify-email page. -->
     </div>
-</section>
+</div>
 {% endblock %}
-{% block extra_js %}
-<script src="/static/auth/js/signup.js"></script>
-{% endblock %}
+{% block extra_js %}<script src="/static/auth/js/signup.js"></script>{% endblock %}

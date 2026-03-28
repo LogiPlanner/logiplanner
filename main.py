@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
 if __name__ == "__main__":
     uvicorn.run(
         "app.main:app",
@@ -13,3 +14,4 @@ if __name__ == "__main__":
         reload=True,
         log_level="info"
     )
+    

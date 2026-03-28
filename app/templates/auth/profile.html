@@ -1,0 +1,39 @@
+{% extends "auth/base.html" %}
+{% block title %}Complete Profile — LogiPlanner{% endblock %}
+{% block content %}
+<div class="auth-centered">
+    <div class="auth-card">
+        <div style="text-align:center;">
+            <div class="auth-card__step">Step 2 of 3 — Your Details</div>
+            <div class="avatar-preview" id="avatarPreview">?</div>
+            <h1 class="auth-card__title">Complete Your Profile</h1>
+            <p class="auth-card__subtitle">Tell us about yourself so your team knows who they're working with.</p>
+        </div>
+        <form id="profileForm">
+            <div class="form-group">
+                <label for="full_name">Full Name</label>
+                <input type="text" id="full_name" name="full_name" class="form-input" placeholder="Jane Doe" required>
+            </div>
+            <div class="form-group">
+                <label for="job_title">Job Title / Role</label>
+                <input type="text" id="job_title" name="job_title" class="form-input" placeholder="e.g. Software Developer, Project Lead" required>
+            </div>
+            <div class="form-group">
+                <label for="role_preference">Team Role Preference</label>
+                <select id="role_preference" name="role_preference" class="form-select">
+                    <option value="">Select your preferred role...</option>
+                    <option value="Project Lead">Project Lead</option>
+                    <option value="Developer">Developer</option>
+                    <option value="Designer">Designer</option>
+                    <option value="Product Manager">Product Manager</option>
+                    <option value="Researcher">Researcher</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+            <button type="submit" id="profileBtn" class="btn btn--primary btn--full" style="margin-top:8px;">Continue</button>
+        </form>
+        <div id="profileMessage" class="message" aria-live="polite"></div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}<script src="/static/auth/js/profile.js"></script>{% endblock %}

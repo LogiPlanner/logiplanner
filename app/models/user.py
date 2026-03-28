@@ -35,6 +35,7 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     is_verified = Column(Boolean, default=False)              # for email verification (auth.pdf)
     verification_token = Column(String, nullable=True, unique=True)
+    last_verification_sent = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

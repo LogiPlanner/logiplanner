@@ -1,0 +1,66 @@
+{% extends "auth/base.html" %}
+{% block title %}Join or Create Team — LogiPlanner{% endblock %}
+{% block content %}
+<div class="auth-centered">
+    <div class="auth-card auth-card--wide">
+        <div style="text-align:center;">
+            <div class="auth-card__step">Step 3 of 3 — Your Team</div>
+            <h1 class="auth-card__title">Set Up Your Team</h1>
+            <p class="auth-card__subtitle">Create a new team and invite collaborators, or join an existing team with an invite code.</p>
+        </div>
+        <div class="team-options" id="teamOptions">
+            <div class="team-option" id="optionCreate" onclick="selectOption('create')">
+                <div class="team-option__icon" style="background:rgba(79,70,229,0.1);">🚀</div>
+                <div class="team-option__title">Create a Team</div>
+                <div class="team-option__desc">Start fresh. Set up your project and invite members.</div>
+            </div>
+            <div class="team-option" id="optionJoin" onclick="selectOption('join')">
+                <div class="team-option__icon" style="background:rgba(6,214,160,0.1);">🤝</div>
+                <div class="team-option__title">Join a Team</div>
+                <div class="team-option__desc">Got an invite code? Join your team instantly.</div>
+            </div>
+        </div>
+
+        <!-- Create Team Form -->
+        <div id="createForm" class="team-form hidden">
+            <form id="createTeamForm">
+                <div class="form-group">
+                    <label for="teamName">Team Name</label>
+                    <input type="text" id="teamName" class="form-input" placeholder="e.g. LogiPlanner Core Team" required>
+                </div>
+                <div class="form-group">
+                    <label for="teamDesc">Description (optional)</label>
+                    <input type="text" id="teamDesc" class="form-input" placeholder="What is this team working on?">
+                </div>
+                <button type="submit" id="createBtn" class="btn btn--primary btn--full">Create Team & Continue</button>
+            </form>
+            <div id="createResult" class="hidden" style="margin-top:20px;text-align:center;">
+                <p style="font-weight:700;margin-bottom:8px;">Team Created! 🎉</p>
+                <p style="font-size:0.85rem;color:var(--color-text-sec);margin-bottom:4px;">Share this invite code with your team:</p>
+                <div style="font-size:1.4rem;font-weight:800;letter-spacing:0.1em;color:var(--color-primary);padding:12px;background:rgba(79,70,229,0.06);border-radius:var(--radius-md);margin:12px 0;" id="inviteCodeDisplay"></div>
+                <button class="btn btn--accent btn--full" onclick="window.location.href='/dashboard'" style="margin-top:12px;">Go to Dashboard</button>
+            </div>
+        </div>
+
+        <!-- Join Team Form -->
+        <div id="joinForm" class="team-form hidden">
+            <form id="joinTeamForm">
+                <div class="form-group">
+                    <label for="inviteCode">Invite Code</label>
+                    <input type="text" id="inviteCode" class="form-input" placeholder="Enter your team's invite code" required>
+                </div>
+                <button type="button" id="previewBtn" class="btn btn--outline btn--full" onclick="previewTeam()">Preview Team</button>
+            </form>
+            <div id="teamPreview" class="team-preview hidden">
+                <div class="team-preview__name" id="previewName"></div>
+                <div class="team-preview__meta" id="previewMeta"></div>
+                <button type="button" id="joinBtn" class="btn btn--primary btn--full" style="margin-top:16px;" onclick="joinTeam()">Join This Team</button>
+            </div>
+        </div>
+
+        <div id="teamMessage" class="message" aria-live="polite"></div>
+        <p class="auth-footer-text" style="margin-top:24px;"><a href="/dashboard">Skip for now →</a></p>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}<script src="/static/auth/js/team-select.js"></script>{% endblock %}

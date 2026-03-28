@@ -1,6 +1,7 @@
+from datetime import datetime, timezone
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-
+from app.core.dependencies import get_current_user
 from app.core.database import get_db
 from app.core.security import (
     create_access_token,
@@ -9,7 +10,7 @@ from app.core.security import (
     get_password_hash,
     verify_password,
 )
-from app.models.user import User
+from app.models.user import User, Team, Role, UserRole
 from app.schemas.auth import (
     EmailResponse,
     MessageResponse,
@@ -17,14 +18,27 @@ from app.schemas.auth import (
     Token,
     UserCreate,
     UserLogin,
+    ProfileCompleteResponse,
+    ProfileUpdate,
+    TeamCreate,
+    TeamCreateResponse,
+    JoinTeamRequest,
+    JoinTeamResponse,
+    TeamPreview,
+    UserTeamsResponse,
+    VerificationStatusResponse,
 )
 from app.utils.email import send_verification_email
 
 router = APIRouter()
 
 
+# ──────────────────────────────────────────────
+# AUTH ENDPOINTS
+# ──────────────────────────────────────────────
+
 @router.post("/signup", response_model=MessageResponse)
-def signup(
+async def signup(
     user_data: UserCreate,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
@@ -46,21 +60,29 @@ def signup(
 
     token = create_verification_token()
     new_user.verification_token = token
+    new_user.last_verification_sent = datetime.now(timezone.utc)
     db.commit()
 
-    background_tasks.add_task(send_verification_email, new_user.email, token, background_tasks)
+    # Call directly with await — NOT wrapped in background_tasks.add_task()
+    await send_verification_email(new_user.email, token, background_tasks)
 
-    return {"message": "User created successfully. Please verify your email."}
+    return {"message": "Account created! Please check your email to verify."}
 
 
 @router.post("/login", response_model=Token)
-def login(user_data: UserLogin, db: Session = Depends(get_db)):
+async def login(user_data: UserLogin, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == user_data.email).first()
 
-    if not user or not verify_password(user_data.password, user.hashed_password):
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="We couldn't find an account with that email. Please sign up instead.",
+        )
+
+    if not verify_password(user_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
+            detail="Incorrect password. Please try again.",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -81,7 +103,7 @@ def login(user_data: UserLogin, db: Session = Depends(get_db)):
 
 
 @router.post("/resend-verification", response_model=EmailResponse)
-def resend_verification(
+async def resend_verification(
     payload: ResendVerificationRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
@@ -92,16 +114,28 @@ def resend_verification(
     if user.is_verified:
         return {"message": "Email already verified"}
 
+    # Rate limiting: 120 seconds
+    if user.last_verification_sent:
+        delta = datetime.now(timezone.utc) - user.last_verification_sent.replace(tzinfo=timezone.utc)
+        if delta.total_seconds() < 120:
+            seconds_left = int(120 - delta.total_seconds())
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"Please wait {seconds_left} seconds before requesting a new link."
+            )
+
     token = create_verification_token()
     user.verification_token = token
+    user.last_verification_sent = datetime.now(timezone.utc)
     db.commit()
 
-    background_tasks.add_task(send_verification_email, user.email, token, background_tasks)
-    return {"message": "Verification email sent. Check your inbox (or console for now)."}
+    # Call directly with await
+    await send_verification_email(user.email, token, background_tasks)
+    return {"message": "Verification email sent. Check your inbox."}
 
 
 @router.get("/verify-email/{token}", response_model=MessageResponse)
-def verify_email(token: str, db: Session = Depends(get_db)):
+async def verify_email(token: str, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.verification_token == token).first()
     if not user:
         raise HTTPException(status_code=400, detail="Invalid or expired verification token")
@@ -111,3 +145,153 @@ def verify_email(token: str, db: Session = Depends(get_db)):
     db.commit()
 
     return {"message": "Email verified successfully! You can now login."}
+
+
+@router.get("/verification-status/{email}", response_model=VerificationStatusResponse)
+async def get_verification_status(email: str, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"email": email, "is_verified": user.is_verified}
+
+
+# ──────────────────────────────────────────────
+# PROFILE ENDPOINTS
+# ──────────────────────────────────────────────
+
+@router.post("/complete-profile", response_model=ProfileCompleteResponse)
+async def complete_profile(
+    profile_data: ProfileUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    user = db.query(User).filter(User.id == current_user.id).first()
+
+    if profile_data.full_name:
+        user.full_name = profile_data.full_name
+    if profile_data.avatar:
+        user.avatar = profile_data.avatar
+    if profile_data.job_title:
+        user.job_title = profile_data.job_title
+    if profile_data.role_preference:
+        user.role_preference = profile_data.role_preference
+
+    db.commit()
+    db.refresh(user)
+
+    return {
+        "message": "Profile completed successfully!",
+        "is_complete": True,
+        "next_step": "team_selection",
+    }
+
+
+@router.get("/profile-status")
+async def profile_status(current_user: User = Depends(get_current_user)):
+    is_complete = bool(current_user.full_name and current_user.job_title)
+    has_teams = len(current_user.teams) > 0
+    if not is_complete:
+        next_step = "complete_profile"
+    elif not has_teams:
+        next_step = "team_selection"
+    else:
+        next_step = "dashboard"
+    return {"is_complete": is_complete, "has_teams": has_teams, "next_step": next_step}
+
+
+# ──────────────────────────────────────────────
+# TEAM ENDPOINTS
+# ──────────────────────────────────────────────
+
+def _get_or_create_role(db: Session, role_name: str) -> Role:
+    """Get an existing role or create it."""
+    role = db.query(Role).filter(Role.name == role_name).first()
+    if not role:
+        role = Role(name=role_name)
+        db.add(role)
+        db.flush()
+    return role
+
+
+@router.post("/create-team", response_model=TeamCreateResponse)
+async def create_team(
+    team_data: TeamCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    # Check if team name already exists
+    existing = db.query(Team).filter(Team.team_name == team_data.team_name).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="A team with this name already exists")
+
+    team = Team(team_name=team_data.team_name, description=team_data.description)
+    db.add(team)
+    db.flush()
+
+    # Add user to team
+    team.users.append(current_user)
+
+    # Assign owner role
+    owner_role = _get_or_create_role(db, "owner")
+    user_role = UserRole(user_id=current_user.id, role_id=owner_role.id)
+    db.add(user_role)
+
+    db.commit()
+    db.refresh(team)
+
+    return {
+        "message": "Team created successfully!",
+        "team_id": team.id,
+        "invite_code": team.invite_code,
+        "team_name": team.team_name,
+    }
+
+
+@router.get("/team-preview/{invite_code}", response_model=TeamPreview)
+async def team_preview(invite_code: str, db: Session = Depends(get_db)):
+    team = db.query(Team).filter(Team.invite_code == invite_code).first()
+    if not team:
+        raise HTTPException(status_code=404, detail="Invalid invite code. Please check and try again.")
+
+    return {
+        "team_name": team.team_name,
+        "description": team.description or "No description provided.",
+        "member_count": len(team.users),
+    }
+
+
+@router.post("/join-team", response_model=JoinTeamResponse)
+async def join_team(
+    data: JoinTeamRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    team = db.query(Team).filter(Team.invite_code == data.invite_code).first()
+    if not team:
+        raise HTTPException(status_code=404, detail="Invalid invite code")
+
+    if current_user in team.users:
+        raise HTTPException(status_code=400, detail="You are already a member of this team")
+
+    team.users.append(current_user)
+
+    # Assign member role
+    member_role = _get_or_create_role(db, "member")
+    user_role = UserRole(user_id=current_user.id, role_id=member_role.id)
+    db.add(user_role)
+
+    db.commit()
+
+    return {
+        "message": f"Welcome to {team.team_name}!",
+        "team_name": team.team_name,
+        "team_id": team.id,
+    }
+
+
+@router.get("/user-teams", response_model=UserTeamsResponse)
+async def user_teams(current_user: User = Depends(get_current_user)):
+    return {
+        "has_teams": len(current_user.teams) > 0,
+        "teams": [{"id": t.id, "name": t.team_name} for t in current_user.teams],
+    }
