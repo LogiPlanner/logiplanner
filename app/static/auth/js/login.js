@@ -49,8 +49,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         const status = await window.AuthUI.getJson('/api/v1/profile-status');
                         if (status.response.ok) {
                             const step = status.data.next_step;
-                            if (step === 'complete_profile') window.location.href = '/profile';
-                            else if (step === 'team_selection') window.location.href = '/team-select';
+                            if (step === 'complete_profile') window.location.href = '/onboarding';
+                            else if (step === 'team_selection') window.location.href = '/onboarding';
                             else window.location.href = '/dashboard';
                             return;
                         }

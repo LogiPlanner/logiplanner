@@ -47,6 +47,9 @@ app.include_router(auth_router, prefix=settings.API_V1_STR, tags=["auth"])
 from app.api.v1.oauth import router as oauth_router
 app.include_router(oauth_router, prefix=settings.API_V1_STR, tags=["oauth"])
 
+from app.api.v1.onboarding import router as onboarding_router
+app.include_router(onboarding_router, prefix=settings.API_V1_STR + "/onboarding", tags=["onboarding"])
+
 
 # ──────────────────────────────────────────────
 # Health Check
@@ -76,12 +79,21 @@ async def verify_email_page(request: Request):
 
 @app.get("/profile")
 async def profile_page(request: Request):
-    return templates.TemplateResponse("auth/profile.html", {"request": request})
+    """Legacy — redirects to onboarding"""
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/onboarding")
 
 
 @app.get("/team-select")
 async def team_select_page(request: Request):
-    return templates.TemplateResponse("auth/team-select.html", {"request": request})
+    """Legacy — redirects to onboarding"""
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/onboarding")
+
+
+@app.get("/onboarding")
+async def onboarding_page(request: Request):
+    return templates.TemplateResponse("onboarding/setup.html", {"request": request})
 
 
 @app.get("/dashboard")
