@@ -52,7 +52,6 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             const email = document.getElementById('email').value.trim();
             const password = passInput.value;
-            const full_name = document.getElementById('full_name').value.trim();
 
             if (password.length < 6) {
                 window.AuthUI.setMessage(msg, 'error', 'Password must be at least 6 characters.');
@@ -63,7 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
             window.AuthUI.setButtonLoading(btn, true, 'Create account', 'Creating...');
 
             try {
-                const { response, data } = await window.AuthUI.postJson('/api/v1/signup', { email, password, full_name });
+                const { response, data } = await window.AuthUI.postJson('/api/v1/signup', { email, password });
 
                 if (response.ok) {
                     localStorage.setItem('pendingVerificationEmail', email);

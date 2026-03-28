@@ -54,6 +54,7 @@ pip install -r requirements.txt
 
 ### 3. Run Migrations & Start
 ```bash
+alembic revision --autogenerate -m "description"
 alembic upgrade head
 python main.py
 ```
