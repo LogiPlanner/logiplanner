@@ -50,6 +50,9 @@ app.include_router(oauth_router, prefix=settings.API_V1_STR, tags=["oauth"])
 from app.api.v1.onboarding import router as onboarding_router
 app.include_router(onboarding_router, prefix=settings.API_V1_STR + "/onboarding", tags=["onboarding"])
 
+from app.api.v1.rag import router as rag_router
+app.include_router(rag_router, prefix=settings.API_V1_STR + "/rag", tags=["rag"])
+
 
 # ──────────────────────────────────────────────
 # Health Check
@@ -99,6 +102,11 @@ async def onboarding_page(request: Request):
 @app.get("/dashboard")
 async def dashboard_page(request: Request):
     return templates.TemplateResponse("dashboard.html", {"request": request})
+
+
+@app.get("/ai-brain")
+async def ai_brain_page(request: Request):
+    return templates.TemplateResponse("ai-brain.html", {"request": request})
 
 
 @app.get("/")

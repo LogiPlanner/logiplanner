@@ -2,6 +2,7 @@ fastapi
 uvicorn[standard]
 python-dotenv
 pydantic[email]
+pydantic-settings
 python-jose[cryptography]
 bcrypt
 sqlalchemy
@@ -13,3 +14,15 @@ aiosmtplib
 httpx
 itsdangerous
 fastapi-mail
+
+# RAG System (AI Brain)
+langchain
+langchain-openai
+langchain-chroma
+langchain-community
+chromadb
+openai
+pypdf
+python-docx
+docx2txt
+tiktoken

@@ -214,3 +214,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# RAG / AI Brain
+chroma_data/
+app/static/uploads/rag/

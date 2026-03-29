@@ -47,10 +47,11 @@ source venv/bin/activate  # venv\Scripts\activate on Windows
 pip install -r requirements.txt
 ```
 
-### 2. Configure Database
+### 2. Configure Environment & Database
 - Ensure **PostgreSQL** is running.
 - Create a database: `logiplanner`
-- Create a `.env` file based on the reference in `CODEBASE_CONTEXT.md`.
+- Copy `.env.example` to `.env` and fill in your actual secrets/keys.
+- (See `CODEBASE_CONTEXT.md` for variable details.)
 
 ### 3. Run Migrations & Start
 ```bash

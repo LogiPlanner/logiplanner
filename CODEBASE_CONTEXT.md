@@ -20,7 +20,7 @@ The current codebase implements the **authentication system** (email/password + 
 |---|---|---|
 | **Auth & Onboarding** | Email/password signup, Google OAuth, email verification, profile completion, team create/join with invite codes | ✅ Implemented |
 | **Dashboard** | Project overview, calendar (daily/weekly/monthly), recent updates, AI actionable steps, task tagging | 🔨 Shell built, features in progress |
-| **AI Brain (RAG)** | Per-team knowledge base using embeddings (OpenAI + Pinecone/similar). Stores project data, generates summaries, extracts decisions/milestones/tasks, provides analytics | 🔜 Planned |
+| **AI Brain (RAG)** | Per-team knowledge base using embeddings (OpenAI + Pinecone/similar). Stores project data, generates summaries, extracts decisions/milestones/tasks, provides analytics | ✅ Implemented |
 | **AI Chat** | Two modes: **Studio Mode** (drag-drop file upload, external links, knowledge base preview — limited to leads) and **Chat Mode** (ask questions from the knowledge base) | 🔜 Planned |
 | **Auto & Manual Ingestion** | Connect Google Drive, Miro, GitHub repos — auto-sync to AI Brain. Manual upload also supported via AI Chat Studio | 🔜 Planned |
 | **Project Memory Timeline** | Chronological timeline of Decisions, Milestones, and Summaries/Uploads. AI-generated insights. Editable by project lead | 🔜 Planned |

@@ -1,9 +1,10 @@
 """
 Onboarding API — Multi-step team creation and joining flow.
 Replaces the old profile.html + team-select.html pages.
+Now integrated with the RAG pipeline for document ingestion during team creation.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, BackgroundTasks, Form
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import uuid
@@ -134,24 +135,88 @@ async def save_ingestion_links(
 
 @router.post("/upload-documents")
 async def upload_documents(
+    background_tasks: BackgroundTasks,
     files: List[UploadFile] = File(...),
+    team_id: Optional[int] = Form(None),
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """
     Step 3 (file upload): Accept document files for the AI Brain.
-    Stores them on disk for now. Will be processed by the AI pipeline later.
+    Now integrated with the RAG pipeline — files are saved to disk AND
+    processed through the RAG pipeline (chunked, embedded, stored in ChromaDB).
     """
-    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    from app.models.user import Document
+    from app.rag.engine import rag_engine
+    from app.rag.processor import process_document, validate_file, get_doc_type
+
+    RAG_UPLOAD_DIR = os.path.join("app", "static", "uploads", "rag")
+    os.makedirs(RAG_UPLOAD_DIR, exist_ok=True)
     saved = []
 
     for f in files:
-        safe_name = f"{uuid.uuid4().hex[:8]}_{f.filename}"
-        path = os.path.join(UPLOAD_DIR, safe_name)
         content = await f.read()
+        file_size = len(content)
+
+        safe_name = f"{uuid.uuid4().hex[:8]}_{f.filename}"
+        path = os.path.join(RAG_UPLOAD_DIR, safe_name)
         with open(path, "wb") as out:
             out.write(content)
-        saved.append({"original": f.filename, "stored_as": safe_name, "size": len(content)})
-        print(f"[UPLOAD] {f.filename} → {path} ({len(content)} bytes)")
+
+        saved_item = {"original": f.filename, "stored_as": safe_name, "size": file_size}
+
+        # If team_id is provided, process through RAG pipeline
+        if team_id:
+            is_valid, error_msg = validate_file(f.filename, file_size)
+            if is_valid:
+                doc_type = get_doc_type(f.filename)
+                doc_record = Document(
+                    team_id=team_id,
+                    uploader_id=current_user.id,
+                    filename=f.filename,
+                    stored_path=path,
+                    doc_type=doc_type,
+                    file_size=file_size,
+                    status="pending",
+                )
+                db.add(doc_record)
+                db.flush()
+
+                # Queue background processing
+                def _bg_process(doc_id, fp, fn, tid, email):
+                    from app.core.database import SessionLocal
+                    _db = SessionLocal()
+                    try:
+                        _doc = _db.query(Document).filter(Document.id == doc_id).first()
+                        if _doc:
+                            _doc.status = "processing"
+                            _db.commit()
+                            chunks = process_document(fp, fn, tid, doc_id, email)
+                            chunk_count = rag_engine.ingest_chunks(tid, chunks)
+                            _doc.chunk_count = chunk_count
+                            _doc.status = "ready"
+                            _db.commit()
+                            print(f"[RAG/ONBOARDING] ✅ {fn} → {chunk_count} chunks")
+                    except Exception as e:
+                        print(f"[RAG/ONBOARDING] ❌ {fn}: {e}")
+                        _doc = _db.query(Document).filter(Document.id == doc_id).first()
+                        if _doc:
+                            _doc.status = "error"
+                            _doc.error_message = str(e)[:500]
+                            _db.commit()
+                    finally:
+                        _db.close()
+
+                background_tasks.add_task(
+                    _bg_process, doc_record.id, path, f.filename, team_id, current_user.email
+                )
+                saved_item["rag_status"] = "queued"
+
+        saved.append(saved_item)
+        print(f"[UPLOAD] {f.filename} → {path} ({file_size} bytes)")
+
+    if team_id:
+        db.commit()
 
     return {
         "message": f"Uploaded {len(saved)} file(s) successfully.",
@@ -268,3 +333,38 @@ async def onboarding_brief(
                    f"This team is working on: {team.description or 'a new project'}. "
                    f"The AI Brain will provide a full project brief once it's initialized.",
     }
+
+
+# ──────────────────────────────────────────────
+# TEAM LISTING (used by AI Brain & Dashboard)
+# ──────────────────────────────────────────────
+
+@router.get("/my-teams")
+async def get_my_teams(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get all teams the current user belongs to, including their role."""
+    user = db.query(User).filter(User.id == current_user.id).first()
+    teams = user.teams if user else []
+
+    result = []
+    for t in teams:
+        # Determine user's role in this team
+        role_name = "viewer"  # default
+        user_roles = db.query(UserRole).filter(UserRole.user_id == current_user.id).all()
+        for ur in user_roles:
+            if ur.role and ur.role.name.lower() in ("owner", "editor", "viewer"):
+                role_name = ur.role.name.lower()
+                break
+
+        result.append({
+            "id": t.id,
+            "team_name": t.team_name,
+            "description": t.description,
+            "invite_code": t.invite_code,
+            "member_count": len(t.users),
+            "role": role_name,
+        })
+
+    return {"teams": result}

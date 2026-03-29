@@ -101,3 +101,49 @@ class Project(Base):
 
     team = relationship("Team", back_populates="projects")
     users = relationship("User", secondary=user_project, back_populates="projects")
+
+
+# ═══════════════════════════════════════════════════
+# RAG SYSTEM MODELS
+# ═══════════════════════════════════════════════════
+
+class Document(Base):
+    """Tracks uploaded documents processed by the RAG pipeline."""
+    __tablename__ = "documents"
+
+    id = Column(Integer, primary_key=True, index=True)
+    team_id = Column(Integer, ForeignKey("teams.id"), nullable=False)
+    uploader_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    filename = Column(String, nullable=False)             # Original filename
+    stored_path = Column(String, nullable=False)           # Path on disk
+    doc_type = Column(String, nullable=False)              # pdf/docx/txt/markdown/text
+    file_size = Column(Integer, default=0)                 # Size in bytes
+    chunk_count = Column(Integer, default=0)               # Number of chunks in vector store
+    status = Column(String, default="pending")             # pending/processing/ready/error
+    error_message = Column(Text, nullable=True)            # Error details if status=error
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    team = relationship("Team", backref="documents")
+    uploader = relationship("User", backref="uploaded_documents")
+
+    def __repr__(self):
+        return f"<Document {self.filename} ({self.status})>"
+
+
+class ChatMessage(Base):
+    """Stores AI Brain chat history per team."""
+    __tablename__ = "chat_messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    team_id = Column(Integer, ForeignKey("teams.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    role = Column(String, nullable=False)                  # "user" or "assistant"
+    content = Column(Text, nullable=False)                 # Message content
+    sources = Column(Text, nullable=True)                  # JSON array of source refs
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    team = relationship("Team", backref="chat_messages")
+    user = relationship("User", backref="chat_messages")
+
+    def __repr__(self):
+        return f"<ChatMessage {self.role}: {self.content[:50]}...>"
