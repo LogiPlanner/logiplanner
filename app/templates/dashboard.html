@@ -1,50 +1,10 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard — LogiPlanner</title>
-    <link rel="stylesheet" href="/static/auth/css/common.css">
-</head>
-<body>
-<div class="dashboard">
-    <!-- ═══ Sidebar ═══ -->
-    <aside class="sidebar">
-        <div class="sidebar__brand">
-            <div class="sidebar__brand-name">LogiPlanner</div>
-            <div class="sidebar__brand-tag">Plans With Logic</div>
-        </div>
-        <nav class="sidebar__nav">
-            <a href="#" class="sidebar__link active">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
-                Dashboard
-            </a>
-            <a href="#" class="sidebar__link">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-                AI Brain
-            </a>
-            <a href="#" class="sidebar__link">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
-                Project Memory
-            </a>
-            <a href="#" class="sidebar__link">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-                Meeting Notes
-            </a>
-            <a href="#" class="sidebar__link">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/></svg>
-                Settings
-            </a>
-        </nav>
-        <div class="sidebar__actions">
-            <button class="btn btn--primary btn--full" style="padding:12px 16px;font-size:0.85rem;">
-                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                New Project
-            </button>
-        </div>
-    </aside>
+{% extends "base.html" %}
 
-    <!-- ═══ Main ═══ -->
+{% block title %}Dashboard — LogiPlanner{% endblock %}
+{% block meta_description %}LogiPlanner Dashboard — Your project management hub{% endblock %}
+{% block nav_dashboard %}active{% endblock %}
+
+{% block content %}
     <main class="main">
         <!-- Top Bar -->
         <header class="topbar">
@@ -69,7 +29,6 @@
                     <div class="topbar__dropdown">
                         <a href="/profile" class="topbar__dropdown-item">Profile Settings</a>
                         <a href="/team-select" class="topbar__dropdown-item">Manage Teams</a>
-                        <button id="logoutBtn" class="topbar__dropdown-item topbar__dropdown-item--danger">Log out</button>
                     </div>
                 </div>
             </div>
@@ -80,8 +39,8 @@
             <!-- Banner -->
             <div class="banner">
                 <span class="banner__eyebrow" id="sprintLabel">Current Sprint</span>
-                <h2 class="banner__title" id="projectTitle">Welcome to LogiPlanner THIS IS TEMPLATE AND NEEDS TO BE UPDATED LATER</h2>
-                <h3 class="banner__subtitle" id="projectSubtitle">Only logout works</h3>
+                <h2 class="banner__title" id="projectTitle">Welcome to LogiPlanner</h2>
+                <h3 class="banner__subtitle" id="projectSubtitle">Plans With Logic</h3>
                 <div class="banner__bottom">
                     <div class="banner__progress">
                         <div class="banner__progress-label">
@@ -186,25 +145,13 @@
             </div>
         </div>
     </main>
-</div>
+{% endblock %}
 
+{% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    // ── Auth Guard ──
-    const urlParams = new URLSearchParams(window.location.search);
-    const urlToken = urlParams.get('token');
-    if (urlToken) {
-        localStorage.setItem('access_token', urlToken);
-        window.history.replaceState({}, document.title, window.location.pathname);
-    }
     const token = localStorage.getItem('access_token');
-    if (!token) { window.location.href = '/login'; return; }
-
-    // ── Logout ──
-    document.getElementById('logoutBtn')?.addEventListener('click', () => {
-        localStorage.removeItem('access_token');
-        window.location.href = '/login';
-    });
+    if (!token) return;
 
     // ── Load user info ──
     (async () => {
@@ -212,9 +159,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await fetch('/api/v1/profile-status', {
                 headers: { 'Authorization': 'Bearer ' + token }
             });
-            if (res.ok) {
-                // User is valid
-            } else if (res.status === 401) {
+            if (res.status === 401) {
                 localStorage.removeItem('access_token');
                 window.location.href = '/login';
             }
@@ -229,7 +174,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
     const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
-    // Sample events
     const events = {
         '2026-03-30': { text: 'Sprint Review', color: 'teal' },
         '2026-04-02': { text: 'AI Brain Demo', color: 'purple' },
@@ -241,63 +185,41 @@ document.addEventListener('DOMContentLoaded', () => {
         const year = date.getFullYear();
         const month = date.getMonth();
         monthLabel.textContent = MONTHS[month] + ' ' + year;
-
         const firstDay = new Date(year, month, 1).getDay();
         const daysInMonth = new Date(year, month + 1, 0).getDate();
         const daysInPrev = new Date(year, month, 0).getDate();
         const today = new Date();
-
         let html = DAYS.map(d => '<div class="calendar__day-header">' + d + '</div>').join('');
-
-        // Previous month padding
         for (let i = firstDay - 1; i >= 0; i--) {
             html += '<div class="calendar__day calendar__day--muted"><span class="calendar__day-num">' + (daysInPrev - i) + '</span></div>';
         }
-
-        // Current month
         for (let d = 1; d <= daysInMonth; d++) {
             const dateStr = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
             const isToday = d === today.getDate() && month === today.getMonth() && year === today.getFullYear();
             const evt = events[dateStr];
-
             let cls = 'calendar__day';
             if (isToday) cls += ' calendar__day--today';
-
             html += '<div class="' + cls + '">';
             html += '<span class="calendar__day-num">' + d + (isToday ? ' <span style="font-size:0.7rem;color:var(--color-primary);">Today</span>' : '') + '</span>';
-            if (evt) {
-                html += '<div class="calendar__event calendar__event--' + evt.color + '">' + evt.text + '</div>';
-            }
+            if (evt) html += '<div class="calendar__event calendar__event--' + evt.color + '">' + evt.text + '</div>';
             html += '</div>';
         }
-
-        // Next month padding
         const totalCells = firstDay + daysInMonth;
         const remaining = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
         for (let i = 1; i <= remaining; i++) {
             html += '<div class="calendar__day calendar__day--muted"><span class="calendar__day-num">' + i + '</span></div>';
         }
-
         grid.innerHTML = html;
     }
 
-    document.getElementById('calPrev').addEventListener('click', () => {
-        currentDate.setMonth(currentDate.getMonth() - 1);
-        renderCalendar(currentDate);
-    });
-    document.getElementById('calNext').addEventListener('click', () => {
-        currentDate.setMonth(currentDate.getMonth() + 1);
-        renderCalendar(currentDate);
-    });
-
+    document.getElementById('calPrev').addEventListener('click', () => { currentDate.setMonth(currentDate.getMonth() - 1); renderCalendar(currentDate); });
+    document.getElementById('calNext').addEventListener('click', () => { currentDate.setMonth(currentDate.getMonth() + 1); renderCalendar(currentDate); });
     renderCalendar(currentDate);
 
-    // ── Animate progress bar ──
     setTimeout(() => {
         document.getElementById('progressFill').style.width = '28%';
         document.getElementById('progressPct').textContent = '28%';
     }, 500);
 });
 </script>
-</body>
-</html>
+{% endblock %}

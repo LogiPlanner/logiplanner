@@ -1,0 +1,106 @@
+"""
+RAG Pydantic Schemas
+====================
+Request/response models for all RAG API endpoints.
+"""
+
+from typing import Optional, List, Dict, Any
+from pydantic import BaseModel
+from datetime import datetime
+
+
+# ── Ingestion ──
+
+class IngestTextRequest(BaseModel):
+    """Request to ingest raw text directly into the knowledge base."""
+    team_id: int
+    title: str                          # Name for this text entry
+    content: str                        # The text content to ingest
+
+
+class DocumentResponse(BaseModel):
+    """Response model for a single document."""
+    id: int
+    team_id: int
+    filename: str
+    doc_type: str
+    file_size: int
+    chunk_count: int
+    status: str
+    error_message: Optional[str] = None
+    uploader_email: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class IngestResponse(BaseModel):
+    """Response after ingesting documents."""
+    message: str
+    documents: List[DocumentResponse] = []
+    total_chunks: int = 0
+
+
+class DocumentListResponse(BaseModel):
+    """List of documents in a team's knowledge base."""
+    documents: List[DocumentResponse]
+    total: int
+
+
+# ── Chat ──
+
+class ChatRequest(BaseModel):
+    """Request to send a message to the AI Brain."""
+    team_id: int
+    message: str
+    filters: Optional[Dict[str, Any]] = None   # Optional metadata filters
+
+
+class SourceReference(BaseModel):
+    """A source reference from the knowledge base."""
+    filename: str
+    page_number: int = 0
+    uploader: str = "Unknown"
+    doc_type: str = "unknown"
+
+
+class ChatResponse(BaseModel):
+    """Response from the AI Brain chat."""
+    response: str
+    sources: List[SourceReference] = []
+    chunk_count: int = 0
+
+
+class ChatMessageResponse(BaseModel):
+    """A single chat message for history display."""
+    id: int
+    role: str
+    content: str
+    sources: Optional[str] = None       # JSON string of sources
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class ChatHistoryResponse(BaseModel):
+    """Chat history for a team."""
+    messages: List[ChatMessageResponse]
+    total: int
+
+
+# ── Stats ──
+
+class KnowledgeBaseStats(BaseModel):
+    """Knowledge base statistics for a team."""
+    total_chunks: int = 0
+    document_count: int = 0
+    doc_types: Dict[str, int] = {}
+    collection_name: str = ""
+
+
+class DeleteResponse(BaseModel):
+    """Response for delete operations."""
+    message: str
+    deleted_count: int = 0

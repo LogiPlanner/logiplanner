@@ -1,33 +1,28 @@
-
-# Run this to COMPLETELY wipe all users + relations for Postgres Database
-
+# clear.py
 import sys
-from sqlalchemy import text
 from app.core.database import engine
+from app.models.user import Base
 
-print("⚠️  WARNING ⚠️")
-print("This will DELETE ALL users and their relationships!")
-print("Teams, projects, and roles connected to users will also be affected.\n")
+def clear_database():
+    print("⚠️  DANGER ⚠️")
+    print("This will COMPLETELY DROP all tables from the database:")
+    print(f"Target: {engine.url}")
+    print("\nThis action is irreversible and will delete all users, teams, companies, and projects.")
+    
+    confirm = input("\nType 'DELETE ALL' to confirm (anything else will cancel): ")
 
-confirm = input("Type 'YES' to continue (anything else will cancel): ")
+    if confirm != "DELETE ALL":
+        print("Operation cancelled.")
+        sys.exit()
 
-if confirm != "YES":
-    print("Cancelled.")
-    sys.exit()
+    print("\nDropping all tables...")
+    try:
+        # metadata.drop_all() handles foreign key constraints automatically
+        Base.metadata.drop_all(bind=engine)
+        print("✅ Success! All tables have been dropped.")
+        print("Database is now empty. You can run your migrations to recreate the schema.")
+    except Exception as e:
+        print(f"❌ Error occurred: {e}")
 
-print("\nDeleting all users and related data...\n")
-
-with engine.connect() as conn:
-    # 1. Delete relationships first (important order!)
-    conn.execute(text("DELETE FROM user_roles;"))
-    conn.execute(text("DELETE FROM user_team;"))
-    conn.execute(text("DELETE FROM user_project;"))
-
-    # 2. Delete users
-    result = conn.execute(text("DELETE FROM users;"))
-    conn.commit()
-
-    print(f"✅ Done! {result.rowcount} users were deleted.")
-    print("Database is now clean.")
-
-print("\nYou can now create fresh users again.")
+if __name__ == "__main__":
+    clear_database()
