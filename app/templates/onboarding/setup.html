@@ -1,0 +1,320 @@
+{% extends "onboarding/base.html" %}
+{% block title %}Set Up Your Team — LogiPlanner{% endblock %}
+{% block body_class %}onboarding-page{% endblock %}
+{% block content %}
+<div class="onboarding">
+    <!-- Left Brand Panel -->
+    <div class="onboarding__brand">
+        <canvas id="three-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; mix-blend-mode: screen;"></canvas>
+        <div class="auth-brand__logo" style="position: relative; z-index: 2;">
+            <div class="auth-brand__logo-icon">
+                <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+            </div>
+            <div class="auth-brand__logo-text">
+                <span class="auth-brand__logo-name">LogiPlanner</span>
+                <span class="auth-brand__logo-tag">Plans With Logic</span>
+            </div>
+        </div>
+
+        <div class="onboarding__brand-content">
+            <h1 class="onboarding__brand-title">Set up your<br><em>Project Brain.</em></h1>
+            <p class="onboarding__brand-desc">You're almost there. Create a new team or join an existing one to start building your project's AI-powered memory.</p>
+
+            <!-- Progress Steps (dynamic) -->
+            <div class="onboarding__progress" id="progressSteps">
+                <!-- Filled by JS based on active flow -->
+            </div>
+        </div>
+
+        <div class="auth-brand__footer">&copy; 2026 LogiPlanner — Plans With Logic</div>
+    </div>
+
+    <!-- Right Content Panel -->
+    <div class="onboarding__panel">
+        <div class="onboarding__container" id="wizardContainer">
+
+            <!-- ═══════════════════════════════════════════ -->
+            <!--  STEP 0: Choose Action (Create or Join)    -->
+            <!-- ═══════════════════════════════════════════ -->
+            <div class="wizard-step active" id="step-choose">
+                <div class="onboarding__mobile-logo">
+                    <div class="auth-brand__logo-icon" style="width:32px;height:32px;"><svg viewBox="0 0 24 24" style="width:18px;height:18px;"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
+                    <span style="font-size:1.1rem;font-weight:800;">LogiPlanner</span>
+                </div>
+                <h2 class="wizard-step__title">Welcome to LogiPlanner! 🎉</h2>
+                <p class="wizard-step__subtitle">How would you like to get started?</p>
+
+                <div class="choose-cards">
+                    <div class="choose-card" id="chooseCreate" onclick="startFlow('create')">
+                        <div class="choose-card__icon" style="background:rgba(79,70,229,0.1);">🚀</div>
+                        <div class="choose-card__title">Create a Team</div>
+                        <div class="choose-card__desc">Start a new project. Set up your team, add documents, and invite members.</div>
+                        <div class="choose-card__badge">Project Lead</div>
+                    </div>
+                    <div class="choose-card" id="chooseJoin" onclick="startFlow('join')">
+                        <div class="choose-card__icon" style="background:rgba(6,214,160,0.1);">🤝</div>
+                        <div class="choose-card__title">Join a Team</div>
+                        <div class="choose-card__desc">Got an invite code? Join your team and get a smart project brief instantly.</div>
+                        <div class="choose-card__badge">Team Member</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ═══════════════════════════════════════════ -->
+            <!--  CREATE FLOW — Step 1: Team Name           -->
+            <!-- ═══════════════════════════════════════════ -->
+            <div class="wizard-step" id="step-create-1">
+                <button class="wizard-back" onclick="goBack('step-choose')">&larr; Back</button>
+                <div class="wizard-step__badge">Step 1 of 4 — Team Info</div>
+                <h2 class="wizard-step__title">Name your team</h2>
+                <p class="wizard-step__subtitle">This is how your team members will find and recognize your project.</p>
+
+                <form id="createStep1Form">
+                    <div class="form-group">
+                        <label for="c_teamName">Team Name</label>
+                        <input type="text" id="c_teamName" class="form-input" placeholder="e.g. LogiPlanner Core Team" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="c_teamDesc">Description <span class="form-label-hint">(optional)</span></label>
+                        <textarea id="c_teamDesc" class="form-input form-textarea" placeholder="What is this team working on?" rows="3"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn--primary btn--full" id="createStep1Btn">Continue</button>
+                </form>
+                <div id="createStep1Msg" class="message" aria-live="polite"></div>
+            </div>
+
+            <!-- ═══════════════════════════════════════════ -->
+            <!--  CREATE FLOW — Step 2: Owner Details        -->
+            <!-- ═══════════════════════════════════════════ -->
+            <div class="wizard-step" id="step-create-2">
+                <button class="wizard-back" onclick="goBack('step-create-1')">&larr; Back</button>
+                <div class="wizard-step__badge">Step 2 of 4 — Your Details</div>
+                <h2 class="wizard-step__title">Tell us about yourself</h2>
+                <p class="wizard-step__subtitle">So your team knows who they're working with.</p>
+
+                <form id="createStep2Form">
+                    <div class="form-row-2col">
+                        <div class="form-group">
+                            <label for="c_fullName">Full Name</label>
+                            <input type="text" id="c_fullName" class="form-input" placeholder="Jane Doe" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="c_jobTitle">Job Title / Role</label>
+                            <input type="text" id="c_jobTitle" class="form-input" placeholder="e.g. Project Lead" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="c_projectStage">Current Project Stage</label>
+                        <select id="c_projectStage" class="form-select">
+                            <option value="">Select stage...</option>
+                            <option value="Ideation">💡 Ideation</option>
+                            <option value="Planning">📋 Planning</option>
+                            <option value="In Progress">🔨 In Progress</option>
+                            <option value="Late Stage">🏁 Late Stage</option>
+                            <option value="Maintenance">🔧 Maintenance</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="c_projectInfo">Short Project Description <span class="form-label-hint">(optional)</span></label>
+                        <textarea id="c_projectInfo" class="form-input form-textarea" placeholder="Briefly describe what your project is about..." rows="3"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn--primary btn--full" id="createStep2Btn">Continue</button>
+                </form>
+                <div id="createStep2Msg" class="message" aria-live="polite"></div>
+            </div>
+
+            <!-- ═══════════════════════════════════════════ -->
+            <!--  CREATE FLOW — Step 3: Manual Ingestion     -->
+            <!-- ═══════════════════════════════════════════ -->
+            <div class="wizard-step" id="step-create-3">
+                <button class="wizard-back" onclick="goBack('step-create-2')">&larr; Back</button>
+                <div class="wizard-step__badge">Step 3 of 4 — Initial Data</div>
+                <h2 class="wizard-step__title">Feed your Project Brain 🧠</h2>
+                <p class="wizard-step__subtitle">Add documents and links so the AI Brain has context from day one. You can always add more later.</p>
+
+                <!-- File Upload Zone -->
+                <div class="upload-zone" id="uploadZone">
+                    <div class="upload-zone__icon">📄</div>
+                    <div class="upload-zone__text">
+                        <strong>Drop files here</strong> or <span class="upload-zone__browse">browse</span>
+                    </div>
+                    <div class="upload-zone__hint">PDF, DOCX, TXT, Images — up to 10MB each</div>
+                    <input type="file" id="fileInput" multiple accept=".pdf,.doc,.docx,.txt,.md,.png,.jpg,.jpeg" hidden>
+                </div>
+                <div class="upload-list" id="uploadList"></div>
+
+                <!-- External Links -->
+                <div class="ingestion-links">
+                    <h3 class="ingestion-links__title">External Links</h3>
+                    <p class="ingestion-links__desc">Connect your Google Drive, Miro board, or GitHub repo.</p>
+
+                    <div id="linksList">
+                        <div class="link-row" data-index="0">
+                            <select class="form-select link-type" style="width:140px;">
+                                <option value="link">🔗 Link</option>
+                                <option value="google_drive">📁 Google Drive</option>
+                                <option value="miro">🎨 Miro</option>
+                                <option value="github">💻 GitHub</option>
+                                <option value="notion">📝 Notion</option>
+                            </select>
+                            <input type="url" class="form-input link-url" placeholder="https://...">
+                            <input type="text" class="form-input link-label" placeholder="Label (optional)" style="width:140px;">
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn--ghost btn--sm" onclick="addLinkRow()">+ Add another link</button>
+                </div>
+
+                <!-- Context Notes -->
+                <div class="form-group" style="margin-top:24px;">
+                    <label for="c_notes">Additional Context <span class="form-label-hint">(optional)</span></label>
+                    <textarea id="c_notes" class="form-input form-textarea" placeholder="Any extra notes for the AI Brain? e.g. 'We decided to use FastAPI instead of Django last week...'" rows="3"></textarea>
+                </div>
+
+                <div class="wizard-step__actions">
+                    <button type="button" class="btn btn--outline" onclick="skipStep('step-create-4')">Skip for now</button>
+                    <button type="button" class="btn btn--primary" id="createStep3Btn" onclick="saveIngestion()">Continue</button>
+                </div>
+                <div id="createStep3Msg" class="message" aria-live="polite"></div>
+            </div>
+
+            <!-- ═══════════════════════════════════════════ -->
+            <!--  CREATE FLOW — Step 4: Invite Members       -->
+            <!-- ═══════════════════════════════════════════ -->
+            <div class="wizard-step" id="step-create-4">
+                <button class="wizard-back" onclick="goBack('step-create-3')">&larr; Back</button>
+                <div class="wizard-step__badge">Step 4 of 4 — Invite Team</div>
+                <h2 class="wizard-step__title">Invite your team</h2>
+                <p class="wizard-step__subtitle">Add members by email. They'll get a link to join instantly.</p>
+
+                <!-- Invite Code Display -->
+                <div class="invite-code-card" id="inviteCodeCard" style="display:none;">
+                    <div class="invite-code-card__label">Your Team Invite Code</div>
+                    <div class="invite-code-card__code" id="inviteCodeDisplay"></div>
+                    <button type="button" class="btn btn--ghost btn--sm" onclick="copyInviteCode()">📋 Copy Code</button>
+                </div>
+
+                <!-- Email Invites -->
+                <div id="inviteRows">
+                    <div class="invite-row" data-index="0">
+                        <input type="email" class="form-input invite-email" placeholder="colleague@company.com">
+                        <select class="form-select invite-role" style="width:130px;">
+                            <option value="member">Member</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                    </div>
+                </div>
+                <button type="button" class="btn btn--ghost btn--sm" onclick="addInviteRow()">+ Add another</button>
+
+                <div class="wizard-step__actions" style="margin-top:32px;">
+                    <button type="button" class="btn btn--outline" onclick="finishOnboarding()">Skip & Go to Dashboard</button>
+                    <button type="button" class="btn btn--accent" id="createStep4Btn" onclick="sendInvitesAndFinish()">Send Invites & Finish 🎉</button>
+                </div>
+                <div id="createStep4Msg" class="message" aria-live="polite"></div>
+            </div>
+
+            <!-- ═══════════════════════════════════════════ -->
+            <!--  JOIN FLOW — Step 1: Invite Code            -->
+            <!-- ═══════════════════════════════════════════ -->
+            <div class="wizard-step" id="step-join-1">
+                <button class="wizard-back" onclick="goBack('step-choose')">&larr; Back</button>
+                <div class="wizard-step__badge">Step 1 of 3 — Find Your Team</div>
+                <h2 class="wizard-step__title">Enter your invite code</h2>
+                <p class="wizard-step__subtitle">Your team lead should have shared a code with you.</p>
+
+                <form id="joinStep1Form">
+                    <div class="form-group">
+                        <label for="j_inviteCode">Invite Code</label>
+                        <input type="text" id="j_inviteCode" class="form-input form-input--large" placeholder="e.g. a3f8c12b" autocomplete="off" required>
+                    </div>
+                    <button type="submit" class="btn btn--primary btn--full" id="joinStep1Btn">Find Team</button>
+                </form>
+
+                <!-- Team Preview (appears after lookup) -->
+                <div id="joinPreview" class="team-preview-card" style="display:none;">
+                    <div class="team-preview-card__icon">🏢</div>
+                    <div class="team-preview-card__info">
+                        <div class="team-preview-card__name" id="j_previewName"></div>
+                        <div class="team-preview-card__meta" id="j_previewMeta"></div>
+                        <div class="team-preview-card__owner" id="j_previewOwner"></div>
+                    </div>
+                    <button type="button" class="btn btn--primary" onclick="showStep('step-join-2')">Join This Team</button>
+                </div>
+                <div id="joinStep1Msg" class="message" aria-live="polite"></div>
+            </div>
+
+            <!-- ═══════════════════════════════════════════ -->
+            <!--  JOIN FLOW — Step 2: Your Details           -->
+            <!-- ═══════════════════════════════════════════ -->
+            <div class="wizard-step" id="step-join-2">
+                <button class="wizard-back" onclick="goBack('step-join-1')">&larr; Back</button>
+                <div class="wizard-step__badge">Step 2 of 3 — Your Details</div>
+                <h2 class="wizard-step__title">Complete your profile</h2>
+                <p class="wizard-step__subtitle">Let the team know who you are.</p>
+
+                <form id="joinStep2Form">
+                    <div class="form-group">
+                        <label for="j_fullName">Full Name</label>
+                        <input type="text" id="j_fullName" class="form-input" placeholder="Jane Doe" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="j_jobTitle">Job Title / Role</label>
+                        <input type="text" id="j_jobTitle" class="form-input" placeholder="e.g. Software Developer" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="j_rolePref">Team Role Preference</label>
+                        <select id="j_rolePref" class="form-select">
+                            <option value="">Select your preferred role...</option>
+                            <option value="Project Lead">Project Lead</option>
+                            <option value="Developer">Developer</option>
+                            <option value="Designer">Designer</option>
+                            <option value="Product Manager">Product Manager</option>
+                            <option value="Researcher">Researcher</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn--primary btn--full" id="joinStep2Btn">Join & Continue</button>
+                </form>
+                <div id="joinStep2Msg" class="message" aria-live="polite"></div>
+            </div>
+
+            <!-- ═══════════════════════════════════════════ -->
+            <!--  JOIN FLOW — Step 3: Onboarding Brief       -->
+            <!-- ═══════════════════════════════════════════ -->
+            <div class="wizard-step" id="step-join-3">
+                <div class="wizard-step__badge wizard-step__badge--green">Welcome Aboard! 🎉</div>
+                <h2 class="wizard-step__title">Your Project Brief</h2>
+                <p class="wizard-step__subtitle">Here's a quick overview to get you up to speed.</p>
+
+                <div class="brief-card" id="briefCard">
+                    <div class="brief-card__section">
+                        <div class="brief-card__label">Team</div>
+                        <div class="brief-card__value" id="brief_teamName">—</div>
+                    </div>
+                    <div class="brief-card__section">
+                        <div class="brief-card__label">Members</div>
+                        <div class="brief-card__value" id="brief_members">—</div>
+                    </div>
+                    <div class="brief-card__section brief-card__section--full">
+                        <div class="brief-card__label">About This Project</div>
+                        <div class="brief-card__value" id="brief_info">The AI Brain will generate a full brief once initialized.</div>
+                    </div>
+                    <div class="brief-card__section brief-card__section--full">
+                        <div class="brief-card__label">AI Brain Status</div>
+                        <div class="brief-card__value"><span class="ai-brain-badge"><span class="ai-brain-badge__dot"></span>Initializing</span></div>
+                    </div>
+                </div>
+
+                <!-- Optional: Add personal notes -->
+                <div class="form-group" style="margin-top:24px;">
+                    <label for="j_personalNotes">Add personal notes for the AI Brain <span class="form-label-hint">(optional)</span></label>
+                    <textarea id="j_personalNotes" class="form-input form-textarea" placeholder="Any context you'd like to share with the team? e.g. your prior experience with this tech stack..." rows="3"></textarea>
+                </div>
+
+                <button type="button" class="btn btn--accent btn--full" onclick="finishOnboarding()" style="margin-top:16px;">Go to Dashboard 🚀</button>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}<script src="/static/onboarding/js/onboarding.js"></script>{% endblock %}

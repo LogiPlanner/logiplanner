@@ -31,7 +31,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (message) message.textContent = body;
     }
 
-    // If token is present, verify it
     if (token) {
         if (subtitle) subtitle.textContent = 'Validating your verification link...';
         try {
@@ -52,7 +51,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (email) {
             try {
                 const res = await fetch('/api/v1/verification-status/' + encodeURIComponent(email));
-                const data = await res.json();
                 if (res.status === 404) {
                     setStatus('error', 'Not Found', 'Email Not Registered', 'This email is not registered. Please check for typos or sign up first.');
                     if (resendForm) resendForm.style.display = 'none';
@@ -67,14 +65,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (subtitle) subtitle.textContent = '';
                 return;
             }
-        }
-        setStatus('pending', 'Pending', 'Check Your Inbox', 'Open the verification email and click the link to continue.');
-        if (subtitle) subtitle.textContent = email
-            ? 'We sent a verification link to ' + email
-            : 'We sent a verification link to your email address.';
+            
+            setStatus('pending', 'Pending', 'Check Your Inbox', 'Open the verification email and click the link to continue.');
+            if (subtitle) subtitle.textContent = 'We sent a verification link to ' + email;
 
-        // Background polling for verification status
-        if (email) {
+            // Background polling for verification status
             const checkStatus = async () => {
                 try {
                     const res = await fetch('/api/v1/verification-status/' + encodeURIComponent(email));
@@ -107,6 +102,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
                 await checkStatus();
             }, 5000);
+        } else {
+            // No token and no email provided
+            statusCard.style.display = 'none';
+            if (title) title.textContent = 'Verify Your Email';
+            if (subtitle) subtitle.textContent = 'Enter your email below to request a verification link.';
         }
     }
 
@@ -122,6 +122,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (response.ok) {
                     localStorage.setItem('pendingVerificationEmail', resendEmail);
                     window.AuthUI.setMessage(resendMessage, 'success', data.message || 'Verification email sent!');
+                    
+                    statusCard.style.display = 'block'; // Ensure it's visible
                     
                     if (data.message === 'Email already verified') {
                         setStatus('success', 'Verified', 'Already Verified!', 'Your email was already confirmed. You can sign in now.');

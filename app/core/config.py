@@ -32,6 +32,15 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_SECRET: str = ""
     GOOGLE_REDIRECT_URI: str = ""
 
+    # RAG / AI Brain
+    OPENAI_API_KEY: str = ""
+    RAG_CHUNK_SIZE: int = 800
+    RAG_CHUNK_OVERLAP: int = 200
+    RAG_EMBEDDING_MODEL: str = "text-embedding-3-small"
+    RAG_CHAT_MODEL: str = "gpt-4o"
+    RAG_TOP_K: int = 5
+    CHROMA_PERSIST_DIR: str = "./chroma_data"
+
     def get_google_redirect_uri(self) -> str:
         """Compute redirect URI at runtime so it always uses the actual BASE_URL."""
         return self.GOOGLE_REDIRECT_URI or f"{self.BASE_URL}/api/v1/google/callback"

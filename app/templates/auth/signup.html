@@ -3,7 +3,8 @@
 {% block body_class %}auth-page{% endblock %}
 {% block content %}
 <div class="auth-brand">
-    <div class="auth-brand__logo">
+    <canvas id="three-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; mix-blend-mode: screen;"></canvas>
+    <div class="auth-brand__logo" style="position: relative; z-index: 2;">
         <div class="auth-brand__logo-icon">
             <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
         </div>
@@ -25,8 +26,8 @@
                 <div><strong>Decision Tracking</strong><span>Never forget why a decision was made. The timeline remembers everything.</span></div>
             </div>
             <div class="auth-brand__feature">
-                <div class="auth-brand__feature-icon auth-brand__feature-icon--blue">💬</div>
-                <div><strong>AI Chat</strong><span>Ask questions about your project. Get answers from your team's collective knowledge.</span></div>
+                <div class="auth-brand__feature-icon auth-brand__feature-icon--blue">🎯</div>
+                <div><strong>AI Actionable Steps</strong><span>Get clear, actionable next steps instead of just chat answers from the AI.</span></div>
             </div>
         </div>
     </div>
@@ -41,10 +42,6 @@
         <h2 class="auth-form-container__heading">Create your account</h2>
         <p class="auth-form-container__subtext">Start building your team's project memory in minutes.</p>
         <form id="signupForm">
-            <div class="form-group">
-                <label for="full_name">Full name</label>
-                <input type="text" id="full_name" name="full_name" class="form-input" placeholder="Jane Doe" autocomplete="name" required>
-            </div>
             <div class="form-group">
                 <label for="email">Email address</label>
                 <input type="email" id="email" name="email" class="form-input" placeholder="you@company.com" autocomplete="email" required>

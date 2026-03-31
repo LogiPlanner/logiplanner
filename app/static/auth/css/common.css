@@ -122,28 +122,6 @@ a:hover { color: var(--color-primary-dark); }
     overflow: hidden;
 }
 
-/* Animated gradient orbs */
-.auth-brand::before,
-.auth-brand::after {
-    content: "";
-    position: absolute;
-    border-radius: 50%;
-    pointer-events: none;
-    filter: blur(80px);
-    animation: float 8s ease-in-out infinite;
-}
-.auth-brand::before {
-    width: 400px; height: 400px;
-    background: radial-gradient(circle, rgba(79,70,229,0.3), transparent 70%);
-    top: -100px; right: -80px;
-}
-.auth-brand::after {
-    width: 300px; height: 300px;
-    background: radial-gradient(circle, rgba(6,214,160,0.2), transparent 70%);
-    bottom: -60px; left: -40px;
-    animation-delay: -4s;
-}
-
 .auth-brand__logo {
     display: flex;
     align-items: center;
@@ -232,16 +210,17 @@ a:hover { color: var(--color-primary-dark); }
 .auth-brand__feature {
     display: flex;
     align-items: flex-start;
-    gap: 14px;
-    padding: 16px 18px;
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: var(--radius-md);
-    backdrop-filter: blur(8px);
-    transition: background var(--transition);
+    gap: 16px;
+    padding: 24px 20px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: var(--radius-lg);
+    backdrop-filter: blur(12px);
+    transition: background var(--transition), transform var(--transition);
 }
 .auth-brand__feature:hover {
-    background: rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.06);
+    transform: translateY(-2px);
 }
 
 .auth-brand__feature-icon {
@@ -261,15 +240,17 @@ a:hover { color: var(--color-primary-dark); }
 
 .auth-brand__feature strong {
     display: block;
-    font-size: 0.88rem;
-    font-weight: 600;
-    margin-bottom: 2px;
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 6px;
+    color: var(--color-text-inv);
 }
 
 .auth-brand__feature span {
-    font-size: 0.8rem;
-    color: rgba(255,255,255,0.5);
-    line-height: 1.4;
+    display: block;
+    font-size: 0.85rem;
+    color: rgba(255,255,255,0.55);
+    line-height: 1.5;
 }
 
 .auth-brand__footer {

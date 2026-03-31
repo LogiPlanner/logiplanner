@@ -115,9 +115,9 @@ async def google_callback(
     has_teams = len(user.teams) > 0
 
     if not profile_complete:
-        redirect_url = f"/profile?token={access_token}"
+        redirect_url = f"/onboarding?token={access_token}"
     elif not has_teams:
-        redirect_url = f"/team-select?token={access_token}"
+        redirect_url = f"/onboarding?token={access_token}"
     else:
         redirect_url = f"/dashboard?token={access_token}"
 
