@@ -47,13 +47,15 @@ source venv/bin/activate  # venv\Scripts\activate on Windows
 pip install -r requirements.txt
 ```
 
-### 2. Configure Database
+### 2. Configure Environment & Database
 - Ensure **PostgreSQL** is running.
 - Create a database: `logiplanner`
-- Create a `.env` file based on the reference in `CODEBASE_CONTEXT.md`.
+- Copy `.env.example` to `.env` and fill in your actual secrets/keys.
+- (See `CODEBASE_CONTEXT.md` for variable details.)
 
 ### 3. Run Migrations & Start
 ```bash
+alembic revision --autogenerate -m "description"
 alembic upgrade head
 python main.py
 ```
@@ -70,12 +72,47 @@ This file is the **Ground Truth** for all developers and AI assistants working o
 
 ---
 
-## 🤝 Roadmap
+## 🌿 Git Workflow
 
-- [ ] AI Brain (RAG) implementation.
-- [ ] AI Actionable Tasks.
-- [ ] Confluence-style "Pages & Channels."
-- [ ] Interactive Project Timeline.
+### 1. Start from an up-to-date main
+```bash
+git checkout main
+git pull origin main
+```
+
+### 2. Create a new branch
+Name branches using the format `feature/`, `fix/`, or `chore/` followed by a short description.
+```bash
+git checkout -b feature/your-feature-name
+```
+
+### 3. Make your changes
+Edit files, then stage and commit with a descriptive message.
+```bash
+git add .
+git commit -m "feat: add short description of what you did"
+```
+
+### 4. Push your branch
+```bash
+git push origin feature/your-feature-name
+```
+
+### 5. Open a Pull Request
+- Go to the repository on GitHub.
+- Click **"Compare & pull request"** for your branch.
+- Fill in the PR title and description explaining **what** changed and **why**.
+- Request a reviewer and submit.
+
+### 6. After approval — merge and clean up
+```bash
+# Switch back to main and pull the merged changes
+git checkout main
+git pull origin main
+
+# Delete your local branch
+git branch -d feature/your-feature-name
+```
 
 ---
 
