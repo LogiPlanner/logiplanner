@@ -135,6 +135,7 @@ def _process_and_ingest(
         # Update record
         doc.chunk_count = chunk_count
         doc.status = "ready"
+        doc.stored_path = None  # File no longer on disk
         db.commit()
 
         print(f"[RAG] ✅ {filename} → {chunk_count} chunks ingested for team {team_id}")
@@ -147,6 +148,13 @@ def _process_and_ingest(
             doc.error_message = str(e)[:500]
             db.commit()
     finally:
+        # Always delete the uploaded file — we only need the embeddings in ChromaDB
+        if os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+                print(f"[RAG] 🗑️ Deleted uploaded file: {file_path}")
+            except Exception as e:
+                print(f"[RAG] Warning: Could not delete {file_path}: {e}")
         db.close()
 
 
