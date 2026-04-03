@@ -137,6 +137,7 @@ class ChatMessage(Base):
     id = Column(Integer, primary_key=True, index=True)
     team_id = Column(Integer, ForeignKey("teams.id"), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    session_id = Column(String, nullable=True, index=True)  # Groups messages into conversations
     role = Column(String, nullable=False)                  # "user" or "assistant"
     content = Column(Text, nullable=False)                 # Message content
     sources = Column(Text, nullable=True)                  # JSON array of source refs

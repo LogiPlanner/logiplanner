@@ -118,17 +118,25 @@
     <div class="dashboard">
         <!-- ═══ SHARED SIDEBAR ═══ -->
         <aside class="sidebar" id="mainSidebar">
+            <div class="sidebar__accent"></div>
+
             <div class="sidebar__brand">
-                <div class="sidebar__brand-name">LogiPlanner</div>
-                <div class="sidebar__brand-tag">Plans With Logic</div>
+                <div class="sidebar__logo">
+                    <svg viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                </div>
+                <div>
+                    <div class="sidebar__brand-name">LogiPlanner</div>
+                    <div class="sidebar__brand-tag">Plans With Logic</div>
+                </div>
             </div>
+
             <nav class="sidebar__nav">
                 <a href="/dashboard" class="sidebar__link {% block nav_dashboard %}{% endblock %}">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
                     Dashboard
                 </a>
                 <a href="/ai-brain" class="sidebar__link {% block nav_ai_brain %}{% endblock %}">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
                     AI Brain
                 </a>
                 <a href="#" class="sidebar__link {% block nav_project_memory %}{% endblock %}">
@@ -136,7 +144,7 @@
                     Project Memory
                 </a>
                 <a href="#" class="sidebar__link {% block nav_meeting_notes %}{% endblock %}">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                     Meeting Notes
                 </a>
                 <a href="#" class="sidebar__link {% block nav_settings %}{% endblock %}">
@@ -144,7 +152,32 @@
                     Settings
                 </a>
             </nav>
-            <div class="sidebar__footer" style="padding:16px;border-top:1px solid var(--color-border-lt, #f3f4f6);">
+
+            <div class="sidebar__art">
+                <svg viewBox="0 0 200 120" fill="none">
+                    <circle cx="40" cy="30" r="4" fill="#4f46e5"/><circle cx="100" cy="18" r="6" fill="#7c3aed"/>
+                    <circle cx="160" cy="38" r="3" fill="#06d6a0"/><circle cx="70" cy="70" r="5" fill="#4f46e5"/>
+                    <circle cx="130" cy="80" r="4" fill="#06d6a0"/><circle cx="30" cy="100" r="3" fill="#7c3aed"/>
+                    <circle cx="170" cy="92" r="5" fill="#4f46e5"/>
+                    <line x1="40" y1="30" x2="100" y2="18" stroke="#4f46e5" stroke-width="1"/>
+                    <line x1="100" y1="18" x2="160" y2="38" stroke="#7c3aed" stroke-width="1"/>
+                    <line x1="40" y1="30" x2="70" y2="70" stroke="#4f46e5" stroke-width="1"/>
+                    <line x1="100" y1="18" x2="130" y2="80" stroke="#06d6a0" stroke-width="1"/>
+                    <line x1="70" y1="70" x2="130" y2="80" stroke="#7c3aed" stroke-width="1"/>
+                    <line x1="130" y1="80" x2="170" y2="92" stroke="#4f46e5" stroke-width="1"/>
+                    <line x1="30" y1="100" x2="70" y2="70" stroke="#7c3aed" stroke-width="1"/>
+                    <line x1="160" y1="38" x2="170" y2="92" stroke="#06d6a0" stroke-width="1"/>
+                </svg>
+            </div>
+
+            <div class="sidebar__footer">
+                <div class="sidebar__user" id="sidebarUser" style="display:none;">
+                    <div class="sidebar__user-avatar" id="sidebarAvatar">U</div>
+                    <div class="sidebar__user-info">
+                        <div class="sidebar__user-name" id="sidebarUserName">User</div>
+                        <div class="sidebar__user-role" id="sidebarUserRole"></div>
+                    </div>
+                </div>
                 <button class="btn-logout" id="logoutBtn">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
                     Log Out
