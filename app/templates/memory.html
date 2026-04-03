@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block title %}Project Memory — LogiPlanner{% endblock %}
+{% block nav_project_memory %}active{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="/static/memory/css/memory.css">
+{% endblock %}
+
+{% block content %}
+<main class="memory-main">
+    <!-- Top Bar -->
+    <header class="topbar">
+        <div class="topbar__left">
+            <h1 class="topbar__title">Project Memory</h1>
+            <select id="projectSelect" class="topbar__project-select">
+                <option>Loading projects...</option>
+            </select>
+        </div>
+    </header>
+
+    <div class="memory-content container">
+        <div class="memory-header">
+            <div>
+                <h2 class="memory-title">Timeline</h2>
+                <p class="memory-subtitle">A chronological record of project decisions, milestones, summaries, and uploads.</p>
+            </div>
+            <button class="btn-primary" id="addEntryBtn">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                Add Entry
+            </button>
+        </div>
+
+        <div class="timeline" id="timelineContainer">
+            <!-- Timeline entries will be injected here via JS -->
+            <div class="timeline-empty" id="timelineEmpty" style="display: none;">
+                <div class="timeline-empty__icon">📚</div>
+                <div class="timeline-empty__text">No memory entries yet.</div>
+                <div class="timeline-empty__hint">Click "Add Entry" to record your first milestone or decision.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Entry Modal -->
+    <div class="modal-overlay" id="entryModal">
+        <div class="modal-box">
+            <h3 class="modal-box__title">Add Memory Entry</h3>
+            <form id="entryForm" class="entry-form">
+                <div class="form-group">
+                    <label>Entry Type</label>
+                    <select id="entryType" required>
+                        <option value="decision">Decision</option>
+                        <option value="milestone">Milestone</option>
+                        <option value="summary">Summary</option>
+                        <option value="upload">Upload</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Title</label>
+                    <input type="text" id="entryTitle" placeholder="E.g., Finalized Architecture" required>
+                </div>
+                <div class="form-group">
+                    <label>Content</label>
+                    <textarea id="entryContent" rows="4" placeholder="Detail the event..." required></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Source Reference (Optional)</label>
+                    <input type="text" id="entrySource" placeholder="E.g., Meeting Notes link">
+                </div>
+                <div class="modal-box__actions">
+                    <button type="button" class="btn-secondary" id="cancelEntryBtn">Cancel</button>
+                    <button type="submit" class="btn-primary" id="saveEntryBtn">Save Entry</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</main>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/memory/js/memory.js"></script>
+{% endblock %}
