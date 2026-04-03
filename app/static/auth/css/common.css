@@ -932,62 +932,142 @@ a:hover { color: var(--color-primary-dark); }
     background: var(--color-page-bg);
 }
 
-/* ─── Sidebar ─── */
+/* ─── Sidebar — "Soft Aurora" ─── */
 .sidebar {
-    width: 260px;
-    background: var(--color-surface);
-    border-right: 1px solid var(--color-border-lt);
+    width: 264px;
+    background: linear-gradient(170deg, #f5f3ff 0%, #fafaff 35%, #f0fdfa 100%);
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
     z-index: 20;
+    position: relative;
+    overflow: hidden;
 }
 
+/* Signature accent stripe — left edge */
+.sidebar__accent {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: linear-gradient(180deg, var(--color-primary) 0%, #7c3aed 40%, var(--color-accent) 100%);
+    z-index: 3;
+}
+
+/* Warm radial orb — top right */
+.sidebar::before {
+    content: '';
+    position: absolute;
+    top: -50px;
+    right: -50px;
+    width: 200px;
+    height: 200px;
+    background: radial-gradient(circle, rgba(79,70,229,0.06) 0%, transparent 70%);
+    pointer-events: none;
+}
+
+/* Cool radial orb — bottom left */
+.sidebar::after {
+    content: '';
+    position: absolute;
+    bottom: -40px;
+    left: -30px;
+    width: 160px;
+    height: 160px;
+    background: radial-gradient(circle, rgba(6,214,160,0.05) 0%, transparent 70%);
+    pointer-events: none;
+}
+
+/* Brand */
 .sidebar__brand {
-    padding: 24px 24px 32px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 28px 20px 24px;
+    position: relative;
+    z-index: 1;
+}
+
+.sidebar__logo {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, #4f46e5, #7c3aed, #06d6a0);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 4px 18px rgba(79,70,229,0.25);
+}
+
+.sidebar__logo svg {
+    width: 22px;
+    height: 22px;
+    fill: none;
+    stroke: #fff;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
 }
 
 .sidebar__brand-name {
-    font-size: 1.15rem;
+    font-size: 1.1rem;
     font-weight: 800;
     letter-spacing: -0.03em;
-    color: var(--color-primary-dark);
+    color: var(--color-text);
+    line-height: 1.1;
 }
 
 .sidebar__brand-tag {
-    font-size: 0.6rem;
+    font-size: 0.55rem;
     font-weight: 700;
-    letter-spacing: 0.2em;
+    letter-spacing: 0.18em;
     text-transform: uppercase;
-    color: var(--color-text-muted);
+    color: var(--color-primary);
+    opacity: 0.55;
     margin-top: 2px;
 }
 
+/* Navigation */
 .sidebar__nav {
     flex: 1;
-    padding: 0 12px;
+    padding: 8px 12px;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
+    position: relative;
+    z-index: 1;
 }
 
 .sidebar__link {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 12px 16px;
-    border-radius: var(--radius-md);
-    font-size: 0.88rem;
+    padding: 11px 16px;
+    border-radius: 10px;
+    font-size: 0.87rem;
     font-weight: 500;
     color: var(--color-text-sec);
     text-decoration: none;
-    transition: all var(--transition);
+    transition: all 0.25s var(--ease-out);
+    position: relative;
+}
+
+.sidebar__link svg {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    opacity: 0.45;
+    transition: all 0.25s ease;
 }
 
 .sidebar__link:hover {
-    background: var(--color-page-bg);
+    background: rgba(79,70,229,0.05);
     color: var(--color-primary-dark);
 }
+
+.sidebar__link:hover svg { opacity: 0.8; }
 
 .sidebar__link.active {
     background: rgba(79,70,229,0.08);
@@ -995,20 +1075,108 @@ a:hover { color: var(--color-primary-dark); }
     font-weight: 600;
 }
 
-.sidebar__link svg {
-    width: 20px;
-    height: 20px;
-    flex-shrink: 0;
-    opacity: 0.6;
-}
-.sidebar__link.active svg { opacity: 1; }
+.sidebar__link.active svg { opacity: 1; color: var(--color-primary); }
 
-.sidebar__actions {
-    padding: 16px;
-    border-top: 1px solid var(--color-border-lt);
+/* Gradient accent bar on active link */
+.sidebar__link.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 20px;
+    background: linear-gradient(180deg, var(--color-primary), var(--color-accent));
+    border-radius: 0 4px 4px 0;
+    box-shadow: 0 0 10px rgba(79,70,229,0.25);
+}
+
+/* Decorative constellation artwork */
+.sidebar__art {
+    padding: 12px 24px;
+    opacity: 0.10;
     display: flex;
-    flex-direction: column;
-    gap: 8px;
+    justify-content: center;
+    pointer-events: none;
+    position: relative;
+    z-index: 1;
+}
+
+.sidebar__art svg {
+    width: 100%;
+    max-width: 200px;
+    height: auto;
+}
+
+/* Footer */
+.sidebar__footer {
+    padding: 16px;
+    border-top: 1px solid rgba(79,70,229,0.06);
+    position: relative;
+    z-index: 1;
+}
+
+/* User pill */
+.sidebar__user {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    transition: background 0.2s ease;
+    cursor: default;
+}
+
+.sidebar__user:hover { background: rgba(79,70,229,0.03); }
+
+.sidebar__user-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--color-primary), #7c3aed);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.sidebar__user-info { flex: 1; min-width: 0; }
+
+.sidebar__user-name {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--color-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sidebar__user-role {
+    font-size: 0.65rem;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Logout inside sidebar */
+.sidebar .btn-logout {
+    background: transparent;
+    color: var(--color-text-muted);
+    border: 1px solid var(--color-border);
+    font-size: 0.8rem;
+    padding: 9px 16px;
+    border-radius: 10px;
+}
+
+.sidebar .btn-logout:hover {
+    background: rgba(239,68,68,0.06);
+    color: #dc2626;
+    border-color: rgba(239,68,68,0.2);
 }
 
 /* ─── Main Content ─── */

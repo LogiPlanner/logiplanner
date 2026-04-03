@@ -28,6 +28,8 @@ from app.schemas.rag import (
     ChatResponse,
     ChatMessageResponse,
     ChatHistoryResponse,
+    ChatSessionsListResponse,
+    ChatSessionResponse,
     KnowledgeBaseStats,
     DeleteResponse,
 )
@@ -409,12 +411,16 @@ async def chat_with_brain(
     team = _verify_team_access(current_user, data.team_id, db)
 
     # Get THIS USER's recent chat history (private conversation)
+    history_filter = [
+        ChatMessage.team_id == data.team_id,
+        ChatMessage.user_id == current_user.id,  # User-scoped!
+    ]
+    if data.session_id:
+        history_filter.append(ChatMessage.session_id == data.session_id)
+
     history_records = (
         db.query(ChatMessage)
-        .filter(
-            ChatMessage.team_id == data.team_id,
-            ChatMessage.user_id == current_user.id,  # User-scoped!
-        )
+        .filter(*history_filter)
         .order_by(ChatMessage.created_at.desc())
         .limit(20)
         .all()
@@ -437,6 +443,7 @@ async def chat_with_brain(
     user_msg = ChatMessage(
         team_id=data.team_id,
         user_id=current_user.id,
+        session_id=data.session_id,
         role="user",
         content=data.message,
     )
@@ -446,6 +453,7 @@ async def chat_with_brain(
     assistant_msg = ChatMessage(
         team_id=data.team_id,
         user_id=current_user.id,
+        session_id=data.session_id,
         role="assistant",
         content=result["response"],
         sources=json.dumps(result["sources"]) if result["sources"] else None,
@@ -464,18 +472,23 @@ async def chat_with_brain(
 async def get_chat_history(
     team_id: int,
     limit: int = 50,
+    session_id: str = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Get the CURRENT USER's private chat history for a team."""
     _verify_team_access(current_user, team_id, db)
 
+    filters = [
+        ChatMessage.team_id == team_id,
+        ChatMessage.user_id == current_user.id,  # User-scoped!
+    ]
+    if session_id:
+        filters.append(ChatMessage.session_id == session_id)
+
     messages = (
         db.query(ChatMessage)
-        .filter(
-            ChatMessage.team_id == team_id,
-            ChatMessage.user_id == current_user.id,  # User-scoped!
-        )
+        .filter(*filters)
         .order_by(ChatMessage.created_at.asc())
         .limit(limit)
         .all()
@@ -488,6 +501,7 @@ async def get_chat_history(
                 role=msg.role,
                 content=msg.content,
                 sources=msg.sources,
+                session_id=msg.session_id,
                 created_at=msg.created_at,
             )
             for msg in messages
@@ -496,19 +510,76 @@ async def get_chat_history(
     )
 
 
-@router.delete("/chat/history/{team_id}", response_model=DeleteResponse)
-async def clear_chat_history(
+@router.get("/chat/sessions/{team_id}", response_model=ChatSessionsListResponse)
+async def get_chat_sessions(
     team_id: int,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Clear the CURRENT USER's private chat history for a team."""
+    """List all chat sessions for the current user in a team."""
     _verify_team_access(current_user, team_id, db)
 
-    count = db.query(ChatMessage).filter(
+    from sqlalchemy import func as sa_func, distinct
+
+    # Get distinct session_ids with their first user message and counts
+    sessions_raw = (
+        db.query(
+            ChatMessage.session_id,
+            sa_func.min(ChatMessage.created_at).label("created_at"),
+            sa_func.count(ChatMessage.id).label("message_count"),
+        )
+        .filter(
+            ChatMessage.team_id == team_id,
+            ChatMessage.user_id == current_user.id,
+            ChatMessage.session_id.isnot(None),
+        )
+        .group_by(ChatMessage.session_id)
+        .order_by(sa_func.min(ChatMessage.created_at).desc())
+        .all()
+    )
+
+    sessions = []
+    for row in sessions_raw:
+        # Get the first user message as preview
+        first_msg = (
+            db.query(ChatMessage.content)
+            .filter(
+                ChatMessage.session_id == row.session_id,
+                ChatMessage.role == "user",
+            )
+            .order_by(ChatMessage.created_at.asc())
+            .first()
+        )
+        preview = first_msg[0][:80] if first_msg else "Chat session"
+
+        sessions.append(ChatSessionResponse(
+            session_id=row.session_id,
+            preview=preview,
+            message_count=row.message_count,
+            created_at=row.created_at,
+        ))
+
+    return ChatSessionsListResponse(sessions=sessions, total=len(sessions))
+
+
+@router.delete("/chat/history/{team_id}", response_model=DeleteResponse)
+async def clear_chat_history(
+    team_id: int,
+    session_id: str = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Clear the CURRENT USER's private chat history for a team (or a single session)."""
+    _verify_team_access(current_user, team_id, db)
+
+    filters = [
         ChatMessage.team_id == team_id,
         ChatMessage.user_id == current_user.id,  # User-scoped!
-    ).delete()
+    ]
+    if session_id:
+        filters.append(ChatMessage.session_id == session_id)
+
+    count = db.query(ChatMessage).filter(*filters).delete()
     db.commit()
 
     return DeleteResponse(

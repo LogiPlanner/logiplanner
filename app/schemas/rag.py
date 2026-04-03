@@ -54,6 +54,7 @@ class ChatRequest(BaseModel):
     """Request to send a message to the AI Brain."""
     team_id: int
     message: str
+    session_id: Optional[str] = None            # Groups messages into a conversation
     filters: Optional[Dict[str, Any]] = None   # Optional metadata filters
 
 
@@ -78,6 +79,7 @@ class ChatMessageResponse(BaseModel):
     role: str
     content: str
     sources: Optional[str] = None       # JSON string of sources
+    session_id: Optional[str] = None
     created_at: Optional[datetime] = None
 
     class Config:
@@ -87,6 +89,20 @@ class ChatMessageResponse(BaseModel):
 class ChatHistoryResponse(BaseModel):
     """Chat history for a team."""
     messages: List[ChatMessageResponse]
+    total: int
+
+
+class ChatSessionResponse(BaseModel):
+    """A single chat session summary."""
+    session_id: str
+    preview: str                         # First user message as preview
+    message_count: int
+    created_at: Optional[datetime] = None
+
+
+class ChatSessionsListResponse(BaseModel):
+    """List of chat sessions for a team."""
+    sessions: List[ChatSessionResponse]
     total: int
 
 
