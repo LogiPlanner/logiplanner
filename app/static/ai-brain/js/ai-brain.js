@@ -46,9 +46,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const quickPromptButtons = document.querySelectorAll('.chat-quick-prompt');
     const deleteChatBtn = document.getElementById('deleteChatBtn');
     const newChatBtn = document.getElementById('newChatBtn');
-    const chatModeBtn = document.getElementById('chatModeBtn');
-    const studioModeBtn = document.getElementById('studioModeBtn');
-    const modeToggle = document.getElementById('modeToggle');
+    const chatModeBtn = null;
+    const studioModeBtn = null;
+    const modeToggle = null;
     const kbUploadZone = document.getElementById('kbUploadZone');
     const fileInput = document.getElementById('kbFileInput');
     const docsList = document.getElementById('kbDocsList');
@@ -98,7 +98,25 @@ document.addEventListener('DOMContentLoaded', () => {
     // ─────────────────────────────────────────
     // TEAM LOADING & ROLE
     // ─────────────────────────────────────────
+    function getInitials(name) {
+        if (!name) return 'U';
+        return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+    }
+
+    async function loadUserProfile() {
+        try {
+            const res = await fetch(`${API}/profile-status`, { headers: authHeader() });
+            if (!res.ok) return;
+            const profile = await res.json();
+            const avatarEl = document.getElementById('avatarInitials');
+            if (avatarEl) avatarEl.textContent = getInitials(profile.full_name || '');
+        } catch (e) {
+            console.error('Error loading profile:', e);
+        }
+    }
+
     async function loadTeams() {
+        loadUserProfile();
         try {
             const res = await fetch(`${API}/onboarding/my-teams`, { headers: authHeader() });
             if (!res.ok) return;
@@ -141,20 +159,6 @@ document.addEventListener('DOMContentLoaded', () => {
         // Studio mode: only owner/editor
         const canEdit = currentRole === 'owner' || currentRole === 'editor';
 
-        if (studioModeBtn) {
-            if (canEdit) {
-                studioModeBtn.classList.remove('disabled');
-                studioModeBtn.title = 'Knowledge Base + Chat';
-            } else {
-                studioModeBtn.classList.add('disabled');
-                studioModeBtn.title = 'Only owners and editors can access Studio Mode';
-                // Force chat mode if viewer
-                if (currentMode === 'studio') {
-                    switchMode('chat');
-                }
-            }
-        }
-
         // Upload zone visibility
         if (kbUploadZone) {
             kbUploadZone.classList.toggle('hidden', !canEdit);
@@ -169,33 +173,26 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ─────────────────────────────────────────
-    // MODE TOGGLE
+    // MODE TOGGLE (ai-brain is always Chat; Studio is at /studio)
     // ─────────────────────────────────────────
     function switchMode(mode) {
         currentMode = mode;
         brainContent.classList.remove('mode-chat', 'mode-studio');
         brainContent.classList.add(`mode-${mode}`);
-
-        chatModeBtn.classList.toggle('active', mode === 'chat');
-        studioModeBtn.classList.toggle('active', mode === 'studio');
     }
-
-    chatModeBtn?.addEventListener('click', () => switchMode('chat'));
-
-    studioModeBtn?.addEventListener('click', () => {
-        const canEdit = currentRole === 'owner' || currentRole === 'editor';
-        if (!canEdit) return;
-        switchMode('studio');
-    });
 
     // ─────────────────────────────────────────
     // KNOWLEDGE BASE: DOCUMENTS
     // ─────────────────────────────────────────
-    async function loadDocuments() {
+    let _pollAttempts = 0;
+    const _MAX_POLL_ATTEMPTS = 20; // stop after ~60s
+
+    async function loadDocuments(isPolled = false) {
         try {
             const res = await fetch(`${API}/rag/documents/${currentTeamId}`, { headers: authHeader() });
             if (!res.ok) return;
             const data = await res.json();
+            if (!isPolled) _pollAttempts = 0; // reset on manual load
             renderDocuments(data.documents);
         } catch (e) {
             console.error('Error loading documents:', e);
@@ -236,10 +233,14 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         `).join('');
 
-        // Poll for processing docs
+        // Poll for processing docs (max _MAX_POLL_ATTEMPTS to avoid infinite loop on stuck docs)
         const processing = docs.filter(d => d.status === 'pending' || d.status === 'processing');
-        if (processing.length > 0) {
-            setTimeout(() => { loadDocuments(); loadStats(); }, 3000);
+        if (processing.length > 0 && _pollAttempts < _MAX_POLL_ATTEMPTS) {
+            _pollAttempts++;
+            setTimeout(() => { loadDocuments(true); loadStats(); }, 3000);
+        } else if (_pollAttempts >= _MAX_POLL_ATTEMPTS) {
+            _pollAttempts = 0;
+            console.warn('RAG polling stopped: documents may be stuck in processing state.');
         }
     }
 

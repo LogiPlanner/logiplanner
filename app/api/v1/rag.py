@@ -25,6 +25,7 @@ from app.models.calendar_task import CalendarTask
 from app.models.timeline import TimelineEntry
 from app.schemas.rag import (
     IngestTextRequest,
+    IngestURLRequest,
     IngestResponse,
     DocumentResponse,
     DocumentListResponse,
@@ -297,18 +298,23 @@ def _process_and_ingest(
         # Update record
         doc.chunk_count = chunk_count
         doc.status = "ready"
-        doc.stored_path = None  # File no longer on disk
         db.commit()
 
         print(f"[RAG] ✅ {filename} → {chunk_count} chunks ingested for team {team_id}")
 
-    except Exception as e:
-        print(f"[RAG] ❌ Error processing {filename}: {e}")
-        doc = db.query(Document).filter(Document.id == doc_record_id).first()
-        if doc:
-            doc.status = "error"
-            doc.error_message = str(e)[:500]
-            db.commit()
+    except BaseException as e:
+        import traceback
+        print(f"[RAG] ❌ Error processing {filename}: {type(e).__name__}: {e}")
+        traceback.print_exc()
+        try:
+            db.rollback()  # Required before re-using session after an exception
+            doc = db.query(Document).filter(Document.id == doc_record_id).first()
+            if doc:
+                doc.status = "error"
+                doc.error_message = f"{type(e).__name__}: {str(e)}"[:500]
+                db.commit()
+        except Exception as db_err:
+            print(f"[RAG] ❌ Failed to update error status for doc {doc_record_id}: {db_err}")
     finally:
         # Always delete the uploaded file — we only need the embeddings in ChromaDB
         if os.path.exists(file_path):
@@ -459,6 +465,96 @@ async def ingest_text(
         doc_record.error_message = str(e)[:500]
         db.commit()
         raise HTTPException(status_code=500, detail=f"Error ingesting text: {str(e)}")
+
+
+@router.post("/ingest-url", response_model=IngestResponse)
+async def ingest_url(
+    data: IngestURLRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Fetch a URL's text content and ingest it into the knowledge base."""
+    import httpx
+    from urllib.parse import urlparse
+
+    team = _verify_team_access(current_user, data.team_id, db)
+    _require_editor_or_owner(current_user, data.team_id, db)
+
+    # Validate URL
+    parsed = urlparse(data.url)
+    if parsed.scheme not in ("http", "https"):
+        raise HTTPException(status_code=400, detail="Only HTTP and HTTPS URLs are supported")
+
+    # Fetch content
+    try:
+        async with httpx.AsyncClient(follow_redirects=True, timeout=30.0) as client:
+            resp = await client.get(data.url, headers={"User-Agent": "LogiPlanner-RAG/1.0"})
+            resp.raise_for_status()
+            raw_text = resp.text
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(status_code=400, detail=f"URL returned status {e.response.status_code}")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to fetch URL: {str(e)[:200]}")
+
+    # Strip HTML tags (basic)
+    import re
+    text = re.sub(r'<script[^>]*>[\s\S]*?</script>', '', raw_text, flags=re.IGNORECASE)
+    text = re.sub(r'<style[^>]*>[\s\S]*?</style>', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'<[^>]+>', ' ', text)
+    text = re.sub(r'\s+', ' ', text).strip()
+
+    if not text:
+        raise HTTPException(status_code=400, detail="No readable text found at that URL")
+
+    # Truncate to ~500 KB to avoid blowing up embeddings
+    text = text[:500_000]
+
+    title = parsed.netloc + parsed.path[:60]
+
+    doc_record = Document(
+        team_id=data.team_id,
+        uploader_id=current_user.id,
+        filename=title,
+        stored_path=data.url,
+        doc_type="text",
+        file_size=len(text.encode("utf-8")),
+        status="processing",
+    )
+    db.add(doc_record)
+    db.flush()
+
+    try:
+        chunks = process_text(
+            text=text,
+            title=title,
+            team_id=data.team_id,
+            document_id=doc_record.id,
+            uploader_email=current_user.email,
+        )
+        chunk_count = rag_engine.ingest_chunks(data.team_id, chunks)
+        doc_record.chunk_count = chunk_count
+        doc_record.status = "ready"
+        db.commit()
+
+        return IngestResponse(
+            message=f"URL content ingested successfully.",
+            documents=[DocumentResponse(
+                id=doc_record.id,
+                team_id=data.team_id,
+                filename=title,
+                doc_type="text",
+                file_size=doc_record.file_size,
+                chunk_count=chunk_count,
+                status="ready",
+                uploader_email=current_user.email,
+            )],
+            total_chunks=chunk_count,
+        )
+    except Exception as e:
+        doc_record.status = "error"
+        doc_record.error_message = str(e)[:500]
+        db.commit()
+        raise HTTPException(status_code=500, detail=f"Error ingesting URL content: {str(e)}")
 
 
 # ──────────────────────────────────────────────

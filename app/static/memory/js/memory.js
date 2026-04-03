@@ -162,4 +162,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Init
     fetchProjects();
+
+    // Populate topbar avatar
+    const token_ = localStorage.getItem('access_token');
+    const avatarEl = document.getElementById('avatarInitials');
+    if (avatarEl && token_) {
+        fetch('/api/v1/auth/me', { headers: { 'Authorization': 'Bearer ' + token_ } })
+            .then(r => r.ok ? r.json() : null)
+            .then(d => {
+                if (!d) return;
+                const name = d.full_name || d.email || '';
+                const initials = name.trim().split(/\s+/).slice(0, 2).map(p => p[0].toUpperCase()).join('');
+                if (initials) avatarEl.textContent = initials;
+            })
+            .catch(() => {});
+    }
 });

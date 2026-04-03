@@ -1,0 +1,332 @@
+{% extends "base.html" %}
+
+{% block title %}Knowledge Space — LogiPlanner{% endblock %}
+{% block meta_description %}LogiPlanner Knowledge Space — Manage your team's knowledge base, documents, and sources{% endblock %}
+{% block styles %}
+<link rel="stylesheet" href="/static/studio/css/studio.css">
+{% endblock %}
+
+{% block content %}
+<main class="studio-main">
+
+    <!-- ═══ TOP BAR ═══ -->
+    <header class="topbar">
+        <div class="topbar__left">
+            <div class="topbar__page-title">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                <span>AI Brain</span>
+            </div>
+            <div class="topbar__mode-switcher">
+                <a href="/ai-brain" class="topbar__mode-btn">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                    Chat
+                </a>
+                <a href="/studio" class="topbar__mode-btn topbar__mode-btn--active">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/></svg>
+                    Studio
+                </a>
+            </div>
+        </div>
+        <div class="topbar__right">
+            <button class="topbar__icon-btn" aria-label="Notifications">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+            </button>
+            <div class="topbar__avatar" id="userAvatar">
+                <span id="avatarInitials">U</span>
+                <div class="topbar__dropdown">
+                    <a href="/profile" class="topbar__dropdown-item">Profile Settings</a>
+                    <a href="/team-select" class="topbar__dropdown-item">Manage Teams</a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- ═══ STUDIO HEADER ═══ -->
+    <div class="studio-subheader">
+        <div class="studio-subheader__left">
+            <div class="studio-header-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125v-3.75m16.5 3.75v3.75c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125v-3.75"/></svg>
+            </div>
+            <div>
+                <h1 class="studio-subheader__title">Knowledge Space</h1>
+                <p class="studio-subheader__subtitle">Manage your team's brain — documents, sources & ingestion</p>
+            </div>
+        </div>
+        <div class="studio-subheader__right">
+            <select class="topbar__team-select" id="teamSelect">
+                <option>Loading teams...</option>
+            </select>
+            <span class="role-badge" id="roleBadge">viewer</span>
+        </div>
+    </div>
+
+    <!-- ═══ SCROLLABLE CONTENT ═══ -->
+    <div class="studio-scroll">
+
+        <!-- ═══ STATS ROW ═══ -->
+        <div class="studio-stats" id="studioStats">
+            <div class="stat-card stat-card--docs">
+                <div class="stat-card__glow"></div>
+                <div class="stat-card__icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/></svg>
+                </div>
+                <div class="stat-card__value" id="statDocs">0</div>
+                <div class="stat-card__label">Documents</div>
+            </div>
+            <div class="stat-card stat-card--chunks">
+                <div class="stat-card__glow"></div>
+                <div class="stat-card__icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5"/></svg>
+                </div>
+                <div class="stat-card__value" id="statChunks">0</div>
+                <div class="stat-card__label">Knowledge Chunks</div>
+            </div>
+            <div class="stat-card stat-card--types">
+                <div class="stat-card__glow"></div>
+                <div class="stat-card__icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                </div>
+                <div class="stat-card__value" id="statTypes">0</div>
+                <div class="stat-card__label">File Types</div>
+            </div>
+            <div class="stat-card stat-card--ready">
+                <div class="stat-card__glow"></div>
+                <div class="stat-card__icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                </div>
+                <div class="stat-card__value" id="statReady">0</div>
+                <div class="stat-card__label">Ready & Indexed</div>
+            </div>
+        </div>
+
+        <!-- ═══ INGEST SECTION ═══ -->
+        <div class="studio-section" id="ingestSection">
+            <div class="section-header">
+                <h2 class="section-title">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                    Ingest Knowledge
+                </h2>
+                <p class="section-subtitle">Feed your AI Brain with documents, text, or web content</p>
+            </div>
+
+            <div class="ingest-grid">
+                <!-- File Upload Card -->
+                <div class="ingest-card ingest-card--upload" id="uploadCard">
+                    <div class="ingest-card__header">
+                        <div class="ingest-card__icon ingest-card__icon--upload">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                        </div>
+                        <h3>Upload Files</h3>
+                    </div>
+                    <div class="upload-zone" id="uploadZone">
+                        <div class="upload-zone__content">
+                            <div class="upload-zone__icon-ring">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z"/></svg>
+                            </div>
+                            <div class="upload-zone__text">
+                                <strong>Drop files here</strong> or <span class="upload-zone__browse">browse</span>
+                            </div>
+                            <div class="upload-zone__formats">PDF, DOCX, TXT, MD — up to 20MB each</div>
+                        </div>
+                        <input type="file" id="fileInput" multiple accept=".pdf,.doc,.docx,.txt,.md" class="upload-zone__input">
+                    </div>
+                    <!-- Upload progress list -->
+                    <div class="upload-progress" id="uploadProgress"></div>
+                </div>
+
+                <!-- Text Input Card -->
+                <div class="ingest-card ingest-card--text">
+                    <div class="ingest-card__header">
+                        <div class="ingest-card__icon ingest-card__icon--text">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                        </div>
+                        <h3>Paste Text</h3>
+                    </div>
+                    <div class="text-ingest-form">
+                        <input type="text" id="textTitle" class="text-ingest__title" placeholder="Title (e.g., Meeting Notes April 3)">
+                        <textarea id="textContent" class="text-ingest__content" placeholder="Paste or type text content here...&#10;&#10;The AI Brain will chunk and index this text for future queries." rows="5"></textarea>
+                        <button class="btn-ingest" id="textIngestBtn">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                            Ingest Text
+                        </button>
+                    </div>
+                </div>
+
+                <!-- URL Input Card -->
+                <div class="ingest-card ingest-card--url">
+                    <div class="ingest-card__header">
+                        <div class="ingest-card__icon ingest-card__icon--url">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                        </div>
+                        <h3>Ingest URL</h3>
+                    </div>
+                    <div class="url-ingest-form">
+                        <div class="url-input-row">
+                            <input type="url" id="urlInput" class="url-ingest__input" placeholder="https://example.com/article">
+                            <button class="btn-ingest btn-ingest--url" id="urlIngestBtn">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                                Fetch & Ingest
+                            </button>
+                        </div>
+                        <p class="url-ingest__hint">We'll extract the text content from the page and add it to your knowledge base.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══ EXTERNAL SOURCES ═══ -->
+        <div class="studio-section">
+            <div class="section-header">
+                <h2 class="section-title">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                    Connected Sources
+                </h2>
+                <p class="section-subtitle">Sync external tools to keep your knowledge base always up to date</p>
+            </div>
+            <div class="sources-grid">
+                <div class="source-card source-card--available" id="sourceGoogleDrive">
+                    <div class="source-card__icon source-card__icon--drive">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7.71 3.5L1.15 15l3.43 5.97L11.14 9.47 7.71 3.5zm1.14 0l6.86 11.93H22.86L16 3.5H8.85zM16.57 16.5H3.43L0 22.5h24l-3.43-6H16.57z"/></svg>
+                    </div>
+                    <div class="source-card__info">
+                        <h4>Google Drive</h4>
+                        <p>Auto-sync docs from Drive folders</p>
+                    </div>
+                    <span class="source-card__badge source-card__badge--soon">Coming Soon</span>
+                </div>
+                <div class="source-card source-card--available">
+                    <div class="source-card__icon source-card__icon--github">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                    </div>
+                    <div class="source-card__info">
+                        <h4>GitHub</h4>
+                        <p>Index repos, wikis & READMEs</p>
+                    </div>
+                    <span class="source-card__badge source-card__badge--soon">Coming Soon</span>
+                </div>
+                <div class="source-card source-card--available">
+                    <div class="source-card__icon source-card__icon--jira">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M11.975 0C9.472 0 7.5 1.972 7.5 4.475v2.025H3.975C1.472 6.5 0 8.178 0 10.425c0 .003 0 .006.001.01l.044 9.09C.046 21.718 1.581 23 3.5 23H3.975v-9.025c0-2.503 1.472-4.475 3.975-4.475H12V4.475C12 4.475 12 0 11.975 0zM16 7H12.025v5.5H16c2.503 0 3.975 1.972 3.975 4.475V23h.5c1.92 0 3.5-1.582 3.5-3.5L24 10.5c0-1.97-1.472-3.5-3.975-3.5H16z"/></svg>
+                    </div>
+                    <div class="source-card__info">
+                        <h4>Jira</h4>
+                        <p>Index projects, issues &amp; sprints</p>
+                    </div>
+                    <span class="source-card__badge source-card__badge--soon">Coming Soon</span>
+                </div>
+                <div class="source-card source-card--available">
+                    <div class="source-card__icon source-card__icon--miro">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.392 0H13.9l4 7-7-7h-3.5l4 9.5L4.4 0H.9l4.6 13.5L0 24h3.5l7.9-10.2-3 10.2h3.5l5.5-14.2L21.1 24h3.5L17.392 0z"/></svg>
+                    </div>
+                    <div class="source-card__info">
+                        <h4>Miro</h4>
+                        <p>Import boards and sticky notes</p>
+                    </div>
+                    <span class="source-card__badge source-card__badge--soon">Coming Soon</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══ DOCUMENT LIBRARY ═══ -->
+        <div class="studio-section">
+            <div class="section-header">
+                <h2 class="section-title">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/></svg>
+                    Document Library
+                </h2>
+                <div class="section-actions">
+                    <span class="doc-count-badge" id="docCountBadge">0 documents</span>
+                </div>
+            </div>
+
+            <!-- Toolbar -->
+            <div class="doc-toolbar">
+                <div class="doc-toolbar__search">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                    <input type="text" id="docSearch" placeholder="Search documents...">
+                </div>
+                <div class="doc-toolbar__filters">
+                    <select id="filterType" class="doc-filter-select">
+                        <option value="">All Types</option>
+                        <option value="pdf">PDF</option>
+                        <option value="docx">DOCX</option>
+                        <option value="txt">TXT</option>
+                        <option value="markdown">Markdown</option>
+                        <option value="text">Text Input</option>
+                    </select>
+                    <select id="filterStatus" class="doc-filter-select">
+                        <option value="">All Status</option>
+                        <option value="ready">Ready</option>
+                        <option value="processing">Processing</option>
+                        <option value="pending">Pending</option>
+                        <option value="error">Error</option>
+                    </select>
+                </div>
+                <div class="doc-toolbar__view">
+                    <button class="view-toggle active" data-view="grid" id="viewGrid" title="Grid view">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+                    </button>
+                    <button class="view-toggle" data-view="list" id="viewList" title="List view">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Document Grid/List -->
+            <div class="doc-container doc-container--grid" id="docContainer">
+                <!-- Documents injected by JS -->
+            </div>
+
+            <!-- Empty State -->
+            <div class="doc-empty" id="docEmpty" style="display:none;">
+                <div class="doc-empty__illustration">
+                    <svg viewBox="0 0 120 100" fill="none">
+                        <rect x="25" y="10" width="50" height="65" rx="6" fill="#e0e7ff" stroke="#818cf8" stroke-width="1.5"/>
+                        <rect x="35" y="25" width="30" height="3" rx="1.5" fill="#a5b4fc"/>
+                        <rect x="35" y="33" width="25" height="3" rx="1.5" fill="#a5b4fc"/>
+                        <rect x="35" y="41" width="28" height="3" rx="1.5" fill="#a5b4fc"/>
+                        <rect x="35" y="49" width="20" height="3" rx="1.5" fill="#c7d2fe"/>
+                        <circle cx="80" cy="70" r="18" fill="#f0fdf4" stroke="#6ee7b7" stroke-width="1.5"/>
+                        <path d="M74 70h12M80 64v12" stroke="#10b981" stroke-width="2.5" stroke-linecap="round"/>
+                    </svg>
+                </div>
+                <h3 class="doc-empty__title">No documents yet</h3>
+                <p class="doc-empty__text">Upload files, paste text, or ingest URLs above to start building your knowledge base.</p>
+            </div>
+        </div>
+
+    </div><!-- /studio-scroll -->
+</main>
+
+<!-- ═══ DELETE CONFIRM MODAL ═══ -->
+<div class="modal-overlay" id="deleteModal">
+    <div class="modal-box">
+        <div class="modal-box__icon">🗑️</div>
+        <h3 class="modal-box__title">Delete Document?</h3>
+        <p class="modal-box__desc" id="deleteModalDesc">This will permanently delete this document and remove all its chunks from the knowledge base.</p>
+        <div class="modal-box__actions">
+            <button class="modal-box__btn modal-box__btn--cancel" id="deleteModalCancel">Cancel</button>
+            <button class="modal-box__btn modal-box__btn--danger" id="deleteModalConfirm">Delete</button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ DOCUMENT DETAIL DRAWER ═══ -->
+<div class="doc-drawer-overlay" id="docDrawerOverlay"></div>
+<aside class="doc-drawer" id="docDrawer">
+    <div class="doc-drawer__header">
+        <h3 class="doc-drawer__title" id="drawerDocName">Document</h3>
+        <button class="doc-drawer__close" id="drawerClose">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+    </div>
+    <div class="doc-drawer__body">
+        <div class="doc-drawer__meta" id="drawerMeta"></div>
+    </div>
+</aside>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/studio/js/studio.js"></script>
+{% endblock %}

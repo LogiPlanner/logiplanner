@@ -14,7 +14,6 @@ from typing import List, Dict, Any, Optional
 from langchain_community.document_loaders import (
     PyPDFLoader,
     TextLoader,
-    Docx2txtLoader,
 )
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document as LCDocument
@@ -60,6 +59,28 @@ def validate_file(filename: str, file_size: int) -> tuple[bool, str]:
     return True, ""
 
 
+def _load_docx(file_path: str) -> List[LCDocument]:
+    """Load a DOCX file using python-docx for robust handling of complex documents."""
+    from docx import Document as DocxDocument
+    doc = DocxDocument(file_path)
+    paragraphs = []
+    for para in doc.paragraphs:
+        text = para.text.strip()
+        if text:
+            paragraphs.append(text)
+    # Also extract text from tables
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                text = cell.text.strip()
+                if text:
+                    paragraphs.append(text)
+    full_text = "\n\n".join(paragraphs)
+    if not full_text.strip():
+        raise ValueError("No readable text found in DOCX file")
+    return [LCDocument(page_content=full_text, metadata={"source": file_path})]
+
+
 def load_document(file_path: str, filename: str) -> List[LCDocument]:
     """
     Load a document using the appropriate LangChain loader.
@@ -69,14 +90,14 @@ def load_document(file_path: str, filename: str) -> List[LCDocument]:
 
     if doc_type == "pdf":
         loader = PyPDFLoader(file_path)
+        return loader.load()
     elif doc_type == "docx":
-        loader = Docx2txtLoader(file_path)
+        return _load_docx(file_path)
     elif doc_type in ("txt", "markdown"):
         loader = TextLoader(file_path, encoding="utf-8")
+        return loader.load()
     else:
         raise ValueError(f"Unsupported document type: {doc_type}")
-
-    return loader.load()
 
 
 def split_documents(

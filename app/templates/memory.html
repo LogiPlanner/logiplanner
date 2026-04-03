@@ -1,8 +1,6 @@
 {% extends "base.html" %}
 
 {% block title %}Project Memory — LogiPlanner{% endblock %}
-{% block nav_project_memory %}active{% endblock %}
-
 {% block styles %}
 <link rel="stylesheet" href="/static/memory/css/memory.css">
 {% endblock %}
@@ -12,10 +10,25 @@
     <!-- Top Bar -->
     <header class="topbar">
         <div class="topbar__left">
-            <h1 class="topbar__title">Project Memory</h1>
+            <div class="topbar__page-title">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                <span>Project Memory</span>
+            </div>
             <select id="projectSelect" class="topbar__project-select">
                 <option>Loading projects...</option>
             </select>
+        </div>
+        <div class="topbar__right">
+            <button class="topbar__icon-btn" aria-label="Notifications">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+            </button>
+            <div class="topbar__avatar" id="userAvatar">
+                <span id="avatarInitials">U</span>
+                <div class="topbar__dropdown">
+                    <a href="/profile" class="topbar__dropdown-item">Profile Settings</a>
+                    <a href="/team-select" class="topbar__dropdown-item">Manage Teams</a>
+                </div>
+            </div>
         </div>
     </header>
 
