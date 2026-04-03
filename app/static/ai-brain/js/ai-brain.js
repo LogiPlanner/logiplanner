@@ -43,6 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const chatWelcome = document.getElementById('chatWelcome');
     const chatInput = document.getElementById('chatInput');
     const chatSendBtn = document.getElementById('chatSendBtn');
+    const quickPromptButtons = document.querySelectorAll('.chat-quick-prompt');
     const deleteChatBtn = document.getElementById('deleteChatBtn');
     const newChatBtn = document.getElementById('newChatBtn');
     const chatModeBtn = document.getElementById('chatModeBtn');
@@ -611,15 +612,144 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
         }
 
+        let bodyHtml;
+        const cardData = parseCardPayload(content);
+        if (cardData) {
+            bodyHtml = renderLiveCards(cardData);
+        } else {
+            bodyHtml = formatMarkdown(content);
+        }
+
         msgDiv.innerHTML = `
             ${avatar}
             <div class="chat-msg__content">
-                ${formatMarkdown(content)}
+                ${bodyHtml}
                 ${sourcesHtml}
             </div>
         `;
 
         chatMessages.appendChild(msgDiv);
+    }
+
+    function parseCardPayload(content) {
+        if (!content || typeof content !== 'string') return null;
+
+        const marker = '__CARDS__:';
+        const normalized = content.trimStart();
+        const markerIndex = normalized.indexOf(marker);
+        if (markerIndex < 0) return null;
+
+        let payload = normalized.slice(markerIndex + marker.length).trim();
+        if (!payload) return null;
+
+        // Handle fenced markdown payloads: ```json ... ```
+        if (payload.startsWith('```')) {
+            const fenceMatch = payload.match(/^```(?:json)?\s*([\s\S]*?)\s*```/i);
+            if (fenceMatch && fenceMatch[1]) {
+                payload = fenceMatch[1].trim();
+            }
+        }
+
+        try {
+            return JSON.parse(payload);
+        } catch (e) {
+            // Fallback: try parsing the first JSON object in the text.
+            const firstBrace = payload.indexOf('{');
+            const lastBrace = payload.lastIndexOf('}');
+            if (firstBrace >= 0 && lastBrace > firstBrace) {
+                const candidate = payload.slice(firstBrace, lastBrace + 1);
+                try {
+                    return JSON.parse(candidate);
+                } catch (_ignored) {
+                    return null;
+                }
+            }
+            return null;
+        }
+    }
+
+    function renderLiveCards(data) {
+        if (!data) return '';
+        const typeIcons = { timeline: '🕐', calendar: '📅', workspace: '🗂️' };
+        const icon = typeIcons[data.type] || '📋';
+        const items = data.items || [];
+
+        let html = `
+            <div class="live-cards">
+                <div class="live-cards__heading">
+                    <span>${icon}</span>
+                    <span>${escapeHtml(data.heading || '')}</span>
+                    <a href="${escapeHtml(data.url || '#')}" class="live-cards__view-all">View All →</a>
+                </div>
+        `;
+
+        if (items.length === 0) {
+            html += `<div class="live-cards__empty">Nothing to show right now.</div>`;
+        } else if (data.type === 'timeline') {
+            const typeMeta = {
+                decision:  { label: 'Decision',  cls: 'decision',  ico: '⚖️'  },
+                milestone: { label: 'Milestone', cls: 'milestone', ico: '🏆' },
+                summary:   { label: 'Summary',   cls: 'summary',   ico: '📋' },
+                upload:    { label: 'Upload',     cls: 'upload',    ico: '📎' },
+            };
+            items.forEach(item => {
+                const t = typeMeta[item.entry_type] || { label: item.entry_type, cls: 'default', ico: '📌' };
+                html += `
+                    <div class="live-card live-card--${t.cls}">
+                        <div class="live-card__accent"></div>
+                        <div class="live-card__body">
+                            <div class="live-card__row-top">
+                                <span class="live-card__type-badge live-card__type-badge--${t.cls}">${t.ico} ${t.label}</span>
+                                <span class="live-card__meta-date">${escapeHtml(item.date || '')}</span>
+                            </div>
+                            <div class="live-card__title">${escapeHtml(item.title || '')}</div>
+                            <div class="live-card__project">📁 ${escapeHtml(item.project || '')}</div>
+                            ${item.content ? `<div class="live-card__desc">${escapeHtml(item.content)}</div>` : ''}
+                        </div>
+                        <a href="${escapeHtml(data.url || '/memory')}" class="live-card__open-btn">Open →</a>
+                    </div>
+                `;
+            });
+        } else if (data.type === 'calendar') {
+            items.forEach(item => {
+                const pCls = item.priority === 'high' ? 'high' : item.priority === 'low' ? 'low' : 'medium';
+                html += `
+                    <div class="live-card live-card--task">
+                        <div class="live-card__accent"></div>
+                        <div class="live-card__body">
+                            <div class="live-card__row-top">
+                                <span class="live-card__priority-badge live-card__priority-badge--${pCls}">${escapeHtml(item.priority || 'medium')}</span>
+                            </div>
+                            <div class="live-card__title">${escapeHtml(item.title || '')}</div>
+                            <div class="live-card__meta-date">📅 ${escapeHtml(item.start)} → ${escapeHtml(item.end)}</div>
+                            ${item.location ? `<div class="live-card__project">📍 ${escapeHtml(item.location)}</div>` : ''}
+                        </div>
+                        <a href="${escapeHtml(data.url || '/dashboard')}" class="live-card__open-btn">Open →</a>
+                    </div>
+                `;
+            });
+        } else {
+            items.forEach(item => {
+                html += `
+                    <div class="live-card live-card--task">
+                        <div class="live-card__accent"></div>
+                        <div class="live-card__body">
+                            <div class="live-card__row-top">
+                                ${item.badge ? `<span class="live-card__type-badge live-card__type-badge--summary">${escapeHtml(item.badge)}</span>` : ''}
+                                ${item.meta ? `<span class="live-card__meta-date">${escapeHtml(item.meta)}</span>` : ''}
+                            </div>
+                            <div class="live-card__title">${escapeHtml(item.title || '')}</div>
+                            ${item.secondary ? `<div class="live-card__project">${escapeHtml(item.secondary)}</div>` : ''}
+                            ${item.description ? `<div class="live-card__desc">${escapeHtml(item.description)}</div>` : ''}
+                        </div>
+                        <a href="${escapeHtml(item.href || data.url || '/dashboard')}" class="live-card__open-btn">${escapeHtml(item.cta || 'Open →')}</a>
+                    </div>
+                `;
+            });
+        }
+
+        html += `</div>`;
+        return html;
     }
 
     function showTypingIndicator() {
@@ -723,10 +853,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Quick prompts
+    function runQuickPrompt(promptText) {
+        const prompt = (promptText || '').trim();
+        if (!prompt) return;
+        chatInput.value = prompt;
+        sendMessage();
+    }
+
     document.querySelectorAll('.chat-welcome__suggestion').forEach(btn => {
         btn.addEventListener('click', () => {
-            chatInput.value = btn.textContent.trim();
-            sendMessage();
+            runQuickPrompt(btn.textContent.trim());
+        });
+    });
+
+    quickPromptButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            runQuickPrompt(btn.dataset.prompt || btn.textContent.trim());
         });
     });
 

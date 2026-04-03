@@ -200,6 +200,100 @@
             </div>
         </div>
     </main>
+
+    <!-- Task Modal Overlay -->
+    <div class="task-modal-overlay" id="taskModalOverlay">
+        <div class="task-modal" id="taskModal">
+            <div class="task-modal__header">
+                <h3 class="task-modal__title" id="taskModalTitle">Add Task</h3>
+                <button class="task-modal__close" id="taskModalClose">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <form class="task-modal__form" id="taskForm">
+                <input type="hidden" id="taskEditId" value="">
+                <div class="task-modal__field">
+                    <label for="taskTitleInput">Title</label>
+                    <input type="text" id="taskTitleInput" placeholder="What needs to be done?" maxlength="200" required>
+                </div>
+                <div class="task-modal__field">
+                    <label for="taskDescInput">Description <span class="task-modal__optional">(optional — use @name to tag members)</span></label>
+                    <div class="task-modal__mention-wrap">
+                        <textarea id="taskDescInput" rows="3" placeholder="Add details... type @ to tag a team member"></textarea>
+                        <div class="task-modal__mention-dropdown" id="mentionDropdown"></div>
+                    </div>
+                </div>
+                <div class="task-modal__row">
+                    <div class="task-modal__field">
+                        <label for="taskStartInput">Start</label>
+                        <input type="datetime-local" id="taskStartInput" required>
+                    </div>
+                    <div class="task-modal__field">
+                        <label for="taskEndInput">End</label>
+                        <input type="datetime-local" id="taskEndInput" required>
+                    </div>
+                </div>
+                <div class="task-modal__field">
+                    <label for="taskLocationInput">Location <span class="task-modal__optional">(optional)</span></label>
+                    <input type="text" id="taskLocationInput" placeholder="Add a location..." maxlength="500">
+                </div>
+                <div class="task-modal__row">
+                    <div class="task-modal__field">
+                        <label for="taskPriorityInput">Priority</label>
+                        <select id="taskPriorityInput">
+                            <option value="low">Low</option>
+                            <option value="medium" selected>Medium</option>
+                            <option value="high">High</option>
+                        </select>
+                    </div>
+                    <div class="task-modal__field">
+                        <label>Color Tag</label>
+                        <div class="task-modal__color-picker" id="colorPicker">
+                            <button type="button" class="task-modal__color-swatch task-modal__color-swatch--none active" data-color="" title="None">✕</button>
+                            <button type="button" class="task-modal__color-swatch" data-color="#ef4444" title="Red" style="background:#ef4444"></button>
+                            <button type="button" class="task-modal__color-swatch" data-color="#f59e0b" title="Amber" style="background:#f59e0b"></button>
+                            <button type="button" class="task-modal__color-swatch" data-color="#22c55e" title="Green" style="background:#22c55e"></button>
+                            <button type="button" class="task-modal__color-swatch" data-color="#3b82f6" title="Blue" style="background:#3b82f6"></button>
+                            <button type="button" class="task-modal__color-swatch" data-color="#8b5cf6" title="Purple" style="background:#8b5cf6"></button>
+                            <button type="button" class="task-modal__color-swatch" data-color="#ec4899" title="Pink" style="background:#ec4899"></button>
+                        </div>
+                    </div>
+                </div>
+                <div class="task-modal__field">
+                    <label>Tagged Members</label>
+                    <div class="task-modal__tags" id="taggedMembersContainer"></div>
+                </div>
+                <div class="task-modal__actions">
+                    <button type="button" class="task-modal__btn task-modal__btn--cancel" id="taskModalCancel">Cancel</button>
+                    <button type="submit" class="task-modal__btn task-modal__btn--save" id="taskModalSave">Add Task</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Day Detail Panel (shows tasks for clicked day) -->
+    <div class="day-panel-overlay" id="dayPanelOverlay">
+        <div class="day-panel" id="dayPanel">
+            <div class="day-panel__header">
+                <div>
+                    <h3 class="day-panel__title" id="dayPanelTitle">April 3, 2026</h3>
+                    <span class="day-panel__count" id="dayPanelCount">0 tasks</span>
+                </div>
+                <div class="day-panel__header-actions">
+                    <button class="day-panel__add-btn" id="dayPanelAddBtn">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="18" height="18"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                        Add Task
+                    </button>
+                    <button class="day-panel__close" id="dayPanelClose">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+            </div>
+            <div class="day-panel__tasks" id="dayPanelTasks">
+                <!-- Tasks rendered here -->
+            </div>
+        </div>
+    </div>
 {% endblock %}
 
 {% block scripts %}

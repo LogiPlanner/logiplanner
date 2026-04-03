@@ -57,6 +57,9 @@ app.include_router(rag_router, prefix=settings.API_V1_STR + "/rag", tags=["rag"]
 from app.api.v1.timeline import router as timeline_router
 app.include_router(timeline_router, prefix=settings.API_V1_STR + "/timeline", tags=["timeline"])
 
+from app.api.v1.calendar import router as calendar_router
+app.include_router(calendar_router, prefix=settings.API_V1_STR + "/calendar", tags=["calendar"])
+
 
 # ──────────────────────────────────────────────
 # Health Check

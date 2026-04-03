@@ -24,6 +24,7 @@ Usage:
 """
 
 import json
+import time
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone
 
@@ -106,6 +107,36 @@ class RAGEngine:
             collection_name=collection_name,
             embedding_function=self._embeddings,
         )
+
+    def _invoke_llm_with_retry(self, messages, max_retries: int = 3):
+        """Invoke chat model with small retry/backoff for transient connection failures."""
+        last_error = None
+        for attempt in range(1, max_retries + 1):
+            try:
+                return self._llm.invoke(messages)
+            except Exception as e:
+                last_error = e
+                err_name = e.__class__.__name__.lower()
+                err_text = str(e).lower()
+                is_transient = (
+                    "connection" in err_name or
+                    "timeout" in err_name or
+                    "rate" in err_name or
+                    "connection" in err_text or
+                    "timeout" in err_text or
+                    "tempor" in err_text or
+                    "try again" in err_text
+                )
+
+                print(f"[RAG] Chat invoke failed (attempt {attempt}/{max_retries}): {e.__class__.__name__}: {e}")
+
+                if not is_transient or attempt == max_retries:
+                    raise
+
+                # Lightweight exponential backoff: 1s, 2s, 4s
+                time.sleep(2 ** (attempt - 1))
+
+        raise last_error
 
     # ──────────────────────────────────────────────
     # INGESTION
@@ -215,6 +246,7 @@ class RAGEngine:
         query: str,
         chat_history: Optional[List[Dict[str, str]]] = None,
         filters: Optional[Dict[str, Any]] = None,
+        live_context: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Full RAG chat pipeline:
@@ -269,6 +301,15 @@ class RAGEngine:
                     })
             context = "\n\n---\n\n".join(context_parts)
 
+        if live_context:
+            sources.append({
+                "filename": "Live Workspace Context",
+                "page_number": 0,
+                "uploader": "system",
+                "doc_type": "live_context",
+                "chunk_index": 0,
+            })
+
         # Step 4: Build message chain
         messages = [SystemMessage(content=SYSTEM_PROMPT)]
 
@@ -281,15 +322,19 @@ class RAGEngine:
                     messages.append(AIMessage(content=msg["content"]))
 
         # Add the contextual query
-        contextual_query = CONTEXT_TEMPLATE.format(context=context, question=query)
+        contextual_query = CONTEXT_TEMPLATE.format(
+            context=context,
+            live_context=live_context or "[NO LIVE WORKSPACE CONTEXT PROVIDED]",
+            question=query,
+        )
         messages.append(HumanMessage(content=contextual_query))
 
         # Step 5: Generate response
         try:
-            response = self._llm.invoke(messages)
+            response = self._invoke_llm_with_retry(messages)
             response_text = response.content
         except Exception as e:
-            print(f"[RAG] Chat error: {e}")
+            print(f"[RAG] Chat error (final): {e.__class__.__name__}: {e}")
             response_text = f"I encountered an error while processing your question. Please try again. Error: {str(e)}"
 
         return {

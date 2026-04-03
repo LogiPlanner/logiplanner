@@ -12,13 +12,17 @@ import os
 import json
 import uuid
 from typing import List, Optional
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, BackgroundTasks
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 
 from app.core.dependencies import get_current_user
 from app.core.database import get_db
-from app.models.user import User, Team, Document, ChatMessage, UserRole, Role
+from app.models.user import User, Team, Project, Document, ChatMessage, UserRole, Role
+from app.models.calendar_task import CalendarTask
+from app.models.timeline import TimelineEntry
 from app.schemas.rag import (
     IngestTextRequest,
     IngestResponse,
@@ -93,6 +97,162 @@ def _require_editor_or_owner(user: User, team_id: int, db: Session) -> str:
             detail="Only team owners and editors can modify the knowledge base"
         )
     return role
+
+
+def _format_datetime(value: Optional[datetime]) -> Optional[str]:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value.isoformat()
+    return value.astimezone(timezone.utc).isoformat()
+
+
+def _truncate_text(value: Optional[str], limit: int = 240) -> Optional[str]:
+    if not value:
+        return value
+    return value[:limit] + ("..." if len(value) > limit else "")
+
+
+def _serialize_task(task: CalendarTask) -> dict:
+    creator_name = task.user.full_name if task.user and task.user.full_name else task.user.email if task.user else None
+    tagged_users = [
+        {"id": user.id, "name": user.full_name or user.email}
+        for user in task.tagged_users
+    ]
+    return {
+        "id": task.id,
+        "title": task.title,
+        "description": _truncate_text(task.description),
+        "start": _format_datetime(task.start_datetime),
+        "end": _format_datetime(task.end_datetime),
+        "location": task.location,
+        "priority": task.priority or "medium",
+        "is_completed": task.is_completed,
+        "created_by": creator_name,
+        "tagged_users": tagged_users,
+    }
+
+
+def _build_live_workspace_context(
+    db: Session,
+    team_id: int,
+    current_user: User,
+    max_projects: int = 8,
+    max_personal_tasks: int = 12,
+    max_team_tasks: int = 12,
+    max_timeline_items: int = 15,
+) -> str:
+    """Build a bounded live workspace snapshot for the model to reason over."""
+    team = db.query(Team).filter(Team.id == team_id).first()
+    now_utc = datetime.now(timezone.utc)
+
+    total_projects = db.query(Project).filter(Project.team_id == team_id).count()
+    projects = (
+        db.query(Project)
+        .filter(Project.team_id == team_id)
+        .order_by(Project.created_at.desc())
+        .limit(max_projects)
+        .all()
+    )
+    project_ids = [project.id for project in projects]
+    project_map = {project.id: project.project_name for project in projects}
+
+    personal_tasks = (
+        db.query(CalendarTask)
+        .filter(
+            CalendarTask.team_id == team_id,
+            or_(
+                CalendarTask.user_id == current_user.id,
+                CalendarTask.tagged_users.any(User.id == current_user.id),
+            ),
+        )
+        .order_by(
+            CalendarTask.is_completed.asc(),
+            CalendarTask.updated_at.desc().nullslast(),
+            CalendarTask.start_datetime.asc(),
+        )
+        .limit(max_personal_tasks)
+        .all()
+    )
+
+    team_tasks = (
+        db.query(CalendarTask)
+        .filter(CalendarTask.team_id == team_id)
+        .order_by(
+            CalendarTask.is_completed.asc(),
+            CalendarTask.updated_at.desc().nullslast(),
+            CalendarTask.start_datetime.asc(),
+        )
+        .limit(max_team_tasks)
+        .all()
+    )
+
+    timeline_entries = []
+    if project_ids:
+        timeline_entries = (
+            db.query(TimelineEntry)
+            .filter(TimelineEntry.project_id.in_(project_ids))
+            .order_by(TimelineEntry.created_at.desc())
+            .limit(max_timeline_items)
+            .all()
+        )
+
+    payload = {
+        "generated_at": now_utc.isoformat(),
+        "team": {
+            "id": team_id,
+            "name": team.team_name if team else None,
+            "description": team.description if team else None,
+        },
+        "limits": {
+            "projects": max_projects,
+            "personal_tasks": max_personal_tasks,
+            "team_tasks": max_team_tasks,
+            "timeline_entries": max_timeline_items,
+        },
+        "project_snapshot": {
+            "total_projects": total_projects,
+            "returned_projects": len(projects),
+            "items": [
+                {
+                    "id": project.id,
+                    "name": project.project_name,
+                    "created_at": _format_datetime(project.created_at),
+                }
+                for project in projects
+            ],
+        },
+        "personal_task_snapshot": {
+            "returned_tasks": len(personal_tasks),
+            "open_tasks": sum(1 for task in personal_tasks if not task.is_completed),
+            "upcoming_tasks": sum(
+                1
+                for task in personal_tasks
+                if not task.is_completed and task.end_datetime and task.end_datetime >= now_utc
+            ),
+            "items": [_serialize_task(task) for task in personal_tasks],
+        },
+        "team_task_snapshot": {
+            "returned_tasks": len(team_tasks),
+            "items": [_serialize_task(task) for task in team_tasks],
+        },
+        "timeline_snapshot": {
+            "returned_entries": len(timeline_entries),
+            "items": [
+                {
+                    "id": entry.id,
+                    "project": project_map.get(entry.project_id, f"Project {entry.project_id}"),
+                    "entry_type": entry.entry_type.value,
+                    "title": entry.title,
+                    "content": _truncate_text(entry.content),
+                    "source_reference": entry.source_reference,
+                    "created_at": _format_datetime(entry.created_at),
+                }
+                for entry in timeline_entries
+            ],
+        },
+    }
+    return json.dumps(payload)
 
 
 # ──────────────────────────────────────────────
@@ -410,6 +570,8 @@ async def chat_with_brain(
     """
     team = _verify_team_access(current_user, data.team_id, db)
 
+    live_workspace_context = _build_live_workspace_context(db, data.team_id, current_user)
+
     # Get THIS USER's recent chat history (private conversation)
     history_filter = [
         ChatMessage.team_id == data.team_id,
@@ -437,6 +599,7 @@ async def chat_with_brain(
         query=data.message,
         chat_history=chat_history,
         filters=data.filters,
+        live_context=live_workspace_context,
     )
 
     # Save user message

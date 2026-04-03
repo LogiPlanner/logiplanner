@@ -151,3 +151,4 @@ class ChatMessage(Base):
     
 
 from app.models.timeline import TimelineEntry
+from app.models.calendar_task import CalendarTask

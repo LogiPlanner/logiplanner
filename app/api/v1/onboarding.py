@@ -205,6 +205,12 @@ async def upload_documents(
                             _doc.error_message = str(e)[:500]
                             _db.commit()
                     finally:
+                        if os.path.exists(fp):
+                            try:
+                                os.remove(fp)
+                                print(f"[RAG/ONBOARDING] Deleted uploaded file: {fp}")
+                            except Exception as cleanup_error:
+                                print(f"[RAG/ONBOARDING] Warning: Could not delete {fp}: {cleanup_error}")
                         _db.close()
 
                 background_tasks.add_task(
