@@ -4,6 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 
+
 from app.core.config import settings
 from app.core.database import engine
 
@@ -52,6 +53,9 @@ app.include_router(onboarding_router, prefix=settings.API_V1_STR + "/onboarding"
 
 from app.api.v1.rag import router as rag_router
 app.include_router(rag_router, prefix=settings.API_V1_STR + "/rag", tags=["rag"])
+
+from app.api.v1.timeline import router as timeline_router
+app.include_router(timeline_router, prefix=settings.API_V1_STR + "/timeline", tags=["timeline"])
 
 
 # ──────────────────────────────────────────────
@@ -107,6 +111,11 @@ async def dashboard_page(request: Request):
 @app.get("/ai-brain")
 async def ai_brain_page(request: Request):
     return templates.TemplateResponse("ai-brain.html", {"request": request})
+
+
+@app.get("/memory")
+async def memory_page(request: Request):
+    return templates.TemplateResponse("memory.html", {"request": request})
 
 
 @app.get("/")

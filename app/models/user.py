@@ -147,3 +147,6 @@ class ChatMessage(Base):
 
     def __repr__(self):
         return f"<ChatMessage {self.role}: {self.content[:50]}...>"
+    
+
+from app.models.timeline import TimelineEntry
