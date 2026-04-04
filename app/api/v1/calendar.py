@@ -364,6 +364,8 @@ class AISuggestionsResponse(_PydanticBase):
 
 _AI_SUGGESTIONS_PROMPT = """You are a proactive project assistant helping a team stay on track.
 
+Today's date is {today}. All proposed deadlines MUST be on or after today.
+
 Using the knowledge base context below, suggest up to 4 actionable tasks the team should work on.
 
 Guidelines:
@@ -426,7 +428,12 @@ def get_ai_suggestions(
     if not existing_text:
         existing_text = "(no existing tasks)"
 
-    prompt = _AI_SUGGESTIONS_PROMPT.format(context=context_text, existing_tasks=existing_text)
+    from datetime import date as _date
+    prompt = _AI_SUGGESTIONS_PROMPT.format(
+        today=_date.today().isoformat(),
+        context=context_text,
+        existing_tasks=existing_text,
+    )
 
     try:
         rag_engine._ensure_initialized()
