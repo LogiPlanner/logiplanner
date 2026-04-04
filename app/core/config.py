@@ -1,5 +1,12 @@
+import secrets as _secrets
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
+
+
+# Generated once per process — all tokens signed with this key
+# become invalid when the server restarts.
+_RUNTIME_SECRET = _secrets.token_urlsafe(64)
 
 
 class Settings(BaseSettings):
@@ -14,11 +21,11 @@ class Settings(BaseSettings):
     # Database
     DATABASE_URL: str = "postgresql+psycopg2://postgres:dxdelvin@localhost:5432/logiplanner"
 
-    # Security
-    SECRET_KEY: str = "SUPER_SECRET_CHANGE_IN_PRODUCTION_2026"
+    # Security — random per startup; set SECRET_KEY in .env to persist across restarts
+    SECRET_KEY: str = _RUNTIME_SECRET
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7   # 7 days
-    REFRESH_TOKEN_EXPIRE_DAYS: int = 30
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30             # 30 minutes (realistic)
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7                # 7 days
 
     # Email
     SMTP_HOST: Optional[str] = None

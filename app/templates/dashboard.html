@@ -2,32 +2,20 @@
 
 {% block title %}Dashboard — LogiPlanner{% endblock %}
 {% block meta_description %}LogiPlanner Dashboard — Your project management hub{% endblock %}
-{% block nav_dashboard %}active{% endblock %}
-
 {% block styles %}
 <link rel="stylesheet" href="/static/dashboard/css/dashboard.css">
 {% endblock %}
 
+{% from "partials/navbar.html" import topbar %}
 {% block content %}
     <main class="dashboard-main">
-        <!-- Top Bar -->
-        <header class="topbar">
-            <div class="topbar__left">
-                <span class="topbar__greeting" id="greetingText">Good morning</span>
+        {% call topbar() %}
+            <div class="topbar__page-title">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"/></svg>
+                <span>Dashboard</span>
             </div>
-            <div class="topbar__right">
-                <select class="topbar__team-select" id="teamSelect">
-                    <option>Loading teams...</option>
-                </select>
-                <div class="topbar__avatar" id="userAvatar">
-                    <span id="avatarInitials">U</span>
-                    <div class="topbar__dropdown">
-                        <a href="/profile" class="topbar__dropdown-item">Profile Settings</a>
-                        <a href="/team-select" class="topbar__dropdown-item">Manage Teams</a>
-                    </div>
-                </div>
-            </div>
-        </header>
+            <span class="topbar__greeting" id="greetingText">Good morning</span>
+        {% endcall %}
 
         <!-- Scrollable Content -->
         <div class="dashboard-scroll">
@@ -118,6 +106,29 @@
                 <!-- Right Column -->
                 <div style="display:flex;flex-direction:column;gap:20px;">
 
+                    <!-- AI Actionable Steps -->
+                    <div class="card ai-suggestions-card" id="aiSuggestionsCard">
+                        <div class="card__header">
+                            <h3 class="card__title">
+                                <svg class="card__title-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                                AI Actionable Steps
+                            </h3>
+                            <button class="ai-suggestions__refresh-btn" id="aiSuggestionsRefresh" title="Refresh suggestions">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                            </button>
+                        </div>
+                        <div class="card__body ai-suggestions__body" id="aiSuggestionsBody">
+                            <div class="ai-suggestions__loading" id="aiSuggestionsLoading">
+                                <div class="ai-suggestions__spinner"></div>
+                                <span>AI is analyzing your project...</span>
+                            </div>
+                            <div class="ai-suggestions__empty" id="aiSuggestionsEmpty" style="display:none;">
+                                <span>No suggestions yet. Upload documents to your AI Brain to get started.</span>
+                            </div>
+                            <div class="ai-suggestions__list" id="aiSuggestionsList"></div>
+                        </div>
+                    </div>
+
                     <!-- Quick Actions -->
                     <div class="card">
                         <div class="card__header">
@@ -200,6 +211,123 @@
             </div>
         </div>
     </main>
+
+    <!-- Task Modal Overlay -->
+    <div class="task-modal-overlay" id="taskModalOverlay">
+        <div class="task-modal" id="taskModal">
+            <div class="task-modal__header">
+                <h3 class="task-modal__title" id="taskModalTitle">Add Task</h3>
+                <button class="task-modal__close" id="taskModalClose">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <form class="task-modal__form" id="taskForm">
+                <input type="hidden" id="taskEditId" value="">
+                <div class="task-modal__field">
+                    <label for="taskTitleInput">Title</label>
+                    <input type="text" id="taskTitleInput" placeholder="What needs to be done?" maxlength="200" required>
+                </div>
+                <div class="task-modal__field">
+                    <label for="taskDescInput">Description <span class="task-modal__optional">(optional — use @name to tag members)</span></label>
+                    <div class="task-modal__mention-wrap">
+                        <textarea id="taskDescInput" rows="3" placeholder="Add details... type @ to tag a team member"></textarea>
+                        <div class="task-modal__mention-dropdown" id="mentionDropdown"></div>
+                    </div>
+                </div>
+                <div class="task-modal__row">
+                    <div class="task-modal__field">
+                        <label for="taskStartInput">Start</label>
+                        <input type="datetime-local" id="taskStartInput" required>
+                    </div>
+                    <div class="task-modal__field">
+                        <label for="taskEndInput">End</label>
+                        <input type="datetime-local" id="taskEndInput" required>
+                    </div>
+                </div>
+                <div class="task-modal__field">
+                    <label for="taskLocationInput">Location <span class="task-modal__optional">(optional)</span></label>
+                    <input type="text" id="taskLocationInput" placeholder="Add a location..." maxlength="500">
+                </div>
+                <div class="task-modal__row">
+                    <div class="task-modal__field">
+                        <label for="taskTypeInput">Task Type</label>
+                        <select id="taskTypeInput">
+                            <option value="regular">📋 Regular Task</option>
+                            <option value="meeting">📅 Meeting</option>
+                            <option value="deadline">⏰ Deadline</option>
+                            <option value="milestone">🏁 Milestone</option>
+                            <option value="action_item">⚡ Action Item</option>
+                        </select>
+                    </div>
+                    <div class="task-modal__field">
+                        <label for="taskPriorityInput">Priority</label>
+                        <select id="taskPriorityInput">
+                            <option value="low">Low</option>
+                            <option value="medium" selected>Medium</option>
+                            <option value="high">High</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="task-modal__row">
+                    <div class="task-modal__field">
+                        <label>Color Tag</label>
+                        <div class="task-modal__color-picker" id="colorPicker">
+                            <button type="button" class="task-modal__color-swatch task-modal__color-swatch--none active" data-color="" title="None">✕</button>
+                            <button type="button" class="task-modal__color-swatch" data-color="#ef4444" title="Red" style="background:#ef4444"></button>
+                            <button type="button" class="task-modal__color-swatch" data-color="#f59e0b" title="Amber" style="background:#f59e0b"></button>
+                            <button type="button" class="task-modal__color-swatch" data-color="#22c55e" title="Green" style="background:#22c55e"></button>
+                            <button type="button" class="task-modal__color-swatch" data-color="#3b82f6" title="Blue" style="background:#3b82f6"></button>
+                            <button type="button" class="task-modal__color-swatch" data-color="#8b5cf6" title="Purple" style="background:#8b5cf6"></button>
+                            <button type="button" class="task-modal__color-swatch" data-color="#ec4899" title="Pink" style="background:#ec4899"></button>
+                        </div>
+                    </div>
+                </div>
+                <div class="task-modal__field">
+                    <label>Tagged Members</label>
+                    <div class="task-modal__tags" id="taggedMembersContainer"></div>
+                </div>
+                <div class="task-modal__save-error" id="taskSaveError" style="display:none;">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="18" height="18"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <span id="taskSaveErrorText"></span>
+                </div>
+                <div class="task-modal__conflict-warning" id="taskConflictWarning" style="display:none;">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="18" height="18"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                    <div class="task-modal__conflict-text">
+                        <strong>Time Conflict Detected</strong>
+                        <span id="taskConflictDetails"></span>
+                    </div>
+                </div>
+                <div class="task-modal__actions">
+                    <button type="button" class="task-modal__btn task-modal__btn--cancel" id="taskModalCancel">Cancel</button>
+                    <button type="submit" class="task-modal__btn task-modal__btn--save" id="taskModalSave">Add Task</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Day Detail Panel (shows tasks for clicked day) -->
+    <div class="day-panel-overlay" id="dayPanelOverlay">
+        <div class="day-panel" id="dayPanel">
+            <div class="day-panel__header">
+                <div>
+                    <h3 class="day-panel__title" id="dayPanelTitle">April 3, 2026</h3>
+                    <span class="day-panel__count" id="dayPanelCount">0 tasks</span>
+                </div>
+                <div class="day-panel__header-actions">
+                    <button class="day-panel__add-btn" id="dayPanelAddBtn">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="18" height="18"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                        Add Task
+                    </button>
+                    <button class="day-panel__close" id="dayPanelClose">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+            </div>
+            <div class="day-panel__tasks" id="dayPanelTasks">
+                <!-- Tasks rendered here -->
+            </div>
+        </div>
+    </div>
 {% endblock %}
 
 {% block scripts %}

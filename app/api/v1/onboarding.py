@@ -6,6 +6,7 @@ Now integrated with the RAG pipeline for document ingestion during team creation
 
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, BackgroundTasks, Form
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from typing import List, Optional
 import uuid
 import os
@@ -68,9 +69,9 @@ async def create_team_full(
     # Add user to team
     team.users.append(current_user)
 
-    # Assign owner role
+    # Assign owner role — scoped to this specific team
     owner_role = _get_or_create_role(db, "owner")
-    user_role = UserRole(user_id=current_user.id, role_id=owner_role.id)
+    user_role = UserRole(user_id=current_user.id, role_id=owner_role.id, team_id=team.id)
     db.add(user_role)
 
     db.commit()
@@ -205,6 +206,12 @@ async def upload_documents(
                             _doc.error_message = str(e)[:500]
                             _db.commit()
                     finally:
+                        if os.path.exists(fp):
+                            try:
+                                os.remove(fp)
+                                print(f"[RAG/ONBOARDING] Deleted uploaded file: {fp}")
+                            except Exception as cleanup_error:
+                                print(f"[RAG/ONBOARDING] Warning: Could not delete {fp}: {cleanup_error}")
                         _db.close()
 
                 background_tasks.add_task(
@@ -297,9 +304,9 @@ async def join_team_full(
     # Add to team
     team.users.append(current_user)
 
-    # Assign member role
+    # Assign member role — scoped to this specific team
     member_role = _get_or_create_role(db, "member")
-    user_role = UserRole(user_id=current_user.id, role_id=member_role.id)
+    user_role = UserRole(user_id=current_user.id, role_id=member_role.id, team_id=team.id)
     db.add(user_role)
 
     db.commit()
@@ -350,10 +357,23 @@ async def get_my_teams(
 
     result = []
     for t in teams:
-        # Determine user's role in this team
+        # Security: only consider roles scoped to THIS team (or legacy unscoped records)
         role_name = "viewer"  # default
-        user_roles = db.query(UserRole).filter(UserRole.user_id == current_user.id).all()
-        for ur in user_roles:
+        user_roles = (
+            db.query(UserRole)
+            .filter(
+                UserRole.user_id == current_user.id,
+                or_(
+                    UserRole.team_id == t.id,
+                    UserRole.team_id.is_(None),  # legacy records before migration
+                ),
+            )
+            .all()
+        )
+        # Team-scoped roles take priority over legacy (team_id=None)
+        team_scoped = [ur for ur in user_roles if ur.team_id == t.id]
+        legacy = [ur for ur in user_roles if ur.team_id is None]
+        for ur in (team_scoped + legacy):
             if ur.role and ur.role.name.lower() in ("owner", "editor", "viewer"):
                 role_name = ur.role.name.lower()
                 break

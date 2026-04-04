@@ -5,105 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="{% block meta_description %}LogiPlanner — Plans With Logic{% endblock %}">
     <title>{% block title %}LogiPlanner{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/common.css">
     <link rel="stylesheet" href="/static/auth/css/common.css">
     {% block styles %}{% endblock %}
-    <style>
-        /* ═══ Shared Navigation — Mobile Responsive ═══ */
-
-        /* Mobile hamburger toggler */
-        .mobile-toggle {
-            display: none;
-            position: fixed;
-            top: 16px;
-            left: 16px;
-            z-index: 100;
-            width: 42px;
-            height: 42px;
-            border-radius: 10px;
-            background: var(--color-surface, #fff);
-            border: 1.5px solid var(--color-border, #e5e7eb);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            cursor: pointer;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.25s ease;
-        }
-
-        .mobile-toggle svg {
-            width: 20px;
-            height: 20px;
-            stroke: var(--color-text, #1e1b4b);
-            fill: none;
-            stroke-width: 2;
-            stroke-linecap: round;
-            stroke-linejoin: round;
-        }
-
-        .mobile-toggle:hover {
-            background: var(--color-page-bg, #f4f5fa);
-        }
-
-        /* Sidebar overlay for mobile */
-        .sidebar-overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.4);
-            z-index: 40;
-            backdrop-filter: blur(4px);
-        }
-
-        .sidebar-overlay.active { display: block; }
-
-        /* Logout button styling (shared) */
-        .btn-logout {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            width: 100%;
-            padding: 12px 16px;
-            border: none;
-            background: rgba(239,68,68,0.06);
-            color: #b91c1c;
-            border-radius: 10px;
-            font-size: 0.85rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.25s ease;
-            font-family: inherit;
-        }
-
-        .btn-logout svg {
-            width: 18px;
-            height: 18px;
-        }
-
-        .btn-logout:hover {
-            background: rgba(239,68,68,0.12);
-        }
-
-        /* ─── Responsive ─── */
-        @media (max-width: 768px) {
-            .mobile-toggle {
-                display: flex;
-            }
-
-            .sidebar {
-                position: fixed !important;
-                left: -280px;
-                top: 0;
-                height: 100vh;
-                z-index: 50;
-                transition: left 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-                box-shadow: none;
-            }
-
-            .sidebar.open {
-                left: 0;
-                box-shadow: 4px 0 24px rgba(0,0,0,0.12);
-            }
-        }
-    </style>
 </head>
 <body>
     <!-- Mobile hamburger toggle -->
@@ -117,73 +21,7 @@
     {% block layout %}
     <div class="dashboard">
         <!-- ═══ SHARED SIDEBAR ═══ -->
-        <aside class="sidebar" id="mainSidebar">
-            <div class="sidebar__accent"></div>
-
-            <div class="sidebar__brand">
-                <div class="sidebar__logo">
-                    <svg viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-                </div>
-                <div>
-                    <div class="sidebar__brand-name">LogiPlanner</div>
-                    <div class="sidebar__brand-tag">Plans With Logic</div>
-                </div>
-            </div>
-
-            <nav class="sidebar__nav">
-                <a href="/dashboard" class="sidebar__link {% block nav_dashboard %}{% endblock %}">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
-                    Dashboard
-                </a>
-                <a href="/ai-brain" class="sidebar__link {% block nav_ai_brain %}{% endblock %}">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
-                    AI Brain
-                </a>
-                <a href="/memory" class="sidebar__link {% block nav_project_memory %}{% endblock %}">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
-                    Project Memory
-                </a>
-                <a href="#" class="sidebar__link {% block nav_meeting_notes %}{% endblock %}">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                    Meeting Notes
-                </a>
-                <a href="#" class="sidebar__link {% block nav_settings %}{% endblock %}">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/></svg>
-                    Settings
-                </a>
-            </nav>
-
-            <div class="sidebar__art">
-                <svg viewBox="0 0 200 120" fill="none">
-                    <circle cx="40" cy="30" r="4" fill="#4f46e5"/><circle cx="100" cy="18" r="6" fill="#7c3aed"/>
-                    <circle cx="160" cy="38" r="3" fill="#06d6a0"/><circle cx="70" cy="70" r="5" fill="#4f46e5"/>
-                    <circle cx="130" cy="80" r="4" fill="#06d6a0"/><circle cx="30" cy="100" r="3" fill="#7c3aed"/>
-                    <circle cx="170" cy="92" r="5" fill="#4f46e5"/>
-                    <line x1="40" y1="30" x2="100" y2="18" stroke="#4f46e5" stroke-width="1"/>
-                    <line x1="100" y1="18" x2="160" y2="38" stroke="#7c3aed" stroke-width="1"/>
-                    <line x1="40" y1="30" x2="70" y2="70" stroke="#4f46e5" stroke-width="1"/>
-                    <line x1="100" y1="18" x2="130" y2="80" stroke="#06d6a0" stroke-width="1"/>
-                    <line x1="70" y1="70" x2="130" y2="80" stroke="#7c3aed" stroke-width="1"/>
-                    <line x1="130" y1="80" x2="170" y2="92" stroke="#4f46e5" stroke-width="1"/>
-                    <line x1="30" y1="100" x2="70" y2="70" stroke="#7c3aed" stroke-width="1"/>
-                    <line x1="160" y1="38" x2="170" y2="92" stroke="#06d6a0" stroke-width="1"/>
-                </svg>
-            </div>
-
-            <div class="sidebar__footer">
-                <div class="sidebar__user" id="sidebarUser" style="display:none;">
-                    <div class="sidebar__user-avatar" id="sidebarAvatar">U</div>
-                    <div class="sidebar__user-info">
-                        <div class="sidebar__user-name" id="sidebarUserName">User</div>
-                        <div class="sidebar__user-role" id="sidebarUserRole"></div>
-                    </div>
-                </div>
-                <button class="btn-logout" id="logoutBtn">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
-                    Log Out
-                </button>
-            </div>
-        </aside>
+        {% include "partials/sidebar.html" %}
 
         <!-- ═══ MAIN CONTENT ═══ -->
         {% block content %}{% endblock %}
@@ -191,44 +29,7 @@
     {% endblock %}
 
     <!-- ═══ SHARED BASE SCRIPTS ═══ -->
-    <script>
-    (function() {
-        // ── Auth Guard ──
-        const urlParams = new URLSearchParams(window.location.search);
-        const urlToken = urlParams.get('token');
-        if (urlToken) {
-            localStorage.setItem('access_token', urlToken);
-            window.history.replaceState({}, document.title, window.location.pathname);
-        }
-        const token = localStorage.getItem('access_token');
-        if (!token) { window.location.href = '/login'; return; }
-
-        // ── Logout ──
-        document.getElementById('logoutBtn')?.addEventListener('click', () => {
-            localStorage.removeItem('access_token');
-            window.location.href = '/login';
-        });
-
-        // ── Mobile Sidebar Toggle ──
-        const toggle = document.getElementById('mobileToggle');
-        const sidebar = document.getElementById('mainSidebar');
-        const overlay = document.getElementById('sidebarOverlay');
-
-        if (toggle && sidebar) {
-            toggle.addEventListener('click', () => {
-                sidebar.classList.toggle('open');
-                overlay.classList.toggle('active');
-            });
-        }
-
-        if (overlay) {
-            overlay.addEventListener('click', () => {
-                sidebar.classList.remove('open');
-                overlay.classList.remove('active');
-            });
-        }
-    })();
-    </script>
+    <script src="/static/js/common.js" defer></script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

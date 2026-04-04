@@ -7,8 +7,10 @@ document.addEventListener('DOMContentLoaded', () => {
         'Content-Type': 'application/json'
     };
 
+    // Use the shared authFetch from common.js (handles token refresh + logout)
+    const mFetch = (url, opts = {}) => window.__lp.authFetch(url, opts);
+
     // DOM Elements
-    const projectTitle = document.getElementById('projectTitle');
     const timelineContainer = document.getElementById('timelineContainer');
     const timelineEmpty = document.getElementById('timelineEmpty');
     const searchInput = document.getElementById('searchInput');
@@ -53,19 +55,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function fetchProjects() {
         try {
-            const res = await fetch('/api/v1/timeline/projects', { headers });
+            const res = await mFetch('/api/v1/timeline/projects', { headers });
             if (res.ok) {
                 const projects = await res.json();
                 if (projects.length > 0) {
                     currentProjectId = projects[0].id;
-                    projectTitle.textContent = projects[0].project_name;
                     loadProjectData(currentProjectId);
                 } else {
-                    projectTitle.textContent = "No Projects";
                     timelineEmpty.style.display = 'block';
                 }
-            } else if (res.status === 401) {
-                window.location.href = '/login';
             }
         } catch(e) {
             console.error('Failed to fetch projects', e);
@@ -79,7 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function fetchTimeline(projectId) {
         try {
-            const res = await fetch(`/api/v1/timeline/project/${projectId}`, { headers });
+            const res = await mFetch(`/api/v1/timeline/project/${projectId}`, { headers });
             if (res.ok) {
                 const newData = await res.json();
                 if (allEntries.length > 0 && newData.length > allEntries.length) {
@@ -118,7 +116,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function fetchAnalytics(projectId) {
         try {
-            const res = await fetch(`/api/v1/timeline/project/${projectId}/analytics`, { headers });
+            const res = await mFetch(`/api/v1/timeline/project/${projectId}/analytics`, { headers });
             if (res.ok) {
                 const data = await res.json();
                 statDecisions.textContent = data.decisions_count;
@@ -389,7 +387,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         confirmDeleteBtn.textContent = "Deleting...";
         try {
-            const res = await fetch(`/api/v1/timeline/${entryToDelete}`, {
+            const res = await mFetch(`/api/v1/timeline/${entryToDelete}`, {
                 method: 'DELETE',
                 headers
             });
@@ -470,7 +468,7 @@ document.addEventListener('DOMContentLoaded', () => {
         saveEntryBtn.disabled = true;
 
         try {
-            const res = await fetch(url, {
+            const res = await mFetch(url, {
                 method: method,
                 headers,
                 body: JSON.stringify(payload)

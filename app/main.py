@@ -38,6 +38,21 @@ def create_tables():
     ModelBase.metadata.create_all(bind=engine)
     print("[OK] Database tables ensured")
 
+    # Clean up any documents left stuck in pending/processing from a previous crash
+    from app.core.database import SessionLocal
+    from app.models.user import Document
+    db = SessionLocal()
+    try:
+        stuck = db.query(Document).filter(Document.status.in_(["pending", "processing"])).all()
+        if stuck:
+            for doc in stuck:
+                doc.status = "error"
+                doc.error_message = "Processing was interrupted (server restart). Please re-upload."
+            db.commit()
+            print(f"[RAG] ⚠️ Marked {len(stuck)} stuck document(s) as error on startup.")
+    finally:
+        db.close()
+
 
 # ──────────────────────────────────────────────
 # API Routers
@@ -56,6 +71,9 @@ app.include_router(rag_router, prefix=settings.API_V1_STR + "/rag", tags=["rag"]
 
 from app.api.v1.timeline import router as timeline_router
 app.include_router(timeline_router, prefix=settings.API_V1_STR + "/timeline", tags=["timeline"])
+
+from app.api.v1.calendar import router as calendar_router
+app.include_router(calendar_router, prefix=settings.API_V1_STR + "/calendar", tags=["calendar"])
 
 
 # ──────────────────────────────────────────────
@@ -105,17 +123,22 @@ async def onboarding_page(request: Request):
 
 @app.get("/dashboard")
 async def dashboard_page(request: Request):
-    return templates.TemplateResponse("dashboard.html", {"request": request})
+    return templates.TemplateResponse("dashboard.html", {"request": request, "active_nav": "dashboard"})
 
 
 @app.get("/ai-brain")
 async def ai_brain_page(request: Request):
-    return templates.TemplateResponse("ai-brain.html", {"request": request})
+    return templates.TemplateResponse("ai-brain.html", {"request": request, "active_nav": "ai_brain"})
+
+
+@app.get("/studio")
+async def studio_page(request: Request):
+    return templates.TemplateResponse("studio.html", {"request": request, "active_nav": "ai_brain"})
 
 
 @app.get("/memory")
 async def memory_page(request: Request):
-    return templates.TemplateResponse("memory.html", {"request": request})
+    return templates.TemplateResponse("memory.html", {"request": request, "active_nav": "project_memory"})
 
 
 @app.get("/")
