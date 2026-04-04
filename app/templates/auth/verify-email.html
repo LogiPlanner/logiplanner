@@ -1,5 +1,6 @@
 {% extends "auth/base.html" %}
 {% block title %}Verify Email — LogiPlanner{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="/static/auth/css/verify-email.css">{% endblock %}
 {% block content %}
 <div class="auth-centered">
     <div class="auth-card" style="text-align:center;">
@@ -7,23 +8,41 @@
             <svg viewBox="0 0 24 24"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
         </div>
         <h1 class="auth-card__title" id="verificationTitle">Verify Your Email</h1>
-        <p class="auth-card__subtitle" id="verificationSubtitle">We sent a verification link to your email. Click the link to activate your LogiPlanner account.</p>
+        <p class="auth-card__subtitle" id="verificationSubtitle">We sent a 6-digit code to your email. Enter it below to activate your account.</p>
+
         <div id="verificationContainer">
-            <div class="status-card status-card--pending" id="statusCard">
-                <div class="status-card__header">
-                    <span id="statusIcon">
-                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="#f59e0b" stroke-width="2" fill="#fef3c7"/><circle cx="10" cy="10" r="4" fill="#f59e0b"/></svg>
-                    </span>
-                    <span class="status-card__label" id="statusText">Checking Status...</span>
+            <!-- Code entry form -->
+            <div id="codeEntrySection">
+                <div class="otp-inputs" id="otpInputs" aria-label="Verification code">
+                    <input class="otp-digit" type="text" inputmode="numeric" maxlength="1" pattern="[0-9]" aria-label="Digit 1" autocomplete="one-time-code">
+                    <input class="otp-digit" type="text" inputmode="numeric" maxlength="1" pattern="[0-9]" aria-label="Digit 2">
+                    <input class="otp-digit" type="text" inputmode="numeric" maxlength="1" pattern="[0-9]" aria-label="Digit 3">
+                    <input class="otp-digit" type="text" inputmode="numeric" maxlength="1" pattern="[0-9]" aria-label="Digit 4">
+                    <input class="otp-digit" type="text" inputmode="numeric" maxlength="1" pattern="[0-9]" aria-label="Digit 5">
+                    <input class="otp-digit" type="text" inputmode="numeric" maxlength="1" pattern="[0-9]" aria-label="Digit 6">
                 </div>
-                <p class="status-card__body" id="verificationMessage">Waiting for you to click the link in your email.</p>
+                <div id="codeError" class="message" aria-live="polite" style="margin-bottom:12px;"></div>
+                <button id="verifyCodeBtn" class="btn btn--primary btn--full">Verify Code</button>
             </div>
-            <a href="/login" id="verificationLoginLink" class="btn btn--primary btn--full hidden">Go to Login</a>
+
+            <!-- Success state -->
+            <div id="successSection" class="hidden">
+                <div class="status-card status-card--success" style="margin-bottom:16px;">
+                    <div class="status-card__header">
+                        <span><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="#10b981" stroke-width="2" fill="#d1fae5"/><path d="M6 10.5l2.5 2.5L14 8" stroke="#10b981" stroke-width="2" stroke-linecap="round"/></svg></span>
+                        <span class="status-card__label">Verified</span>
+                    </div>
+                    <p class="status-card__body">Your email has been confirmed. You can now sign in.</p>
+                </div>
+                <a href="/login" class="btn btn--primary btn--full">Go to Login</a>
+            </div>
+
             <a href="/signup" id="verificationSignupLink" class="btn btn--secondary btn--full hidden" style="margin-top:10px;">Go to Signup</a>
         </div>
-        <div class="resend-section">
-            <h3>Didn't receive the email?</h3>
-            <p>Enter your email below to request a new verification link.</p>
+
+        <div class="resend-section" id="resendSection">
+            <h3>Didn't receive the code?</h3>
+            <p>Enter your email below to get a new one.</p>
             <form id="verifyResendForm" class="inline-form">
                 <input type="email" id="verifyResendEmail" class="form-input" placeholder="you@company.com" autocomplete="email" required>
                 <button type="submit" class="btn btn--dark">Resend</button>
