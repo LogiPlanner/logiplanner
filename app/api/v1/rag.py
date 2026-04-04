@@ -75,27 +75,18 @@ def _get_user_team_role(user: User, team_id: int, db: Session) -> str:
     """
     Get the user's role for a SPECIFIC team.
     Only considers UserRole records scoped to this team (team_id matches).
-    Falls back to legacy records (team_id IS NULL) for backwards compatibility.
     Returns: 'owner', 'editor', 'viewer', or 'member' (treated as viewer).
     """
-    # Security: MUST filter by team_id to prevent cross-team privilege escalation
     user_roles = (
         db.query(UserRole)
         .filter(
             UserRole.user_id == user.id,
-            or_(
-                UserRole.team_id == team_id,
-                UserRole.team_id.is_(None),  # legacy records before migration
-            ),
+            UserRole.team_id == team_id,
         )
         .all()
     )
 
-    # Among matching roles, team-scoped ones take precedence over legacy (team_id=None)
-    team_scoped = [ur for ur in user_roles if ur.team_id == team_id]
-    legacy = [ur for ur in user_roles if ur.team_id is None]
-
-    for ur in (team_scoped + legacy):
+    for ur in user_roles:
         if ur.role:
             role_name = ur.role.name.lower()
             if role_name in ("owner", "editor", "viewer"):
@@ -200,6 +191,7 @@ def _build_live_task_summary(db: Session, team_id: int, current_user: User, max_
             ),
             CalendarTask.end_datetime >= now_utc,
         )
+        .distinct()
         .order_by(CalendarTask.start_datetime.asc())
         .limit(max_items)
         .all()

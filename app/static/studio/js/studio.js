@@ -251,7 +251,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (docs.length === 0) {
             docContainer.innerHTML = '';
-            docEmpty.style.display = allDocuments.length === 0 ? 'block' : 'block';
+            docEmpty.style.display = 'block';
             if (allDocuments.length > 0 && docs.length === 0) {
                 docEmpty.querySelector('.doc-empty__title').textContent = 'No matching documents';
                 docEmpty.querySelector('.doc-empty__text').textContent = 'Try adjusting your search or filters.';

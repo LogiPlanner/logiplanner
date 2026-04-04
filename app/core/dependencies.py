@@ -18,7 +18,8 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         email: str = payload.get("sub")
-        if email is None:
+        token_type: str = payload.get("token_type")
+        if email is None or token_type not in (None, "access"):
             raise credentials_exception
     except JWTError:
         raise credentials_exception

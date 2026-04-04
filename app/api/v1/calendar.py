@@ -31,9 +31,43 @@ def _verify_team_member(db: Session, user: User, team_id: int):
         raise HTTPException(status_code=403, detail="Not a member of this team")
 
 
+def _validate_task_time_range(start_datetime: datetime, end_datetime: datetime):
+    """Reject invalid task time ranges server-side."""
+    if end_datetime <= start_datetime:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="end_datetime must be after start_datetime",
+        )
+
+
+def _resolve_team_tagged_users(db: Session, team_id: int, tagged_user_ids: List[int]) -> List[User]:
+    """Resolve tagged users while enforcing team membership."""
+    requested_tagged_ids = set(tagged_user_ids)
+    if not requested_tagged_ids:
+        return []
+
+    tagged = (
+        db.query(User)
+        .join(user_team, user_team.c.user_id == User.id)
+        .filter(
+            User.id.in_(requested_tagged_ids),
+            user_team.c.team_id == team_id,
+        )
+        .all()
+    )
+    found_tagged_ids = {user.id for user in tagged}
+    invalid_tagged_ids = requested_tagged_ids - found_tagged_ids
+    if invalid_tagged_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="One or more tagged users are not members of this team",
+        )
+    return tagged
+
+
 def _task_to_response(task: CalendarTask, db: Session) -> CalendarTaskResponse:
     """Convert a CalendarTask ORM object to a response with user_name and tagged_users."""
-    creator = db.query(User).get(task.user_id)
+    creator = task.user or db.get(User, task.user_id)
     return CalendarTaskResponse(
         id=task.id,
         team_id=task.team_id,
@@ -91,7 +125,7 @@ def _sync_task_to_rag(task_id: int):
         if not task:
             return
 
-        creator = task.user or db.query(User).get(task.user_id)
+        creator = task.user or db.get(User, task.user_id)
         creator_name = creator.full_name if creator else "Unknown"
         tagged_names = [u.full_name or u.email for u in task.tagged_users]
 
@@ -167,7 +201,7 @@ def list_tasks(
 
     q = (
         db.query(CalendarTask)
-        .options(joinedload(CalendarTask.tagged_users))
+        .options(joinedload(CalendarTask.tagged_users), joinedload(CalendarTask.user))
         .filter(CalendarTask.team_id == team_id)
     )
     if start_date:
@@ -190,6 +224,7 @@ def create_task(
 ):
     """Create a new calendar task and sync to RAG."""
     _verify_team_member(db, current_user, team_id)
+    _validate_task_time_range(payload.start_datetime, payload.end_datetime)
 
     task = CalendarTask(
         team_id=team_id,
@@ -207,7 +242,7 @@ def create_task(
 
     # Resolve tagged users
     if payload.tagged_user_ids:
-        tagged = db.query(User).filter(User.id.in_(payload.tagged_user_ids)).all()
+        tagged = _resolve_team_tagged_users(db, team_id, payload.tagged_user_ids)
         task.tagged_users = tagged
 
     db.add(task)
@@ -234,7 +269,7 @@ def update_task(
 
     task = (
         db.query(CalendarTask)
-        .options(joinedload(CalendarTask.tagged_users))
+        .options(joinedload(CalendarTask.tagged_users), joinedload(CalendarTask.user))
         .filter(CalendarTask.id == task_id, CalendarTask.team_id == team_id)
         .first()
     )
@@ -246,7 +281,7 @@ def update_task(
     # Handle tagged_user_ids separately
     tagged_ids = update_data.pop("tagged_user_ids", None)
     if tagged_ids is not None:
-        tagged = db.query(User).filter(User.id.in_(tagged_ids)).all()
+        tagged = _resolve_team_tagged_users(db, team_id, tagged_ids)
         task.tagged_users = tagged
 
     if "priority" in update_data and update_data["priority"] is not None:
@@ -258,6 +293,10 @@ def update_task(
     # Keep task_date in sync with start_datetime
     if "start_datetime" in update_data and update_data["start_datetime"] is not None:
         update_data["task_date"] = update_data["start_datetime"].date()
+
+    effective_start = update_data.get("start_datetime", task.start_datetime)
+    effective_end = update_data.get("end_datetime", task.end_datetime)
+    _validate_task_time_range(effective_start, effective_end)
 
     for field, value in update_data.items():
         setattr(task, field, value)

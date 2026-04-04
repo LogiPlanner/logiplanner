@@ -28,6 +28,38 @@ def upgrade() -> None:
     )
     op.create_index('ix_user_roles_team_id', 'user_roles', ['team_id'])
 
+    # Backfill existing rows into team-scoped rows so strict team filtering does not
+    # preserve old NULL-scoped privileges across all teams.
+    op.execute(
+        """
+        INSERT INTO user_roles (user_id, role_id, team_id, project_id)
+        SELECT ur.user_id, ur.role_id, ut.team_id, ur.project_id
+        FROM user_roles ur
+        JOIN user_team ut ON ut.user_id = ur.user_id
+        WHERE ur.team_id IS NULL
+          AND NOT EXISTS (
+              SELECT 1
+              FROM user_roles scoped
+              WHERE scoped.user_id = ur.user_id
+                AND scoped.role_id = ur.role_id
+                AND scoped.project_id IS NOT DISTINCT FROM ur.project_id
+                AND scoped.team_id = ut.team_id
+          )
+        """
+    )
+
+    op.execute(
+        """
+        DELETE FROM user_roles
+        WHERE team_id IS NULL
+          AND EXISTS (
+              SELECT 1
+              FROM user_team ut
+              WHERE ut.user_id = user_roles.user_id
+          )
+        """
+    )
+
 
 def downgrade() -> None:
     op.drop_index('ix_user_roles_team_id', table_name='user_roles')

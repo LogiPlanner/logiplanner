@@ -6,7 +6,6 @@ Now integrated with the RAG pipeline for document ingestion during team creation
 
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, BackgroundTasks, Form
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
 from typing import List, Optional
 import uuid
 import os
@@ -357,23 +356,17 @@ async def get_my_teams(
 
     result = []
     for t in teams:
-        # Security: only consider roles scoped to THIS team (or legacy unscoped records)
+        # Security: only consider roles scoped to THIS team.
         role_name = "viewer"  # default
         user_roles = (
             db.query(UserRole)
             .filter(
                 UserRole.user_id == current_user.id,
-                or_(
-                    UserRole.team_id == t.id,
-                    UserRole.team_id.is_(None),  # legacy records before migration
-                ),
+                UserRole.team_id == t.id,
             )
             .all()
         )
-        # Team-scoped roles take priority over legacy (team_id=None)
-        team_scoped = [ur for ur in user_roles if ur.team_id == t.id]
-        legacy = [ur for ur in user_roles if ur.team_id is None]
-        for ur in (team_scoped + legacy):
+        for ur in user_roles:
             if ur.role and ur.role.name.lower() in ("owner", "editor", "viewer"):
                 role_name = ur.role.name.lower()
                 break

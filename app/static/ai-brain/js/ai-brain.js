@@ -1,5 +1,5 @@
 ﻿/**
- * AI Brain v2 â€” Frontend Logic
+ * AI Brain v2 - Frontend Logic
  * =============================
  * - Chat Mode / Studio Mode toggle
  * - User-scoped private chat (NOT team chat)
@@ -8,7 +8,7 @@
  */
 
 document.addEventListener('DOMContentLoaded', () => {
-    // â”€â”€ Auth Guard â”€â”€
+    // Auth Guard
     let token = localStorage.getItem('access_token');
     if (!token) { window.location.href = '/login'; return; }
 
@@ -22,7 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Use the shared authFetch from common.js (handles token refresh + logout)
     const aiFetch = (url, opts = {}) => window.__lp.authFetch(url, opts);
 
-    // â”€â”€ State â”€â”€
+    // State
     let currentTeamId = null;
     let currentRole = 'viewer';
     let currentMode = 'chat'; // 'chat' or 'studio'
@@ -36,7 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
         );
     }
 
-    // â”€â”€ DOM â”€â”€
+    // DOM
     const teamSelect = document.getElementById('teamSelect');
     const roleBadge = document.getElementById('roleBadge');
     const brainContent = document.getElementById('brainContent');
@@ -69,9 +69,8 @@ document.addEventListener('DOMContentLoaded', () => {
     brainContent.classList.add('mode-chat');
     chatMessages.style.display = 'none';
 
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // Mobile sidebar
     // MOBILE SIDEBAR
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const mobileToggle = document.getElementById('mobileToggle');
     const sidebar = document.getElementById('mainSidebar');
     const overlay = document.getElementById('sidebarOverlay');
@@ -90,18 +89,16 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // Logout
     // LOGOUT
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     document.getElementById('logoutBtn')?.addEventListener('click', () => {
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
         window.location.href = '/login';
     });
 
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // Team loading and role
     // TEAM LOADING & ROLE
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     function getInitials(name) {
         if (!name) return 'U';
         return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
@@ -176,18 +173,16 @@ document.addEventListener('DOMContentLoaded', () => {
         loadChatHistory();
     }
 
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // Mode toggle
     // MODE TOGGLE (ai-brain is always Chat; Studio is at /studio)
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     function switchMode(mode) {
         currentMode = mode;
         brainContent.classList.remove('mode-chat', 'mode-studio');
         brainContent.classList.add(`mode-${mode}`);
     }
 
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // Knowledge base documents
     // KNOWLEDGE BASE: DOCUMENTS
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     let _pollAttempts = 0;
     const _MAX_POLL_ATTEMPTS = 20; // stop after ~60s
 
@@ -270,9 +265,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // File upload
     // FILE UPLOAD
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if (kbUploadZone) {
         kbUploadZone.addEventListener('dragover', (e) => {
             e.preventDefault();
@@ -352,9 +346,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // Stats
     // STATS
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     async function loadStats() {
         try {
             const res = await aiFetch(`${API}/rag/stats/${currentTeamId}`, { headers: authHeader() });
@@ -367,9 +360,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // AI chat
     // AI CHAT (user-scoped / private)
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     function showMessages() {
         chatWelcome.style.display = 'none';
         chatMessages.style.display = 'flex';
@@ -438,9 +430,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // Recent chats panel
     // RECENT CHATS PANEL (Sessions-based)
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     function renderRecentSessions(sessions) {
         if (!recentChatsList) return;
 
@@ -789,9 +780,8 @@ document.addEventListener('DOMContentLoaded', () => {
         chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + 'px';
     });
 
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // Delete chat
     // DELETE CHAT (custom modal)
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const deleteModal = document.getElementById('deleteModal');
     const deleteModalCancel = document.getElementById('deleteModalCancel');
     const deleteModalConfirm = document.getElementById('deleteModalConfirm');
@@ -877,9 +867,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // Utilities
     // UTILITIES
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     function escapeHtml(str) {
         if (!str) return '';
         return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -926,6 +915,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // â”€â”€â”€ Init â”€â”€â”€
+    // Init
     loadTeams();
 });

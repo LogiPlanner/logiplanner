@@ -43,7 +43,7 @@
                 res = await fetch(url, opts);
             } else {
                 forceLogout();
-                return null;
+                return res;
             }
         }
         return res;

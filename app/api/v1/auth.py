@@ -144,7 +144,8 @@ async def refresh_tokens(body: _RefreshBody, db: Session = Depends(get_db)):
     try:
         payload = jwt.decode(body.refresh_token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         email: str = payload.get("sub")
-        if email is None:
+        token_type: str = payload.get("token_type")
+        if email is None or token_type != "refresh":
             raise credentials_exception
     except JWTError:
         raise credentials_exception
