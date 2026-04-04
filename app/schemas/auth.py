@@ -92,3 +92,8 @@ class UserTeamsResponse(BaseModel):
 class VerificationStatusResponse(BaseModel):
     is_verified: bool
     email: str
+
+
+class VerifyEmailRequest(BaseModel):
+    email: EmailStr
+    code: str

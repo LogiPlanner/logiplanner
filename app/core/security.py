@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from jose import jwt
 import bcrypt
 from app.core.config import settings
-import uuid
+import secrets
 
 # Direct bcrypt 
 def get_password_hash(password: str) -> str:
@@ -29,5 +29,5 @@ def create_refresh_token(data: dict):
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 def create_verification_token() -> str:
-    """Generate a secure random token for email verification"""
-    return str(uuid.uuid4())
+    """Generate a secure 6-digit OTP for email verification"""
+    return str(secrets.randbelow(900000) + 100000)

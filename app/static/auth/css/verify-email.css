@@ -9,3 +9,41 @@
     bottom: 22px;
     pointer-events: none;
 }
+
+/* OTP digit inputs */
+.otp-inputs {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin: 24px 0 16px;
+}
+
+.otp-digit {
+    width: 48px;
+    height: 56px;
+    text-align: center;
+    font-size: 24px;
+    font-weight: 700;
+    color: #1e1b4b;
+    background: #f5f3ff;
+    border: 2px solid #c4b5fd;
+    border-radius: 10px;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    caret-color: transparent;
+}
+
+.otp-digit:focus {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+    background: #fff;
+}
+
+.otp-digit.otp-digit--error {
+    border-color: #ef4444;
+    background: #fef2f2;
+}
+
+.otp-digit.otp-digit--filled {
+    border-color: #8b5cf6;
+}
