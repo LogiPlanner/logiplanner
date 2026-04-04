@@ -11,15 +11,18 @@
 
 document.addEventListener('DOMContentLoaded', () => {
     // ── Auth Guard ──
-    const token = localStorage.getItem('access_token');
+    let token = localStorage.getItem('access_token');
     if (!token) { window.location.href = '/login'; return; }
 
     const API = '/api/v1';
-    const authHeader = () => ({ 'Authorization': `Bearer ${token}` });
+    const authHeader = () => ({ 'Authorization': `Bearer ${localStorage.getItem('access_token')}` });
     const jsonHeaders = () => ({
-        'Authorization': `Bearer ${token}`,
+        'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
         'Content-Type': 'application/json',
     });
+
+    // Use the shared authFetch from common.js (handles token refresh + logout)
+    const sFetch = (url, opts = {}) => window.__lp.authFetch(url, opts);
 
     // ── State ──
     let currentTeamId = null;
@@ -102,7 +105,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // ─────────────────────────────────────────
     async function loadTeams() {
         try {
-            const res = await fetch(`${API}/onboarding/my-teams`, { headers: authHeader() });
+            const res = await sFetch(`${API}/onboarding/my-teams`, { headers: authHeader() });
             if (!res.ok) return;
             const data = await res.json();
 
@@ -154,7 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // ─────────────────────────────────────────
     async function loadStats() {
         try {
-            const res = await fetch(`${API}/rag/stats/${currentTeamId}`, { headers: authHeader() });
+            const res = await sFetch(`${API}/rag/stats/${currentTeamId}`, { headers: authHeader() });
             if (!res.ok) return;
             const stats = await res.json();
 
@@ -196,7 +199,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // ─────────────────────────────────────────
     async function loadDocuments() {
         try {
-            const res = await fetch(`${API}/rag/documents/${currentTeamId}`, { headers: authHeader() });
+            const res = await sFetch(`${API}/rag/documents/${currentTeamId}`, { headers: authHeader() });
             if (!res.ok) return;
             const data = await res.json();
             allDocuments = data.documents || [];
@@ -406,7 +409,7 @@ document.addEventListener('DOMContentLoaded', () => {
         for (const file of files) formData.append('files', file);
 
         try {
-            const res = await fetch(`${API}/rag/ingest`, {
+            const res = await sFetch(`${API}/rag/ingest`, {
                 method: 'POST',
                 headers: authHeader(),
                 body: formData,
@@ -452,7 +455,7 @@ document.addEventListener('DOMContentLoaded', () => {
         textIngestBtn.textContent = 'Ingesting...';
 
         try {
-            const res = await fetch(`${API}/rag/ingest-text`, {
+            const res = await sFetch(`${API}/rag/ingest-text`, {
                 method: 'POST',
                 headers: jsonHeaders(),
                 body: JSON.stringify({ team_id: currentTeamId, title, content }),
@@ -501,7 +504,7 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
 
         try {
-            const res = await fetch(`${API}/rag/ingest-url`, {
+            const res = await sFetch(`${API}/rag/ingest-url`, {
                 method: 'POST',
                 headers: jsonHeaders(),
                 body: JSON.stringify({ team_id: currentTeamId, url }),
@@ -556,7 +559,7 @@ document.addEventListener('DOMContentLoaded', () => {
         deleteModalConfirm.textContent = 'Deleting...';
 
         try {
-            const res = await fetch(`${API}/rag/documents/${pendingDeleteId}`, {
+            const res = await sFetch(`${API}/rag/documents/${pendingDeleteId}`, {
                 method: 'DELETE',
                 headers: authHeader(),
             });
@@ -685,7 +688,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const avatarEl = document.getElementById('avatarInitials');
         if (avatarEl) {
             try {
-                const r = await fetch(`${API}/auth/me`, { headers: authHeader() });
+                const r = await sFetch(`${API}/auth/me`, { headers: authHeader() });
                 if (r.ok) {
                     const d = await r.json();
                     const name = d.full_name || d.email || '';

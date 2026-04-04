@@ -24,102 +24,30 @@
     padding: 28px 32px 40px;
 }
 
-/* ═══ TOPBAR ═══ */
-.topbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 28px;
-    background: var(--color-surface);
-    border-bottom: 1px solid var(--color-border-lt);
-    flex-shrink: 0;
-    gap: 16px;
-    z-index: 10;
-}
-
-.topbar__left {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-}
+/* ═══ TOPBAR — Dashboard-specific styles only ═══ */
+/* Layout, avatar, dropdown, icon-btn → from auth/css/common.css */
 
 .topbar__greeting {
-    font-size: 0.95rem;
-    font-weight: 600;
-    color: var(--color-text);
-}
-
-.topbar__greeting span {
-    color: var(--color-primary);
-}
-
-.topbar__right {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.topbar__team-select {
-    padding: 7px 14px;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    font-size: 0.82rem;
+    font-size: 0.88rem;
     font-weight: 500;
-    color: var(--color-text);
-    background: var(--color-surface);
-    cursor: pointer;
-    outline: none;
-    transition: border-color var(--transition);
-    font-family: inherit;
-}
-
-.topbar__team-select:focus {
-    border-color: var(--color-primary);
-}
-
-.topbar__avatar {
-    width: 34px;
-    height: 34px;
-    border-radius: var(--radius-full);
-    background: linear-gradient(135deg, var(--color-primary), #7c3aed);
-    color: #fff;
+    color: var(--color-text-muted);
     display: flex;
     align-items: center;
-    justify-content: center;
-    font-size: 0.75rem;
+    gap: 6px;
+}
+
+.topbar__greeting::before {
+    content: '';
+    display: inline-block;
+    width: 1px;
+    height: 16px;
+    background: var(--color-border);
+    margin-right: 2px;
+}
+
+.topbar__greeting strong {
+    color: var(--color-primary);
     font-weight: 700;
-    cursor: pointer;
-    position: relative;
-}
-
-.topbar__dropdown {
-    display: none;
-    position: absolute;
-    top: calc(100% + 8px);
-    right: 0;
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    box-shadow: var(--shadow-md);
-    min-width: 180px;
-    z-index: 100;
-    overflow: hidden;
-}
-
-.topbar__avatar:hover .topbar__dropdown { display: block; }
-
-.topbar__dropdown-item {
-    display: block;
-    padding: 10px 16px;
-    font-size: 0.82rem;
-    color: var(--color-text-sec);
-    text-decoration: none;
-    transition: background var(--transition);
-}
-
-.topbar__dropdown-item:hover {
-    background: var(--color-page-bg);
-    color: var(--color-text);
 }
 
 /* ═══ WELCOME BANNER ═══ */

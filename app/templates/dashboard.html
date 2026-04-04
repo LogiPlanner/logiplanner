@@ -6,29 +6,16 @@
 <link rel="stylesheet" href="/static/dashboard/css/dashboard.css">
 {% endblock %}
 
+{% from "partials/navbar.html" import topbar %}
 {% block content %}
     <main class="dashboard-main">
-        <!-- Top Bar -->
-        <header class="topbar">
-            <div class="topbar__left">
-                <span class="topbar__greeting" id="greetingText">Good morning</span>
+        {% call topbar() %}
+            <div class="topbar__page-title">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"/></svg>
+                <span>Dashboard</span>
             </div>
-            <div class="topbar__right">
-                <select class="topbar__team-select" id="teamSelect">
-                    <option>Loading teams...</option>
-                </select>
-                <button class="topbar__icon-btn" aria-label="Notifications">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
-                </button>
-                <div class="topbar__avatar" id="userAvatar">
-                    <span id="avatarInitials">U</span>
-                    <div class="topbar__dropdown">
-                        <a href="/profile" class="topbar__dropdown-item">Profile Settings</a>
-                        <a href="/team-select" class="topbar__dropdown-item">Manage Teams</a>
-                    </div>
-                </div>
-            </div>
-        </header>
+            <span class="topbar__greeting" id="greetingText">Good morning</span>
+        {% endcall %}
 
         <!-- Scrollable Content -->
         <div class="dashboard-scroll">

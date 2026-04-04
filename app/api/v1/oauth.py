@@ -107,19 +107,20 @@ async def google_callback(
     # Create or get user
     user = get_or_create_google_user(db, user_info["email"], user_info.get("name"))
 
-    # Create app JWT token
+    # Create app JWT tokens
     access_token = create_access_token(data={"sub": user.email})
+    refresh_token = create_refresh_token(data={"sub": user.email})
 
     # Determine where to redirect based on user state
     profile_complete = bool(user.full_name and user.job_title)
     has_teams = len(user.teams) > 0
 
     if not profile_complete:
-        redirect_url = f"/onboarding?token={access_token}"
+        redirect_url = f"/onboarding?token={access_token}&refresh_token={refresh_token}"
     elif not has_teams:
-        redirect_url = f"/onboarding?token={access_token}"
+        redirect_url = f"/onboarding?token={access_token}&refresh_token={refresh_token}"
     else:
-        redirect_url = f"/dashboard?token={access_token}"
+        redirect_url = f"/dashboard?token={access_token}&refresh_token={refresh_token}"
 
     # Clear OAuth state from session
     request.session.pop("oauth_state", None)

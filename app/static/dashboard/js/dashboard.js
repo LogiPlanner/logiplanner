@@ -12,9 +12,6 @@
     const token = localStorage.getItem('access_token');
     if (!token) return;
 
-    const headers = { 'Authorization': 'Bearer ' + token };
-    const jsonHeaders = { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
-
     // ── State ──
     let currentTeamId = null;
     let teams = [];
@@ -39,28 +36,17 @@
 
     // ── Helpers ──
     async function api(path, opts) {
-        const res = await fetch(API + path, { headers, ...opts });
-        if (res.status === 401) {
-            localStorage.removeItem('access_token');
-            window.location.href = '/login';
-            return null;
-        }
+        const res = await window.__lp.authFetch(API + path, { ...opts });
+        if (!res) return null;
         if (!res.ok) return null;
         if (res.status === 204) return true;
         return res.json();
     }
 
     async function apiJson(path, method, body) {
-        const res = await fetch(API + path, {
-            method,
-            headers: jsonHeaders,
-            body: JSON.stringify(body),
-        });
-        if (res.status === 401) {
-            localStorage.removeItem('access_token');
-            window.location.href = '/login';
-            return null;
-        }
+        const opts = { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) };
+        const res = await window.__lp.authFetch(API + path, opts);
+        if (!res) return null;
         if (!res.ok) {
             const err = await res.json().catch(() => null);
             return { _error: true, detail: err?.detail || 'Request failed' };
@@ -174,7 +160,7 @@
 
         const greetEl = document.getElementById('greetingText');
         if (greetEl) {
-            greetEl.innerHTML = getGreeting() + (userName ? ', <span>' + escHtml(userName.split(' ')[0]) + '</span>' : '');
+            greetEl.innerHTML = getGreeting() + (userName ? ', <strong>' + escHtml(userName.split(' ')[0]) + '</strong>' : '');
         }
 
         const avatarEl = document.getElementById('avatarInitials');

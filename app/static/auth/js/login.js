@@ -41,6 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (response.ok) {
                     localStorage.setItem('access_token', data.access_token);
+                    localStorage.setItem('refresh_token', data.refresh_token);
                     localStorage.removeItem('pendingVerificationEmail');
                     window.AuthUI.setMessage(msg, 'success', 'Login successful! Redirecting...');
 
