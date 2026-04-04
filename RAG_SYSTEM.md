@@ -275,15 +275,19 @@ The AI Brain page (`/ai-brain`) has three panels:
 ### Path 1: Via AI Brain Page
 1. User drags files onto the upload zone
 2. JavaScript sends `POST /api/v1/rag/ingest` with `team_id` + files
-3. Backend saves files to `app/static/uploads/rag/`
+3. Backend saves files temporarily to `app/static/uploads/rag/`
 4. Backend creates `Document` records in PostgreSQL (status: `pending`)
 5. Background task kicks off:
    - Status → `processing`
    - `processor.py` loads → splits → enriches the document
    - `engine.py` embeds and stores chunks in ChromaDB
    - Status → `ready` (or `error`)
+   - **File is deleted from disk** (we only keep embeddings in ChromaDB)
 6. Frontend polls `GET /api/v1/rag/documents/{team_id}` every 3 seconds
 7. When status changes to `ready`, the document appears with a ✅
+
+> **Note:** Uploaded files are ephemeral — they are deleted from disk immediately
+> after processing (success or failure). Only the embeddings in ChromaDB persist.
 
 ### Path 2: Via Team Creation (Onboarding Step 3)
 1. Same file upload (the onboarding page now sends `team_id` with uploads)

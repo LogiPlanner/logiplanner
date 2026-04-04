@@ -25,6 +25,13 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentMode = 'chat'; // 'chat' or 'studio'
     let isTyping = false;
     let hasMessages = false;
+    let currentSessionId = generateSessionId();
+
+    function generateSessionId() {
+        return 'xxxx-xxxx-xxxx'.replace(/x/g, () =>
+            Math.floor(Math.random() * 16).toString(16)
+        );
+    }
 
     // ── DOM ──
     const teamSelect = document.getElementById('teamSelect');
@@ -36,7 +43,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const chatWelcome = document.getElementById('chatWelcome');
     const chatInput = document.getElementById('chatInput');
     const chatSendBtn = document.getElementById('chatSendBtn');
-    const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+    const deleteChatBtn = document.getElementById('deleteChatBtn');
+    const newChatBtn = document.getElementById('newChatBtn');
     const chatModeBtn = document.getElementById('chatModeBtn');
     const studioModeBtn = document.getElementById('studioModeBtn');
     const modeToggle = document.getElementById('modeToggle');
@@ -46,6 +54,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const docsEmpty = document.getElementById('kbDocsEmpty');
     const statDocs = document.getElementById('statDocs');
     const statChunks = document.getElementById('statChunks');
+
+    // Recent Chats panel
+    const recentChatsPanel = document.getElementById('recentChatsPanel');
+    const recentChatsList = document.getElementById('recentChatsList');
+    const recentChatsEmpty = document.getElementById('recentChatsEmpty');
+    const recentChatsToggle = document.getElementById('recentChatsToggle');
 
     // Initial mode
     brainContent.classList.add('mode-chat');
@@ -365,7 +379,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function loadChatHistory() {
         try {
-            const res = await fetch(`${API}/rag/chat/history/${currentTeamId}?limit=50`, {
+            // Load sessions list first
+            const sessRes = await fetch(`${API}/rag/chat/sessions/${currentTeamId}`, {
+                headers: authHeader(),
+            });
+            let sessions = [];
+            if (sessRes.ok) {
+                const sessData = await sessRes.json();
+                sessions = sessData.sessions || [];
+            }
+
+            // Render sessions panel
+            renderRecentSessions(sessions);
+
+            // If there are sessions, load the most recent one
+            if (sessions.length > 0) {
+                currentSessionId = sessions[0].session_id;
+                await loadSessionMessages(currentSessionId);
+            } else {
+                currentSessionId = generateSessionId();
+                showWelcome();
+            }
+        } catch (e) {
+            console.error('Chat history error:', e);
+        }
+    }
+
+    async function loadSessionMessages(sessionId) {
+        try {
+            const res = await fetch(`${API}/rag/chat/history/${currentTeamId}?limit=50&session_id=${sessionId}`, {
                 headers: authHeader(),
             });
             if (!res.ok) return;
@@ -386,8 +428,111 @@ document.addEventListener('DOMContentLoaded', () => {
                 showWelcome();
             }
         } catch (e) {
-            console.error('Chat history error:', e);
+            console.error('Load session error:', e);
         }
+    }
+
+    // ─────────────────────────────────────────
+    // RECENT CHATS PANEL (Sessions-based)
+    // ─────────────────────────────────────────
+    function renderRecentSessions(sessions) {
+        if (!recentChatsList) return;
+
+        if (!sessions || sessions.length === 0) {
+            recentChatsList.innerHTML = '';
+            recentChatsList.appendChild(recentChatsEmpty);
+            recentChatsEmpty.style.display = 'flex';
+            return;
+        }
+
+        recentChatsEmpty.style.display = 'none';
+
+        // Group by date
+        const groups = {};
+        sessions.forEach(session => {
+            const date = new Date(session.created_at);
+            const today = new Date();
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+
+            let label;
+            if (date.toDateString() === today.toDateString()) label = 'Today';
+            else if (date.toDateString() === yesterday.toDateString()) label = 'Yesterday';
+            else label = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+            if (!groups[label]) groups[label] = [];
+            groups[label].push(session);
+        });
+
+        let html = '';
+        for (const [label, items] of Object.entries(groups)) {
+            html += `<div class="recent-chats__date-label">${label}</div>`;
+            items.forEach(session => {
+                const preview = session.preview.length > 45
+                    ? session.preview.substring(0, 45) + '…'
+                    : session.preview;
+                const time = new Date(session.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+                const isActive = session.session_id === currentSessionId ? ' recent-chat-item--active' : '';
+                html += `
+                    <div class="recent-chat-item${isActive}" data-session-id="${escapeHtml(session.session_id)}">
+                        <div class="recent-chat-item__icon">💬</div>
+                        <div class="recent-chat-item__info">
+                            <div class="recent-chat-item__text">${escapeHtml(preview)}</div>
+                            <div class="recent-chat-item__time">${time} · ${session.message_count} msgs</div>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        recentChatsList.innerHTML = html;
+        // Re-append empty state (hidden)
+        recentChatsList.appendChild(recentChatsEmpty);
+
+        // Click handler: switch to that session
+        recentChatsList.querySelectorAll('.recent-chat-item').forEach(item => {
+            item.addEventListener('click', async () => {
+                const sessionId = item.dataset.sessionId;
+                if (sessionId === currentSessionId) return;
+
+                currentSessionId = sessionId;
+
+                // Update active class
+                recentChatsList.querySelectorAll('.recent-chat-item').forEach(el =>
+                    el.classList.remove('recent-chat-item--active'));
+                item.classList.add('recent-chat-item--active');
+
+                // Load this session's messages
+                await loadSessionMessages(sessionId);
+            });
+        });
+    }
+
+    // Toggle recent chats panel
+    if (recentChatsToggle) {
+        recentChatsToggle.addEventListener('click', () => {
+            recentChatsPanel.classList.toggle('collapsed');
+            // Flip the chevron
+            const svg = recentChatsToggle.querySelector('svg');
+            if (recentChatsPanel.classList.contains('collapsed')) {
+                svg.style.transform = 'rotate(180deg)';
+            } else {
+                svg.style.transform = 'rotate(0deg)';
+            }
+        });
+    }
+
+    // New Chat button — starts a fresh session without deleting from DB
+    if (newChatBtn) {
+        newChatBtn.addEventListener('click', () => {
+            currentSessionId = generateSessionId();
+            showWelcome();
+            // Remove active state from all recent chat items
+            if (recentChatsList) {
+                recentChatsList.querySelectorAll('.recent-chat-item').forEach(el =>
+                    el.classList.remove('recent-chat-item--active'));
+            }
+        });
     }
 
     async function sendMessage() {
@@ -408,7 +553,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await fetch(`${API}/rag/chat`, {
                 method: 'POST',
                 headers: jsonHeaders(),
-                body: JSON.stringify({ team_id: currentTeamId, message }),
+                body: JSON.stringify({ team_id: currentTeamId, message, session_id: currentSessionId }),
             });
 
             hideTypingIndicator();
@@ -428,6 +573,20 @@ document.addEventListener('DOMContentLoaded', () => {
         isTyping = false;
         chatSendBtn.disabled = false;
         scrollToBottom();
+
+        // Refresh recent chats panel to include the new message
+        refreshRecentChats();
+    }
+
+    async function refreshRecentChats() {
+        try {
+            const res = await fetch(`${API}/rag/chat/sessions/${currentTeamId}`, {
+                headers: authHeader(),
+            });
+            if (!res.ok) return;
+            const data = await res.json();
+            renderRecentSessions(data.sessions || []);
+        } catch (e) { /* silent */ }
     }
 
     function appendMessage(role, content, sources) {
@@ -496,15 +655,15 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // ─────────────────────────────────────────
-    // CLEAR HISTORY (custom modal, no native confirm)
+    // DELETE CHAT (custom modal)
     // ─────────────────────────────────────────
-    const clearModal = document.getElementById('clearModal');
-    const clearModalCancel = document.getElementById('clearModalCancel');
-    const clearModalConfirm = document.getElementById('clearModalConfirm');
+    const deleteModal = document.getElementById('deleteModal');
+    const deleteModalCancel = document.getElementById('deleteModalCancel');
+    const deleteModalConfirm = document.getElementById('deleteModalConfirm');
 
-    function showClearModal() {
+    function showDeleteModal() {
         return new Promise((resolve) => {
-            clearModal.classList.add('active');
+            deleteModal.classList.add('active');
 
             function onConfirm() {
                 cleanup();
@@ -515,47 +674,50 @@ document.addEventListener('DOMContentLoaded', () => {
                 resolve(false);
             }
             function cleanup() {
-                clearModal.classList.remove('active');
-                clearModalConfirm.removeEventListener('click', onConfirm);
-                clearModalCancel.removeEventListener('click', onCancel);
-                clearModal.removeEventListener('click', onOverlayClick);
+                deleteModal.classList.remove('active');
+                deleteModalConfirm.removeEventListener('click', onConfirm);
+                deleteModalCancel.removeEventListener('click', onCancel);
+                deleteModal.removeEventListener('click', onOverlayClick);
             }
             function onOverlayClick(e) {
-                if (e.target === clearModal) onCancel();
+                if (e.target === deleteModal) onCancel();
             }
 
-            clearModalConfirm.addEventListener('click', onConfirm);
-            clearModalCancel.addEventListener('click', onCancel);
-            clearModal.addEventListener('click', onOverlayClick);
+            deleteModalConfirm.addEventListener('click', onConfirm);
+            deleteModalCancel.addEventListener('click', onCancel);
+            deleteModal.addEventListener('click', onOverlayClick);
         });
     }
 
-    if (clearHistoryBtn) {
-        clearHistoryBtn.addEventListener('click', async () => {
+    if (deleteChatBtn) {
+        deleteChatBtn.addEventListener('click', async () => {
             if (!currentTeamId) { alert('Please select a team first'); return; }
 
-            const confirmed = await showClearModal();
+            const confirmed = await showDeleteModal();
             if (!confirmed) return;
 
             try {
-                clearHistoryBtn.disabled = true;
-                const res = await fetch(`${API}/rag/chat/history/${currentTeamId}`, {
+                deleteChatBtn.disabled = true;
+                const deleteUrl = `${API}/rag/chat/history/${currentTeamId}?session_id=${encodeURIComponent(currentSessionId)}`;
+                const res = await fetch(deleteUrl, {
                     method: 'DELETE',
                     headers: authHeader(),
                 });
 
                 if (res.ok) {
+                    currentSessionId = generateSessionId();
                     showWelcome();
+                    refreshRecentChats();
                 } else {
                     const err = await res.json().catch(() => ({}));
-                    console.error('Clear failed:', err);
-                    alert('Failed to clear history. Please try again.');
+                    console.error('Delete failed:', err);
+                    alert('Failed to delete chat. Please try again.');
                 }
-                clearHistoryBtn.disabled = false;
+                deleteChatBtn.disabled = false;
             } catch (e) {
-                console.error('Clear history error:', e);
+                console.error('Delete chat error:', e);
                 alert('An error occurred. Please try again.');
-                clearHistoryBtn.disabled = false;
+                deleteChatBtn.disabled = false;
             }
         });
     }
