@@ -212,7 +212,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         docsEmpty.style.display = 'none';
 
-        const icons = { pdf: 'ðŸ“•', docx: 'ðŸ“˜', txt: 'ðŸ“„', markdown: 'ðŸ“', text: 'âœï¸', unknown: 'ðŸ“Ž' };
+        const icons = { pdf: 'PDF', docx: 'DOC', txt: 'TXT', markdown: 'MD', text: 'TXT', unknown: 'FILE' };
         const canEdit = currentRole === 'owner' || currentRole === 'editor';
 
         docsList.innerHTML = docs.map(doc => `
@@ -224,7 +224,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="kb-doc__name" title="${escapeHtml(doc.filename)}">${escapeHtml(doc.filename)}</div>
                     <div class="kb-doc__meta">
                         <span>${formatFileSize(doc.file_size)}</span>
-                        <span>â€¢</span>
+                        <span>•</span>
                         <span>${doc.chunk_count} chunks</span>
                         <span class="kb-doc__status kb-doc__status--${doc.status}">
                             ${getStatusIcon(doc.status)} ${doc.status}
@@ -233,7 +233,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
                 <button class="kb-doc__delete ${canEdit ? '' : 'hidden'}" 
                         onclick="window._deleteDocument(${doc.id}, '${escapeHtml(doc.filename)}')" 
-                        title="Delete document">ðŸ—‘ï¸</button>
+                        title="Delete document">DEL</button>
             </div>
         `).join('');
 
@@ -312,7 +312,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const origHTML = kbUploadZone.innerHTML;
         kbUploadZone.innerHTML = `
-            <div class="kb-upload__icon">â³</div>
+            <div class="kb-upload__icon">...</div>
             <div class="kb-upload__text">Uploading ${files.length} file(s)...</div>
         `;
 
@@ -338,9 +338,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function resetUploadZone() {
         kbUploadZone.innerHTML = `
-            <div class="kb-upload__icon">ðŸ“„</div>
+            <div class="kb-upload__icon">FILE</div>
             <div class="kb-upload__text"><strong>Drop files here</strong> or browse</div>
-            <div class="kb-upload__hint">PDF, DOCX, TXT, MD â€” up to 20MB each</div>
+            <div class="kb-upload__hint">PDF, DOCX, TXT, MD - up to 20MB each</div>
             <input type="file" id="kbFileInput" multiple accept=".pdf,.doc,.docx,.txt,.md">
         `;
         const newInput = document.getElementById('kbFileInput');
@@ -475,16 +475,16 @@ document.addEventListener('DOMContentLoaded', () => {
             html += `<div class="recent-chats__date-label">${label}</div>`;
             items.forEach(session => {
                 const preview = session.preview.length > 45
-                    ? session.preview.substring(0, 45) + 'â€¦'
+                    ? session.preview.substring(0, 45) + '...'
                     : session.preview;
                 const time = new Date(session.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
                 const isActive = session.session_id === currentSessionId ? ' recent-chat-item--active' : '';
                 html += `
                     <div class="recent-chat-item${isActive}" data-session-id="${escapeHtml(session.session_id)}">
-                        <div class="recent-chat-item__icon">ðŸ’¬</div>
+                        <div class="recent-chat-item__icon">AI</div>
                         <div class="recent-chat-item__info">
                             <div class="recent-chat-item__text">${escapeHtml(preview)}</div>
-                            <div class="recent-chat-item__time">${time} Â· ${session.message_count} msgs</div>
+                            <div class="recent-chat-item__time">${time} - ${session.message_count} msgs</div>
                         </div>
                     </div>
                 `;
@@ -528,7 +528,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // New Chat button â€” starts a fresh session without deleting from DB
+    // New Chat button - starts a fresh session without deleting from DB
     if (newChatBtn) {
         newChatBtn.addEventListener('click', () => {
             currentSessionId = generateSessionId();
@@ -569,11 +569,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 appendMessage('assistant', data.response, data.sources);
             } else {
                 const err = await res.json().catch(() => ({}));
-                appendMessage('assistant', `âš ï¸ ${err.detail || 'Something went wrong. Please try again.'}`);
+                appendMessage('assistant', `[Warning] ${err.detail || 'Something went wrong. Please try again.'}`);
             }
         } catch (e) {
             hideTypingIndicator();
-            appendMessage('assistant', 'âš ï¸ Network error. Please check your connection.');
+            appendMessage('assistant', '[Warning] Network error. Please check your connection.');
         }
 
         isTyping = false;
@@ -599,7 +599,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const msgDiv = document.createElement('div');
         msgDiv.className = `chat-msg chat-msg--${role}`;
 
-        const avatarContent = role === 'user' ? 'U' : 'ðŸ§ ';
+        const avatarContent = role === 'user' ? 'U' : 'AI';
         const avatar = `<div class="chat-msg__avatar">${avatarContent}</div>`;
 
         let sourcesHtml = '';
@@ -611,7 +611,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }).join('');
             sourcesHtml = `
                 <div class="chat-msg__sources">
-                    <div class="chat-msg__sources-title">ðŸ“š Sources Referenced</div>
+                    <div class="chat-msg__sources-title">Sources Referenced</div>
                     ${sourceItems}
                 </div>
             `;
@@ -675,8 +675,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderLiveCards(data) {
         if (!data) return '';
-        const typeIcons = { timeline: 'ðŸ•', calendar: 'ðŸ“…', workspace: 'ðŸ—‚ï¸' };
-        const icon = typeIcons[data.type] || 'ðŸ“‹';
+        const typeIcons = { timeline: 'TIME', calendar: 'CAL', workspace: 'WS' };
+        const icon = typeIcons[data.type] || 'LIST';
         const items = data.items || [];
 
         let html = `
@@ -684,7 +684,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="live-cards__heading">
                     <span>${icon}</span>
                     <span>${escapeHtml(data.heading || '')}</span>
-                    <a href="${escapeHtml(data.url || '#')}" class="live-cards__view-all">View All â†’</a>
+                    <a href="${escapeHtml(data.url || '#')}" class="live-cards__view-all">View All -></a>
                 </div>
         `;
 
@@ -692,13 +692,13 @@ document.addEventListener('DOMContentLoaded', () => {
             html += `<div class="live-cards__empty">Nothing to show right now.</div>`;
         } else if (data.type === 'timeline') {
             const typeMeta = {
-                decision:  { label: 'Decision',  cls: 'decision',  ico: 'âš–ï¸'  },
-                milestone: { label: 'Milestone', cls: 'milestone', ico: 'ðŸ†' },
-                summary:   { label: 'Summary',   cls: 'summary',   ico: 'ðŸ“‹' },
-                upload:    { label: 'Upload',     cls: 'upload',    ico: 'ðŸ“Ž' },
+                decision:  { label: 'Decision',  cls: 'decision',  ico: 'DEC' },
+                milestone: { label: 'Milestone', cls: 'milestone', ico: 'MS' },
+                summary:   { label: 'Summary',   cls: 'summary',   ico: 'SUM' },
+                upload:    { label: 'Upload',    cls: 'upload',    ico: 'UP' },
             };
             items.forEach(item => {
-                const t = typeMeta[item.entry_type] || { label: item.entry_type, cls: 'default', ico: 'ðŸ“Œ' };
+                const t = typeMeta[item.entry_type] || { label: item.entry_type, cls: 'default', ico: 'ITEM' };
                 html += `
                     <div class="live-card live-card--${t.cls}">
                         <div class="live-card__accent"></div>
@@ -708,10 +708,10 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <span class="live-card__meta-date">${escapeHtml(item.date || '')}</span>
                             </div>
                             <div class="live-card__title">${escapeHtml(item.title || '')}</div>
-                            <div class="live-card__project">ðŸ“ ${escapeHtml(item.project || '')}</div>
+                            <div class="live-card__project">Project: ${escapeHtml(item.project || '')}</div>
                             ${item.content ? `<div class="live-card__desc">${escapeHtml(item.content)}</div>` : ''}
                         </div>
-                        <a href="${escapeHtml(data.url || '/memory')}" class="live-card__open-btn">Open â†’</a>
+                        <a href="${escapeHtml(data.url || '/memory')}" class="live-card__open-btn">Open -></a>
                     </div>
                 `;
             });
@@ -726,10 +726,10 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <span class="live-card__priority-badge live-card__priority-badge--${pCls}">${escapeHtml(item.priority || 'medium')}</span>
                             </div>
                             <div class="live-card__title">${escapeHtml(item.title || '')}</div>
-                            <div class="live-card__meta-date">ðŸ“… ${escapeHtml(item.start)} â†’ ${escapeHtml(item.end)}</div>
-                            ${item.location ? `<div class="live-card__project">ðŸ“ ${escapeHtml(item.location)}</div>` : ''}
+                            <div class="live-card__meta-date">${escapeHtml(item.start)} -> ${escapeHtml(item.end)}</div>
+                            ${item.location ? `<div class="live-card__project">Location: ${escapeHtml(item.location)}</div>` : ''}
                         </div>
-                        <a href="${escapeHtml(data.url || '/dashboard')}" class="live-card__open-btn">Open â†’</a>
+                        <a href="${escapeHtml(data.url || '/dashboard')}" class="live-card__open-btn">Open -></a>
                     </div>
                 `;
             });
@@ -747,7 +747,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             ${item.secondary ? `<div class="live-card__project">${escapeHtml(item.secondary)}</div>` : ''}
                             ${item.description ? `<div class="live-card__desc">${escapeHtml(item.description)}</div>` : ''}
                         </div>
-                        <a href="${escapeHtml(item.href || data.url || '/dashboard')}" class="live-card__open-btn">${escapeHtml(item.cta || 'Open â†’')}</a>
+                        <a href="${escapeHtml(item.href || data.url || '/dashboard')}" class="live-card__open-btn">${escapeHtml(item.cta || 'Open ->')}</a>
                     </div>
                 `;
             });
@@ -762,7 +762,7 @@ document.addEventListener('DOMContentLoaded', () => {
         el.className = 'chat-typing';
         el.id = 'typingIndicator';
         el.innerHTML = `
-            <div class="chat-typing__avatar">ðŸ§ </div>
+            <div class="chat-typing__avatar">AI</div>
             <div class="chat-typing__dots">
                 <div class="chat-typing__dot"></div>
                 <div class="chat-typing__dot"></div>
@@ -893,11 +893,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function getStatusIcon(status) {
-        return { ready: 'âœ…', pending: 'â³', processing: 'âš™ï¸', error: 'âŒ' }[status] || 'â“';
+        return { ready: '[ok]', pending: '[...]', processing: '[...]', error: '[x]' }[status] || '[?]';
     }
 
     function getDocIcon(type) {
-        return { pdf: 'ðŸ“•', docx: 'ðŸ“˜', txt: 'ðŸ“„', markdown: 'ðŸ“', text: 'âœï¸' }[type] || 'ðŸ“Ž';
+        return { pdf: 'PDF', docx: 'DOC', txt: 'TXT', markdown: 'MD', text: 'TXT' }[type] || 'FILE';
     }
 
     function formatMarkdown(text) {
@@ -909,7 +909,7 @@ document.addEventListener('DOMContentLoaded', () => {
             .replace(/\*(.+?)\*/g, '<em>$1</em>')
             .replace(/^### (.+)$/gm, '<strong style="font-size:0.92rem;">$1</strong>')
             .replace(/^## (.+)$/gm, '<strong style="font-size:0.98rem;">$1</strong>')
-            .replace(/^[-â€¢] (.+)$/gm, '<li>$1</li>')
+            .replace(/^[-*\u2022] (.+)$/gm, '<li>$1</li>')
             .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
             .replace(/\n\n/g, '</p><p>')
             .replace(/\n/g, '<br>');
