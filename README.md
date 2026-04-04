@@ -55,11 +55,13 @@ pip install -r requirements.txt
 
 ### 3. Run Migrations & Start
 ```bash
-alembic revision --autogenerate -m "description"
+# Apply all existing migrations to your database
 alembic upgrade head
 python main.py
 ```
 Visit `http://127.0.0.1:8000` to get started.
+
+> ⚠️ **Do NOT run `alembic revision --autogenerate` here.** That command creates a *new* migration file and is only needed when you've changed a model. See [Alembic Workflow](#-alembic-migrations-workflow) below.
 
 ---
 
@@ -110,9 +112,52 @@ git push origin feature/your-feature-name
 git checkout main
 git pull origin main
 
+# Apply any new migrations that came in with the merge
+alembic upgrade head
+
 # Delete your local branch
 git branch -d feature/your-feature-name
 ```
+
+---
+
+## 🗄️ Alembic Migrations Workflow
+
+### Applying migrations (after a pull or merge)
+Whenever you pull from `main` or merge a PR, **just run:**
+```bash
+alembic upgrade head
+```
+This applies any new migration files that came in. That's it.
+
+### Creating a new migration (only when YOU changed a model)
+If you edited a file in `app/models/`, you need to generate a migration **on your branch**:
+```bash
+alembic revision --autogenerate -m "short description of what changed"
+alembic upgrade head
+```
+Then commit the new file created in `migrations/versions/`.
+
+### Fixing a "multiple heads" error
+If you see `ERROR: Multiple head revisions are present` after merging two branches, you need to create a merge revision:
+```bash
+alembic heads          # shows the two conflicting revision IDs
+alembic merge heads -m "merge migrations"
+alembic upgrade head
+```
+Commit the new merge revision file that Alembic creates.
+
+### Fixing a "DuplicateTable" / blank version error
+If you see `relation "X" already exists` when running `alembic upgrade head`, it means the `alembic_version` table got wiped but all DB tables already exist. Check the heads and re-stamp:
+```bash
+alembic heads                        # copy the head revision ID shown
+alembic stamp <revision-id>          # e.g. alembic stamp 9dc80657e12e
+alembic upgrade head                 # should now run cleanly (nothing to apply)
+```
+
+### Never do this
+- ❌ `alembic stamp head` before a `upgrade head` when columns are missing — this marks migrations as done without actually running them (you'll get 500 column errors)
+- ❌ Running `alembic revision --autogenerate` after a pull — this creates a duplicate/empty migration for changes that are already tracked
 
 ---
 
