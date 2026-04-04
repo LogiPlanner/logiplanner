@@ -20,12 +20,11 @@ from sqlalchemy import or_
 
 from app.core.dependencies import get_current_user
 from app.core.database import get_db
-from app.models.user import User, Team, Project, Document, ChatMessage, UserRole, Role
-from app.models.calendar_task import CalendarTask
+from app.models.user import User, Team, Project, Document, ChatMessage, UserRole, Role, user_team
+from app.models.calendar_task import CalendarTask, task_tagged_users
 from app.models.timeline import TimelineEntry
 from app.schemas.rag import (
     IngestTextRequest,
-    IngestURLRequest,
     IngestResponse,
     DocumentResponse,
     DocumentListResponse,
@@ -56,12 +55,17 @@ UPLOAD_DIR = os.path.join("app", "static", "uploads", "rag")
 # ──────────────────────────────────────────────
 
 def _verify_team_access(user: User, team_id: int, db: Session) -> Team:
-    """Verify that the user belongs to the specified team."""
+    """Verify that the user belongs to the specified team using an explicit DB query."""
     team = db.query(Team).filter(Team.id == team_id).first()
     if not team:
         raise HTTPException(status_code=404, detail="Team not found")
 
-    if user not in team.users:
+    # Explicit SQL membership check — avoids lazy-load identity-map pitfalls
+    membership = db.query(user_team).filter(
+        user_team.c.user_id == user.id,
+        user_team.c.team_id == team_id,
+    ).first()
+    if not membership:
         raise HTTPException(status_code=403, detail="You are not a member of this team")
 
     return team
@@ -69,23 +73,35 @@ def _verify_team_access(user: User, team_id: int, db: Session) -> Team:
 
 def _get_user_team_role(user: User, team_id: int, db: Session) -> str:
     """
-    Get the user's role for a specific team.
+    Get the user's role for a SPECIFIC team.
+    Only considers UserRole records scoped to this team (team_id matches).
+    Falls back to legacy records (team_id IS NULL) for backwards compatibility.
     Returns: 'owner', 'editor', 'viewer', or 'member' (treated as viewer).
     """
-    # Check user_roles for this user
+    # Security: MUST filter by team_id to prevent cross-team privilege escalation
     user_roles = (
         db.query(UserRole)
-        .filter(UserRole.user_id == user.id)
+        .filter(
+            UserRole.user_id == user.id,
+            or_(
+                UserRole.team_id == team_id,
+                UserRole.team_id.is_(None),  # legacy records before migration
+            ),
+        )
         .all()
     )
 
-    for ur in user_roles:
+    # Among matching roles, team-scoped ones take precedence over legacy (team_id=None)
+    team_scoped = [ur for ur in user_roles if ur.team_id == team_id]
+    legacy = [ur for ur in user_roles if ur.team_id is None]
+
+    for ur in (team_scoped + legacy):
         if ur.role:
             role_name = ur.role.name.lower()
             if role_name in ("owner", "editor", "viewer"):
                 return role_name
 
-    # Default: if they only have "member" role or no role, treat as viewer
+    # Default: member role or no role → viewer
     return "viewer"
 
 
@@ -100,160 +116,117 @@ def _require_editor_or_owner(user: User, team_id: int, db: Session) -> str:
     return role
 
 
-def _format_datetime(value: Optional[datetime]) -> Optional[str]:
-    if value is None:
-        return None
-    if value.tzinfo is None:
-        return value.isoformat()
-    return value.astimezone(timezone.utc).isoformat()
+# Intent words that signal "show me data" rather than a conceptual question
+_RETRIEVAL_INTENTS = [
+    "show me", "show my", "list my", "list me", "give me", "what are my",
+    "what do i have", "what tasks", "my tasks", "my calendar", "my schedule",
+    "upcoming tasks", "open tasks", "pending tasks", "assigned to me",
+    "tagged to me", "calendar update", "task update", "tasks for",
+    "do i have any", "any tasks", "any meetings", "what's on my", "whats on my",
+]
 
 
-def _truncate_text(value: Optional[str], limit: int = 240) -> Optional[str]:
-    if not value:
-        return value
-    return value[:limit] + ("..." if len(value) > limit else "")
+def _is_task_query(message: str) -> bool:
+    """True only when the user is clearly requesting their live task/calendar data."""
+    text = (message or "").lower()
+    return any(intent in text for intent in _RETRIEVAL_INTENTS)
 
 
-def _serialize_task(task: CalendarTask) -> dict:
-    creator_name = task.user.full_name if task.user and task.user.full_name else task.user.email if task.user else None
-    tagged_users = [
-        {"id": user.id, "name": user.full_name or user.email}
-        for user in task.tagged_users
+def _is_timeline_query(message: str) -> bool:
+    """True only when the user is clearly requesting their live timeline/memory data."""
+    text = (message or "").lower()
+    # Specific compound phrases that unambiguously mean "show me the timeline data"
+    specific_phrases = [
+        "timeline update", "timeline entries", "timeline entry",
+        "show timeline", "show the timeline", "show my timeline",
+        "memory timeline", "recent milestones", "recent decisions",
+        "project history entries", "latest timeline",
     ]
-    return {
-        "id": task.id,
-        "title": task.title,
-        "description": _truncate_text(task.description),
-        "start": _format_datetime(task.start_datetime),
-        "end": _format_datetime(task.end_datetime),
-        "location": task.location,
-        "priority": task.priority or "medium",
-        "is_completed": task.is_completed,
-        "created_by": creator_name,
-        "tagged_users": tagged_users,
+    return any(p in text for p in specific_phrases)
+
+
+def _build_live_timeline_summary(db: Session, team_id: int, max_items: int = 15) -> str:
+    """Build a rich card response from live TimelineEntry data for all projects in the team."""
+    projects = db.query(Project).filter(Project.team_id == team_id).all()
+
+    card_payload: dict = {
+        "type": "timeline",
+        "heading": "Memory Timeline — Latest Entries",
+        "url": "/memory",
+        "items": [],
     }
 
+    if not projects:
+        return "__CARDS__:" + json.dumps(card_payload)
 
-def _build_live_workspace_context(
-    db: Session,
-    team_id: int,
-    current_user: User,
-    max_projects: int = 8,
-    max_personal_tasks: int = 12,
-    max_team_tasks: int = 12,
-    max_timeline_items: int = 15,
-) -> str:
-    """Build a bounded live workspace snapshot for the model to reason over."""
-    team = db.query(Team).filter(Team.id == team_id).first()
+    project_ids = [p.id for p in projects]
+    project_map = {p.id: p.project_name for p in projects}
+
+    entries = (
+        db.query(TimelineEntry)
+        .filter(TimelineEntry.project_id.in_(project_ids))
+        .order_by(TimelineEntry.created_at.desc())
+        .limit(max_items)
+        .all()
+    )
+
+    for e in entries:
+        proj_name = project_map.get(e.project_id, f"Project {e.project_id}")
+        ts = e.created_at.strftime("%b %d, %Y") if e.created_at else "Unknown date"
+        card_payload["items"].append({
+            "entry_type": e.entry_type.value,
+            "title": e.title,
+            "project": proj_name,
+            "date": ts,
+            "content": e.content[:180] + ("..." if len(e.content) > 180 else ""),
+        })
+
+    return "__CARDS__:" + json.dumps(card_payload)
+
+
+def _build_live_task_summary(db: Session, team_id: int, current_user: User, max_items: int = 12) -> str:
+    """Build a direct response from live calendar task data for the current user."""
     now_utc = datetime.now(timezone.utc)
 
-    total_projects = db.query(Project).filter(Project.team_id == team_id).count()
-    projects = (
-        db.query(Project)
-        .filter(Project.team_id == team_id)
-        .order_by(Project.created_at.desc())
-        .limit(max_projects)
-        .all()
-    )
-    project_ids = [project.id for project in projects]
-    project_map = {project.id: project.project_name for project in projects}
-
-    personal_tasks = (
+    tasks = (
         db.query(CalendarTask)
+        .outerjoin(task_tagged_users, CalendarTask.id == task_tagged_users.c.task_id)
         .filter(
             CalendarTask.team_id == team_id,
+            CalendarTask.is_completed.is_(False),
             or_(
                 CalendarTask.user_id == current_user.id,
-                CalendarTask.tagged_users.any(User.id == current_user.id),
+                task_tagged_users.c.user_id == current_user.id,
             ),
+            CalendarTask.end_datetime >= now_utc,
         )
-        .order_by(
-            CalendarTask.is_completed.asc(),
-            CalendarTask.updated_at.desc().nullslast(),
-            CalendarTask.start_datetime.asc(),
-        )
-        .limit(max_personal_tasks)
+        .order_by(CalendarTask.start_datetime.asc())
+        .limit(max_items)
         .all()
     )
 
-    team_tasks = (
-        db.query(CalendarTask)
-        .filter(CalendarTask.team_id == team_id)
-        .order_by(
-            CalendarTask.is_completed.asc(),
-            CalendarTask.updated_at.desc().nullslast(),
-            CalendarTask.start_datetime.asc(),
-        )
-        .limit(max_team_tasks)
-        .all()
-    )
-
-    timeline_entries = []
-    if project_ids:
-        timeline_entries = (
-            db.query(TimelineEntry)
-            .filter(TimelineEntry.project_id.in_(project_ids))
-            .order_by(TimelineEntry.created_at.desc())
-            .limit(max_timeline_items)
-            .all()
-        )
-
-    payload = {
-        "generated_at": now_utc.isoformat(),
-        "team": {
-            "id": team_id,
-            "name": team.team_name if team else None,
-            "description": team.description if team else None,
-        },
-        "limits": {
-            "projects": max_projects,
-            "personal_tasks": max_personal_tasks,
-            "team_tasks": max_team_tasks,
-            "timeline_entries": max_timeline_items,
-        },
-        "project_snapshot": {
-            "total_projects": total_projects,
-            "returned_projects": len(projects),
-            "items": [
-                {
-                    "id": project.id,
-                    "name": project.project_name,
-                    "created_at": _format_datetime(project.created_at),
-                }
-                for project in projects
-            ],
-        },
-        "personal_task_snapshot": {
-            "returned_tasks": len(personal_tasks),
-            "open_tasks": sum(1 for task in personal_tasks if not task.is_completed),
-            "upcoming_tasks": sum(
-                1
-                for task in personal_tasks
-                if not task.is_completed and task.end_datetime and task.end_datetime >= now_utc
-            ),
-            "items": [_serialize_task(task) for task in personal_tasks],
-        },
-        "team_task_snapshot": {
-            "returned_tasks": len(team_tasks),
-            "items": [_serialize_task(task) for task in team_tasks],
-        },
-        "timeline_snapshot": {
-            "returned_entries": len(timeline_entries),
-            "items": [
-                {
-                    "id": entry.id,
-                    "project": project_map.get(entry.project_id, f"Project {entry.project_id}"),
-                    "entry_type": entry.entry_type.value,
-                    "title": entry.title,
-                    "content": _truncate_text(entry.content),
-                    "source_reference": entry.source_reference,
-                    "created_at": _format_datetime(entry.created_at),
-                }
-                for entry in timeline_entries
-            ],
-        },
+    card_payload: dict = {
+        "type": "calendar",
+        "heading": "Your Upcoming Tasks",
+        "url": "/dashboard",
+        "items": [],
     }
-    return json.dumps(payload)
+
+    if not tasks:
+        return "__CARDS__:" + json.dumps(card_payload)
+
+    for t in tasks:
+        start = t.start_datetime.astimezone(timezone.utc).strftime("%b %d %I:%M %p")
+        end = t.end_datetime.astimezone(timezone.utc).strftime("%b %d %I:%M %p")
+        card_payload["items"].append({
+            "title": t.title,
+            "priority": t.priority or "medium",
+            "start": start,
+            "end": end,
+            "location": t.location or None,
+        })
+
+    return "__CARDS__:" + json.dumps(card_payload)
 
 
 # ──────────────────────────────────────────────
@@ -298,23 +271,18 @@ def _process_and_ingest(
         # Update record
         doc.chunk_count = chunk_count
         doc.status = "ready"
+        doc.stored_path = None  # File no longer on disk
         db.commit()
 
         print(f"[RAG] ✅ {filename} → {chunk_count} chunks ingested for team {team_id}")
 
-    except BaseException as e:
-        import traceback
-        print(f"[RAG] ❌ Error processing {filename}: {type(e).__name__}: {e}")
-        traceback.print_exc()
-        try:
-            db.rollback()  # Required before re-using session after an exception
-            doc = db.query(Document).filter(Document.id == doc_record_id).first()
-            if doc:
-                doc.status = "error"
-                doc.error_message = f"{type(e).__name__}: {str(e)}"[:500]
-                db.commit()
-        except Exception as db_err:
-            print(f"[RAG] ❌ Failed to update error status for doc {doc_record_id}: {db_err}")
+    except Exception as e:
+        print(f"[RAG] ❌ Error processing {filename}: {e}")
+        doc = db.query(Document).filter(Document.id == doc_record_id).first()
+        if doc:
+            doc.status = "error"
+            doc.error_message = str(e)[:500]
+            db.commit()
     finally:
         # Always delete the uploaded file — we only need the embeddings in ChromaDB
         if os.path.exists(file_path):
@@ -467,96 +435,6 @@ async def ingest_text(
         raise HTTPException(status_code=500, detail=f"Error ingesting text: {str(e)}")
 
 
-@router.post("/ingest-url", response_model=IngestResponse)
-async def ingest_url(
-    data: IngestURLRequest,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """Fetch a URL's text content and ingest it into the knowledge base."""
-    import httpx
-    from urllib.parse import urlparse
-
-    team = _verify_team_access(current_user, data.team_id, db)
-    _require_editor_or_owner(current_user, data.team_id, db)
-
-    # Validate URL
-    parsed = urlparse(data.url)
-    if parsed.scheme not in ("http", "https"):
-        raise HTTPException(status_code=400, detail="Only HTTP and HTTPS URLs are supported")
-
-    # Fetch content
-    try:
-        async with httpx.AsyncClient(follow_redirects=True, timeout=30.0) as client:
-            resp = await client.get(data.url, headers={"User-Agent": "LogiPlanner-RAG/1.0"})
-            resp.raise_for_status()
-            raw_text = resp.text
-    except httpx.HTTPStatusError as e:
-        raise HTTPException(status_code=400, detail=f"URL returned status {e.response.status_code}")
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to fetch URL: {str(e)[:200]}")
-
-    # Strip HTML tags (basic)
-    import re
-    text = re.sub(r'<script[^>]*>[\s\S]*?</script>', '', raw_text, flags=re.IGNORECASE)
-    text = re.sub(r'<style[^>]*>[\s\S]*?</style>', '', text, flags=re.IGNORECASE)
-    text = re.sub(r'<[^>]+>', ' ', text)
-    text = re.sub(r'\s+', ' ', text).strip()
-
-    if not text:
-        raise HTTPException(status_code=400, detail="No readable text found at that URL")
-
-    # Truncate to ~500 KB to avoid blowing up embeddings
-    text = text[:500_000]
-
-    title = parsed.netloc + parsed.path[:60]
-
-    doc_record = Document(
-        team_id=data.team_id,
-        uploader_id=current_user.id,
-        filename=title,
-        stored_path=data.url,
-        doc_type="text",
-        file_size=len(text.encode("utf-8")),
-        status="processing",
-    )
-    db.add(doc_record)
-    db.flush()
-
-    try:
-        chunks = process_text(
-            text=text,
-            title=title,
-            team_id=data.team_id,
-            document_id=doc_record.id,
-            uploader_email=current_user.email,
-        )
-        chunk_count = rag_engine.ingest_chunks(data.team_id, chunks)
-        doc_record.chunk_count = chunk_count
-        doc_record.status = "ready"
-        db.commit()
-
-        return IngestResponse(
-            message=f"URL content ingested successfully.",
-            documents=[DocumentResponse(
-                id=doc_record.id,
-                team_id=data.team_id,
-                filename=title,
-                doc_type="text",
-                file_size=doc_record.file_size,
-                chunk_count=chunk_count,
-                status="ready",
-                uploader_email=current_user.email,
-            )],
-            total_chunks=chunk_count,
-        )
-    except Exception as e:
-        doc_record.status = "error"
-        doc_record.error_message = str(e)[:500]
-        db.commit()
-        raise HTTPException(status_code=500, detail=f"Error ingesting URL content: {str(e)}")
-
-
 # ──────────────────────────────────────────────
 # KNOWLEDGE BASE MANAGEMENT
 # ──────────────────────────────────────────────
@@ -666,7 +544,94 @@ async def chat_with_brain(
     """
     team = _verify_team_access(current_user, data.team_id, db)
 
-    live_workspace_context = _build_live_workspace_context(db, data.team_id, current_user)
+    # Timeline check MUST come first — its prompts also contain retrieval intent
+    # phrases (e.g. "give me") that would otherwise match _is_task_query.
+    if _is_timeline_query(data.message):
+        timeline_response = _build_live_timeline_summary(db, data.team_id)
+
+        user_msg = ChatMessage(
+            team_id=data.team_id,
+            user_id=current_user.id,
+            session_id=data.session_id,
+            role="user",
+            content=data.message,
+        )
+        db.add(user_msg)
+
+        assistant_msg = ChatMessage(
+            team_id=data.team_id,
+            user_id=current_user.id,
+            session_id=data.session_id,
+            role="assistant",
+            content=timeline_response,
+            sources=json.dumps([
+                {
+                    "filename": "Live Memory Timeline",
+                    "page_number": 0,
+                    "uploader": "system",
+                    "doc_type": "timeline_entry",
+                }
+            ]),
+        )
+        db.add(assistant_msg)
+        db.commit()
+
+        return ChatResponse(
+            response=timeline_response,
+            sources=[
+                {
+                    "filename": "Live Memory Timeline",
+                    "page_number": 0,
+                    "uploader": "system",
+                    "doc_type": "timeline_entry",
+                }
+            ],
+            chunk_count=0,
+        )
+
+    # If the user is asking about tasks/calendar, answer from live DB.
+    elif _is_task_query(data.message):
+        task_response = _build_live_task_summary(db, data.team_id, current_user)
+
+        user_msg = ChatMessage(
+            team_id=data.team_id,
+            user_id=current_user.id,
+            session_id=data.session_id,
+            role="user",
+            content=data.message,
+        )
+        db.add(user_msg)
+
+        assistant_msg = ChatMessage(
+            team_id=data.team_id,
+            user_id=current_user.id,
+            session_id=data.session_id,
+            role="assistant",
+            content=task_response,
+            sources=json.dumps([
+                {
+                    "filename": "Live Calendar Tasks",
+                    "page_number": 0,
+                    "uploader": "system",
+                    "doc_type": "calendar_task",
+                }
+            ]),
+        )
+        db.add(assistant_msg)
+        db.commit()
+
+        return ChatResponse(
+            response=task_response,
+            sources=[
+                {
+                    "filename": "Live Calendar Tasks",
+                    "page_number": 0,
+                    "uploader": "system",
+                    "doc_type": "calendar_task",
+                }
+            ],
+            chunk_count=0,
+        )
 
     # Get THIS USER's recent chat history (private conversation)
     history_filter = [
@@ -695,7 +660,6 @@ async def chat_with_brain(
         query=data.message,
         chat_history=chat_history,
         filters=data.filters,
-        live_context=live_workspace_context,
     )
 
     # Save user message

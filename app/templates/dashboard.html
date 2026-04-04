@@ -119,6 +119,29 @@
                 <!-- Right Column -->
                 <div style="display:flex;flex-direction:column;gap:20px;">
 
+                    <!-- AI Actionable Steps -->
+                    <div class="card ai-suggestions-card" id="aiSuggestionsCard">
+                        <div class="card__header">
+                            <h3 class="card__title">
+                                <svg class="card__title-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                                AI Actionable Steps
+                            </h3>
+                            <button class="ai-suggestions__refresh-btn" id="aiSuggestionsRefresh" title="Refresh suggestions">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                            </button>
+                        </div>
+                        <div class="card__body ai-suggestions__body" id="aiSuggestionsBody">
+                            <div class="ai-suggestions__loading" id="aiSuggestionsLoading">
+                                <div class="ai-suggestions__spinner"></div>
+                                <span>AI is analyzing your project...</span>
+                            </div>
+                            <div class="ai-suggestions__empty" id="aiSuggestionsEmpty" style="display:none;">
+                                <span>No suggestions yet. Upload documents to your AI Brain to get started.</span>
+                            </div>
+                            <div class="ai-suggestions__list" id="aiSuggestionsList"></div>
+                        </div>
+                    </div>
+
                     <!-- Quick Actions -->
                     <div class="card">
                         <div class="card__header">
@@ -240,6 +263,16 @@
                 </div>
                 <div class="task-modal__row">
                     <div class="task-modal__field">
+                        <label for="taskTypeInput">Task Type</label>
+                        <select id="taskTypeInput">
+                            <option value="regular">📋 Regular Task</option>
+                            <option value="meeting">📅 Meeting</option>
+                            <option value="deadline">⏰ Deadline</option>
+                            <option value="milestone">🏁 Milestone</option>
+                            <option value="action_item">⚡ Action Item</option>
+                        </select>
+                    </div>
+                    <div class="task-modal__field">
                         <label for="taskPriorityInput">Priority</label>
                         <select id="taskPriorityInput">
                             <option value="low">Low</option>
@@ -247,6 +280,8 @@
                             <option value="high">High</option>
                         </select>
                     </div>
+                </div>
+                <div class="task-modal__row">
                     <div class="task-modal__field">
                         <label>Color Tag</label>
                         <div class="task-modal__color-picker" id="colorPicker">
@@ -263,6 +298,17 @@
                 <div class="task-modal__field">
                     <label>Tagged Members</label>
                     <div class="task-modal__tags" id="taggedMembersContainer"></div>
+                </div>
+                <div class="task-modal__save-error" id="taskSaveError" style="display:none;">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="18" height="18"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <span id="taskSaveErrorText"></span>
+                </div>
+                <div class="task-modal__conflict-warning" id="taskConflictWarning" style="display:none;">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="18" height="18"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                    <div class="task-modal__conflict-text">
+                        <strong>Time Conflict Detected</strong>
+                        <span id="taskConflictDetails"></span>
+                    </div>
                 </div>
                 <div class="task-modal__actions">
                     <button type="button" class="task-modal__btn task-modal__btn--cancel" id="taskModalCancel">Cancel</button>

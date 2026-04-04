@@ -26,6 +26,7 @@ class CalendarTask(Base):
     location = Column(String(500), nullable=True)
     color_tag = Column(String(7), nullable=True)               
     priority = Column(String, default="medium")                # low / medium / high
+    task_type = Column(String, default="regular")              # meeting / deadline / milestone / regular / action_item
     is_completed = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

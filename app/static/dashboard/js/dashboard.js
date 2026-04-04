@@ -32,6 +32,11 @@
     let taggedUserIds = [];      // Currently tagged user IDs in the modal
     let selectedColorTag = '';   // Currently selected color hex
 
+    // AI suggestions state
+    let aiSuggestions = [];
+    let aiSuggestionsLoading = false;
+    let seenSuggestionTitles = new Set(); // tracks titles shown so far to avoid re-showing
+
     // ── Helpers ──
     async function api(path, opts) {
         const res = await fetch(API + path, { headers, ...opts });
@@ -107,6 +112,16 @@
 
     function priorityLabel(p) {
         return p.charAt(0).toUpperCase() + p.slice(1);
+    }
+
+    function taskTypeIcon(t) {
+        const icons = { meeting: '📅', deadline: '⏰', milestone: '🏁', action_item: '⚡', regular: '📋' };
+        return icons[t] || '📋';
+    }
+
+    function taskTypeLabel(t) {
+        const labels = { meeting: 'Meeting', deadline: 'Deadline', milestone: 'Milestone', action_item: 'Action Item', regular: 'Regular' };
+        return labels[t] || 'Regular';
     }
 
     function escHtml(str) {
@@ -187,6 +202,7 @@
         initCalendarControls();
         initTaskModal();
         initDayPanel();
+        initAISuggestionsPanel();
         loadTeamData();
     }
 
@@ -242,6 +258,7 @@
         await loadCalendarTasks();
         renderTeamInfo(roleData);
         renderGettingStarted(stats, docs);
+        loadAISuggestions();
     }
 
     // ── Stats ──
@@ -473,6 +490,7 @@
                 const timeStr = task.start_datetime ? formatTime(task.start_datetime) : '';
                 eventsHtml += '<div class="calendar__week-task' + doneClass + '" style="border-left-color:' + borderColor + '">'
                     + '<input type="checkbox" class="calendar__task-check" data-task-id="' + task.id + '" ' + (task.is_completed ? 'checked' : '') + '>'
+                    + '<span class="calendar__week-task-type">' + taskTypeIcon(task.task_type || 'regular') + '</span>'
                     + '<span class="calendar__week-task-title">' + escHtml(task.title) + '</span>'
                     + (timeStr ? '<span class="calendar__week-task-time">' + timeStr + '</span>' : '')
                     + '</div>';
@@ -524,7 +542,7 @@
                 html += '<div class="calendar__day-task' + doneClass + '"' + colorBorder + '>'
                     + '<input type="checkbox" class="calendar__task-check" data-task-id="' + task.id + '" ' + (task.is_completed ? 'checked' : '') + '>'
                     + '<div class="calendar__day-task-info">'
-                    + '<span class="calendar__day-task-title">' + escHtml(task.title) + '</span>'
+                    + '<span class="calendar__day-task-title">' + taskTypeIcon(task.task_type || 'regular') + ' ' + escHtml(task.title) + '</span>'
                     + (task.description ? '<span class="calendar__day-task-desc">' + escHtml(task.description) + '</span>' : '')
                     + '<div class="calendar__day-task-meta">' + timeRange + locationHtml + creatorHtml + '</div>'
                     + '</div>'
@@ -575,6 +593,16 @@
             form.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 await saveTask();
+            });
+
+            // Clear error banner on any input change
+            form.addEventListener('input', () => {
+                const saveError = document.getElementById('taskSaveError');
+                if (saveError) saveError.style.display = 'none';
+                const conflictWarning = document.getElementById('taskConflictWarning');
+                if (conflictWarning && !conflictWarning.dataset.acknowledged) {
+                    conflictWarning.style.display = 'none';
+                }
             });
         }
 
@@ -752,8 +780,15 @@
         const priorityInput = document.getElementById('taskPriorityInput');
         const locationInput = document.getElementById('taskLocationInput');
         const colorPicker = document.getElementById('colorPicker');
+        const taskTypeInput = document.getElementById('taskTypeInput');
+        const conflictWarning = document.getElementById('taskConflictWarning');
 
         if (!overlay) return;
+
+        // Reset conflict warning and error state
+        if (conflictWarning) conflictWarning.style.display = 'none';
+        const saveError = document.getElementById('taskSaveError');
+        if (saveError) saveError.style.display = 'none';
 
         if (editTask) {
             title.textContent = 'Edit Task';
@@ -765,6 +800,7 @@
             endInput.value = toLocalDatetimeValue(editTask.end_datetime);
             locationInput.value = editTask.location || '';
             priorityInput.value = editTask.priority;
+            if (taskTypeInput) taskTypeInput.value = editTask.task_type || 'regular';
             selectedColorTag = editTask.color_tag || '';
             taggedUserIds = (editTask.tagged_users || []).map(u => u.id);
         } else {
@@ -775,6 +811,7 @@
             descInput.value = '';
             locationInput.value = '';
             priorityInput.value = 'medium';
+            if (taskTypeInput) taskTypeInput.value = 'regular';
             selectedColorTag = '';
             taggedUserIds = [];
 
@@ -809,6 +846,25 @@
         if (overlay) overlay.classList.remove('active');
         const dropdown = document.getElementById('mentionDropdown');
         if (dropdown) dropdown.classList.remove('active');
+        // Clear error/conflict states
+        const saveError = document.getElementById('taskSaveError');
+        if (saveError) saveError.style.display = 'none';
+        const conflictWarning = document.getElementById('taskConflictWarning');
+        if (conflictWarning) {
+            conflictWarning.style.display = 'none';
+            delete conflictWarning.dataset.acknowledged;
+        }
+    }
+
+    function showTaskModalError(msg) {
+        const el = document.getElementById('taskSaveError');
+        const txt = document.getElementById('taskSaveErrorText');
+        if (!el || !txt) return;
+        txt.textContent = msg;
+        el.style.display = 'flex';
+        // Auto-hide after 6 seconds
+        clearTimeout(el._hideTimer);
+        el._hideTimer = setTimeout(() => { el.style.display = 'none'; }, 6000);
     }
 
     async function saveTask() {
@@ -819,6 +875,7 @@
         const endVal = document.getElementById('taskEndInput').value;
         const priorityVal = document.getElementById('taskPriorityInput').value;
         const locationVal = document.getElementById('taskLocationInput').value.trim();
+        const taskTypeVal = document.getElementById('taskTypeInput')?.value || 'regular';
 
         if (!titleVal || !startVal || !endVal || !currentTeamId) return;
 
@@ -826,12 +883,52 @@
         const startDt = new Date(startVal).toISOString();
         const endDt = new Date(endVal).toISOString();
 
+        // Validate start < end
+        if (new Date(startDt) >= new Date(endDt)) {
+            showTaskModalError('End time must be after start time.');
+            return;
+        }
+
+        // Time conflict detection for time-based task types
+        const timeBasedTypes = ['meeting', 'regular'];
+        if (timeBasedTypes.includes(taskTypeVal)) {
+            const conflictResult = await apiJson(
+                '/calendar/tasks/' + currentTeamId + '/check-conflicts', 'POST',
+                {
+                    start_datetime: startDt,
+                    end_datetime: endDt,
+                    exclude_task_id: editId ? parseInt(editId) : null,
+                }
+            );
+
+            if (conflictResult && !conflictResult._error && conflictResult.has_conflict) {
+                const conflictWarning = document.getElementById('taskConflictWarning');
+                const conflictDetails = document.getElementById('taskConflictDetails');
+                if (conflictWarning && conflictDetails) {
+                    const names = conflictResult.conflicting_tasks.map(t => '"' + t.title + '"').join(', ');
+                    conflictDetails.textContent = 'This overlaps with: ' + names + '. Save anyway?';
+                    conflictWarning.style.display = 'flex';
+
+                    // If already showing warning and user presses save again, proceed
+                    if (!conflictWarning.dataset.acknowledged) {
+                        conflictWarning.dataset.acknowledged = '1';
+                        return; // First press just shows warning
+                    }
+                }
+            }
+        }
+
+        // Reset conflict acknowledged flag
+        const conflictWarning = document.getElementById('taskConflictWarning');
+        if (conflictWarning) delete conflictWarning.dataset.acknowledged;
+
         const body = {
             title: titleVal,
             description: descVal || null,
             start_datetime: startDt,
             end_datetime: endDt,
             priority: priorityVal,
+            task_type: taskTypeVal,
             location: locationVal || null,
             color_tag: selectedColorTag || null,
             tagged_user_ids: taggedUserIds.length > 0 ? taggedUserIds : null,
@@ -849,6 +946,9 @@
             await loadCalendarTasks();
             // Refresh day panel if open
             if (selectedDate) refreshDayPanel(selectedDate);
+        } else {
+            const detail = (result && result.detail) ? result.detail : 'Could not save task. Please try again.';
+            showTaskModalError(typeof detail === 'string' ? detail : JSON.stringify(detail));
         }
     }
 
@@ -958,6 +1058,7 @@
                 + '</div>'
                 + '</div>'
                 + '<div class="day-panel__task-right">'
+                + '<span class="day-panel__task-type">' + taskTypeIcon(task.task_type || 'regular') + '</span>'
                 + '<span class="day-panel__task-priority" style="background:' + priorityColor(task.priority) + '15;color:' + priorityColor(task.priority) + '">' + priorityLabel(task.priority) + '</span>'
                 + '<button class="day-panel__task-edit" data-task-id="' + task.id + '" title="Edit">'
                 + '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>'
@@ -997,6 +1098,190 @@
         const overlay = document.getElementById('dayPanelOverlay');
         if (overlay) overlay.classList.remove('active');
         drawCalendar();
+    }
+
+    // ══════════════════════════════════════════════
+    //  AI ACTIONABLE STEPS — Suggestions panel
+    // ══════════════════════════════════════════════
+
+    async function loadAISuggestions() {
+        if (!currentTeamId || aiSuggestionsLoading) return;
+        aiSuggestionsLoading = true;
+        seenSuggestionTitles = new Set(); // reset on full refresh
+
+        const loadingEl = document.getElementById('aiSuggestionsLoading');
+        const emptyEl = document.getElementById('aiSuggestionsEmpty');
+        const listEl = document.getElementById('aiSuggestionsList');
+        if (loadingEl) loadingEl.style.display = 'flex';
+        if (emptyEl) emptyEl.style.display = 'none';
+        if (listEl) listEl.innerHTML = '';
+
+        const result = await api('/calendar/ai-suggestions/' + currentTeamId);
+        aiSuggestionsLoading = false;
+
+        if (loadingEl) loadingEl.style.display = 'none';
+
+        if (!result || !result.suggestions || result.suggestions.length === 0) {
+            if (emptyEl) emptyEl.style.display = 'flex';
+            aiSuggestions = [];
+            return;
+        }
+
+        // Cap at 4, track seen titles
+        aiSuggestions = result.suggestions.slice(0, 4);
+        aiSuggestions.forEach(s => seenSuggestionTitles.add(s.title));
+        renderAISuggestions();
+    }
+
+    function renderAISuggestions() {
+        const listEl = document.getElementById('aiSuggestionsList');
+        if (!listEl) return;
+
+        listEl.innerHTML = aiSuggestions.map((s, idx) => {
+            const confidencePct = Math.round(s.confidence * 100);
+            const confidenceColor = s.confidence >= 0.7 ? '#22c55e' : s.confidence >= 0.4 ? '#f59e0b' : '#ef4444';
+            return '<div class="ai-suggestion" data-idx="' + idx + '">'
+                + '<div class="ai-suggestion__header">'
+                + '<span class="ai-suggestion__type-badge">' + taskTypeIcon(s.task_type) + ' ' + taskTypeLabel(s.task_type) + '</span>'
+                + '<span class="ai-suggestion__confidence" style="color:' + confidenceColor + '">' + confidencePct + '% match</span>'
+                + '</div>'
+                + '<div class="ai-suggestion__title">' + escHtml(s.title) + '</div>'
+                + '<div class="ai-suggestion__desc">' + escHtml(s.description) + '</div>'
+                + (s.proposed_deadline ? '<div class="ai-suggestion__deadline">📅 Suggested: ' + s.proposed_deadline + '</div>' : '')
+                + (s.source_context ? '<div class="ai-suggestion__source">📄 ' + escHtml(s.source_context) + '</div>' : '')
+                + '<div class="ai-suggestion__confidence-bar"><div class="ai-suggestion__confidence-fill" style="width:' + confidencePct + '%;background:' + confidenceColor + '"></div></div>'
+                + '<div class="ai-suggestion__actions">'
+                + '<button class="ai-suggestion__accept" data-idx="' + idx + '" title="Accept — prefill task form">✓ Accept</button>'
+                + '<button class="ai-suggestion__dismiss" data-idx="' + idx + '" title="Dismiss this suggestion">✕ Dismiss</button>'
+                + '</div>'
+                + '</div>';
+        }).join('');
+
+        // Bind accept / dismiss
+        listEl.querySelectorAll('.ai-suggestion__accept').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                acceptAISuggestion(parseInt(btn.dataset.idx));
+            });
+        });
+        listEl.querySelectorAll('.ai-suggestion__dismiss').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                dismissAISuggestion(parseInt(btn.dataset.idx));
+            });
+        });
+    }
+
+    function acceptAISuggestion(idx) {
+        const s = aiSuggestions[idx];
+        if (!s) return;
+
+        // Open modal first (sets default dates synchronously)
+        openTaskModal(null);
+
+        // Fill fields immediately — openTaskModal is synchronous so DOM is ready
+        const titleInput = document.getElementById('taskTitleInput');
+        const descInput = document.getElementById('taskDescInput');
+        const typeInput = document.getElementById('taskTypeInput');
+        const priorityInput = document.getElementById('taskPriorityInput');
+        const modalTitle = document.getElementById('taskModalTitle');
+
+        if (titleInput) titleInput.value = s.title;
+        if (descInput) descInput.value = s.description + (s.source_context ? '\n\n[Source: ' + s.source_context + ']' : '');
+        if (typeInput) typeInput.value = s.task_type || 'action_item';
+        if (priorityInput) priorityInput.value = s.priority || 'medium';
+        if (modalTitle) modalTitle.textContent = '⚡ AI Suggested Task';
+
+        // Override dates if AI gave a proposed deadline
+        if (s.proposed_deadline) {
+            const startInput = document.getElementById('taskStartInput');
+            const endInput = document.getElementById('taskEndInput');
+            const deadlineDate = new Date(s.proposed_deadline + 'T09:00:00');
+            const endDate = new Date(deadlineDate.getTime() + 3600000);
+            if (startInput) startInput.value = toLocalDatetimeValue(deadlineDate.toISOString());
+            if (endInput) endInput.value = toLocalDatetimeValue(endDate.toISOString());
+        }
+
+        // Dismiss AFTER filing fields (so idx is still valid during fill)
+        dismissAISuggestion(idx);
+    }
+
+    function dismissAISuggestion(idx) {
+        aiSuggestions.splice(idx, 1);
+        renderAISuggestions();
+
+        if (aiSuggestions.length === 0) {
+            const emptyEl = document.getElementById('aiSuggestionsEmpty');
+            if (emptyEl) emptyEl.style.display = 'flex';
+        }
+
+        // Silently try to fetch one replacement — only if we're under 4
+        if (aiSuggestions.length < 4) {
+            tryFetchReplacement();
+        }
+    }
+
+    async function tryFetchReplacement() {
+        if (!currentTeamId) return;
+        const result = await api('/calendar/ai-suggestions/' + currentTeamId);
+        if (!result || !result.suggestions || result.suggestions.length === 0) return;
+
+        // Find first suggestion we haven't shown yet
+        const fresh = result.suggestions.find(s => !seenSuggestionTitles.has(s.title));
+        if (!fresh) return; // Nothing new — leave the gap, don't force anything
+
+        seenSuggestionTitles.add(fresh.title);
+        aiSuggestions.push(fresh);
+
+        // Hide the empty state if it was showing
+        const emptyEl = document.getElementById('aiSuggestionsEmpty');
+        if (emptyEl) emptyEl.style.display = 'none';
+
+        // Append the new card (animated)
+        appendSuggestionCard(fresh, aiSuggestions.length - 1);
+    }
+
+    function appendSuggestionCard(s, idx) {
+        const listEl = document.getElementById('aiSuggestionsList');
+        if (!listEl) return;
+        const confidencePct = Math.round(s.confidence * 100);
+        const confidenceColor = s.confidence >= 0.7 ? '#22c55e' : s.confidence >= 0.4 ? '#f59e0b' : '#ef4444';
+        const div = document.createElement('div');
+        div.className = 'ai-suggestion ai-suggestion--new';
+        div.dataset.idx = idx;
+        div.innerHTML = '<div class="ai-suggestion__header">'
+            + '<span class="ai-suggestion__type-badge">' + taskTypeIcon(s.task_type) + ' ' + taskTypeLabel(s.task_type) + '</span>'
+            + '<span class="ai-suggestion__confidence" style="color:' + confidenceColor + '">' + confidencePct + '% match</span>'
+            + '</div>'
+            + '<div class="ai-suggestion__title">' + escHtml(s.title) + '</div>'
+            + '<div class="ai-suggestion__desc">' + escHtml(s.description) + '</div>'
+            + (s.proposed_deadline ? '<div class="ai-suggestion__deadline">📅 Suggested: ' + s.proposed_deadline + '</div>' : '')
+            + (s.source_context ? '<div class="ai-suggestion__source">📄 ' + escHtml(s.source_context) + '</div>' : '')
+            + '<div class="ai-suggestion__confidence-bar"><div class="ai-suggestion__confidence-fill" style="width:' + confidencePct + '%;background:' + confidenceColor + '"></div></div>'
+            + '<div class="ai-suggestion__actions">'
+            + '<button class="ai-suggestion__accept" data-idx="' + idx + '" title="Accept">✓ Accept</button>'
+            + '<button class="ai-suggestion__dismiss" data-idx="' + idx + '" title="Dismiss">✕ Dismiss</button>'
+            + '</div>';
+        listEl.appendChild(div);
+        div.querySelector('.ai-suggestion__accept').addEventListener('click', (e) => {
+            e.stopPropagation();
+            acceptAISuggestion(parseInt(div.dataset.idx));
+        });
+        div.querySelector('.ai-suggestion__dismiss').addEventListener('click', (e) => {
+            e.stopPropagation();
+            dismissAISuggestion(parseInt(div.dataset.idx));
+        });
+        // Trigger animation
+        requestAnimationFrame(() => div.classList.add('ai-suggestion--visible'));
+    }
+
+    function initAISuggestionsPanel() {
+        const refreshBtn = document.getElementById('aiSuggestionsRefresh');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', () => {
+                loadAISuggestions();
+            });
+        }
     }
 
     // ── Team Info ──

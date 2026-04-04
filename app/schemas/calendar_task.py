@@ -10,6 +10,14 @@ class PriorityEnum(str, Enum):
     high = "high"
 
 
+class TaskTypeEnum(str, Enum):
+    meeting = "meeting"
+    deadline = "deadline"
+    milestone = "milestone"
+    regular = "regular"
+    action_item = "action_item"
+
+
 class TaggedUserOut(BaseModel):
     id: int
     full_name: Optional[str] = None
@@ -27,6 +35,7 @@ class CalendarTaskCreate(BaseModel):
     location: Optional[str] = Field(None, max_length=500)
     color_tag: Optional[str] = Field(None, max_length=7)
     priority: PriorityEnum = PriorityEnum.medium
+    task_type: TaskTypeEnum = TaskTypeEnum.regular
     tagged_user_ids: Optional[List[int]] = None
 
 
@@ -38,6 +47,7 @@ class CalendarTaskUpdate(BaseModel):
     location: Optional[str] = Field(None, max_length=500)
     color_tag: Optional[str] = Field(None, max_length=7)
     priority: Optional[PriorityEnum] = None
+    task_type: Optional[TaskTypeEnum] = None
     is_completed: Optional[bool] = None
     tagged_user_ids: Optional[List[int]] = None
 
@@ -55,6 +65,7 @@ class CalendarTaskResponse(BaseModel):
     location: Optional[str]
     color_tag: Optional[str]
     priority: str
+    task_type: str = "regular"
     is_completed: bool
     tagged_users: List[TaggedUserOut] = []
     created_at: datetime

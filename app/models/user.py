@@ -86,6 +86,7 @@ class UserRole(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
     role_id = Column(Integer, ForeignKey("roles.id"))
+    team_id = Column(Integer, ForeignKey("teams.id"), nullable=True, index=True)  # scopes role to a specific team
     project_id = Column(Integer, ForeignKey("projects.id"), nullable=True)  # optional per-project role
 
     user = relationship("User", back_populates="user_roles")
