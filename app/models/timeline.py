@@ -21,4 +21,9 @@ class TimelineEntry(Base):
     source_reference = Column(String, nullable=True) 
     
     verified_by_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    author_name = Column(String, nullable=True)
+    collaborators = Column(String, nullable=True)
+    tags = Column(String, nullable=True)
+    impact_level = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
