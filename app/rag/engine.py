@@ -172,6 +172,28 @@ class RAGEngine:
 
         return 0
 
+    def delete_timeline_entry_chunks(self, team_id: int, timeline_entry_id: int) -> int:
+        """
+        Delete all chunks belonging to a specific timeline entry from the vector store.
+        """
+        self._ensure_initialized()
+        collection_name = self._get_collection_name(team_id)
+
+        try:
+            collection = self._chroma_client.get_collection(collection_name)
+            results = collection.get(
+                where={"timeline_entry_id": timeline_entry_id},
+            )
+            if results and results["ids"]:
+                collection.delete(ids=results["ids"])
+                count = len(results["ids"])
+                print(f"[RAG] Deleted {count} chunks for timeline entry {timeline_entry_id}")
+                return count
+        except Exception as e:
+            print(f"[RAG] Error deleting timeline chunks: {e}")
+
+        return 0
+
     # ──────────────────────────────────────────────
     # RETRIEVAL & CHAT
     # ──────────────────────────────────────────────
