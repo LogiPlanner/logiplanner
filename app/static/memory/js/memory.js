@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const timelineEmpty = document.getElementById('timelineEmpty');
     const searchInput = document.getElementById('searchInput');
     const topbarNavLinks = document.querySelectorAll('#topbarNav a');
+    const projectTitle = document.getElementById('projectTitle');
     
     // Analytics Elements
     const statDecisions = document.getElementById('statDecisions');
@@ -30,7 +31,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const filterBtn = document.getElementById('filterBtn');
     const filterDropdown = document.getElementById('filterDropdown');
     const sortBox = document.getElementById('sortBox');
-    const typeChecks = document.querySelectorAll('.type-check');
+    
+    // Advanced Filters
+    const impactChecks = document.querySelectorAll('.impact-check');
+    const filterCollab = document.getElementById('filterCollab');
+    const filterTags = document.getElementById('filterTags');
     const exportBtn = document.getElementById('exportBtn');
 
     // Modals
@@ -46,10 +51,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
     const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
 
+    const errorModal = document.getElementById('errorModal');
+    const errorModalDesc = document.getElementById('errorModalDesc');
+    const closeErrorBtn = document.getElementById('closeErrorBtn');
+
+    closeErrorBtn?.addEventListener('click', () => {
+        errorModal.classList.remove('active');
+    });
+
+    function showError(message) {
+        if(errorModalDesc) errorModalDesc.textContent = message;
+        if(errorModal) errorModal.classList.add('active');
+    }
+
     let allEntries = [];
+    let projectUsers = [];
     let currentProjectId = null;
     let currentFilter = 'all';
-    let entryToDelete = null; 
+    let entryToDelete = null;
 
     // --- FETCH DATA ---
 
@@ -60,19 +79,40 @@ document.addEventListener('DOMContentLoaded', () => {
                 const projects = await res.json();
                 if (projects.length > 0) {
                     currentProjectId = projects[0].id;
+                    if (projectTitle) {
+                        projectTitle.textContent = projects[0].project_name || 'Project Memory';
+                    }
                     loadProjectData(currentProjectId);
                 } else {
+                    if (projectTitle) {
+                        projectTitle.textContent = 'Project Memory';
+                    }
                     timelineEmpty.style.display = 'block';
                 }
             }
         } catch(e) {
             console.error('Failed to fetch projects', e);
+            if (projectTitle) {
+                projectTitle.textContent = 'Project Memory';
+            }
         }
     }
 
     async function loadProjectData(projectId) {
         fetchTimeline(projectId);
         fetchAnalytics(projectId);
+        fetchProjectUsers(projectId);
+    }
+    
+    async function fetchProjectUsers(projectId) {
+        try {
+            const res = await fetch(`/api/v1/timeline/project/${projectId}/users`, { headers });
+            if (res.ok) {
+                projectUsers = await res.json();
+            }
+        } catch(e) {
+            console.error('Failed to fetch users for mentions', e);
+        }
     }
 
     async function fetchTimeline(projectId) {
@@ -152,9 +192,21 @@ document.addEventListener('DOMContentLoaded', () => {
             filtered = filtered.filter(e => e.entry_type === currentFilter);
         }
 
-        // 1.5 Type Filter from Checkboxes
-        const checkedTypes = Array.from(typeChecks).filter(cb => cb.checked).map(cb => cb.value);
-        filtered = filtered.filter(e => checkedTypes.includes(e.entry_type));
+        // 1.5 Advanced Filters logic
+        const checkedImpacts = Array.from(impactChecks).filter(cb => cb.checked).map(cb => cb.value);
+        if (checkedImpacts.length > 0) {
+            filtered = filtered.filter(e => checkedImpacts.includes(e.impact_level || 'none'));
+        }
+        
+        const collabFilter = filterCollab.value.toLowerCase();
+        if (collabFilter) {
+            filtered = filtered.filter(e => e.collaborators && e.collaborators.toLowerCase().includes(collabFilter));
+        }
+        
+        const tagsFilter = filterTags.value.toLowerCase();
+        if (tagsFilter) {
+            filtered = filtered.filter(e => e.tags && e.tags.toLowerCase().includes(tagsFilter));
+        }
 
         // 2. Search Box Filter
         if (query) {
@@ -368,7 +420,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     sortBox.addEventListener('change', applyFiltersAndRender);
-    typeChecks.forEach(cb => cb.addEventListener('change', applyFiltersAndRender));
+    impactChecks.forEach(cb => cb.addEventListener('change', applyFiltersAndRender));
+    filterCollab.addEventListener('input', applyFiltersAndRender);
+    filterTags.addEventListener('input', applyFiltersAndRender);
 
     // --- EDIT & DELETE ---
 
@@ -394,11 +448,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (res.ok) {
                 loadProjectData(currentProjectId);
             } else {
-                alert("Failed to delete entry.");
+                showError("Failed to delete entry.");
             }
         } catch(e) {
             console.error(e);
-            alert("Network error deleting entry.");
+            showError("Network error deleting entry.");
         } finally {
             confirmDeleteBtn.textContent = "Delete Entry";
             deleteConfirmModal.classList.remove('active');
@@ -481,11 +535,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 loadProjectData(currentProjectId);
             } else {
                 const data = await res.json();
-                alert(data.detail || 'Error saving entry');
+                showError(data.detail || 'Error saving entry');
             }
         } catch(err) {
             console.error(err);
-            alert('A network error occurred.');
+            showError('A network error occurred.');
         } finally {
             saveEntryBtn.textContent = originalText;
             saveEntryBtn.disabled = false;
@@ -501,4 +555,107 @@ document.addEventListener('DOMContentLoaded', () => {
             fetchTimeline(currentProjectId); // silently updates and triggers dot
         }
     }, 15000);
+
+    // --- AUTO-FILL DOCUMENT AI ---
+    const autoFillBtn = document.getElementById('autoFillBtn');
+    const autoFillFile = document.getElementById('autoFillFile');
+
+    autoFillBtn?.addEventListener('click', () => {
+        autoFillFile.click();
+    });
+
+    autoFillFile?.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const originalText = autoFillBtn.textContent;
+        autoFillBtn.textContent = '✨ Analyzing...';
+        autoFillBtn.disabled = true;
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const res = await fetch('/api/v1/timeline/auto-fill', {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Bearer ' + token
+                },
+                body: formData
+            });
+
+            if (res.ok) {
+                const aiData = await res.json();
+                document.getElementById('entryTitle').value = aiData.title || '';
+                document.getElementById('entryContent').value = aiData.content || '';
+                document.getElementById('entryTags').value = aiData.tags || '';
+            } else {
+                const err = await res.json();
+                showError(err.detail || 'Unknown extraction error occurred.');
+            }
+        } catch (error) {
+            console.error("Auto-fill error:", error);
+            showError("Error communicating with AI Brain for auto-fill.");
+        } finally {
+            autoFillBtn.textContent = originalText;
+            autoFillBtn.disabled = false;
+            autoFillFile.value = '';
+        }
+    });
+
+    // --- @ MENTIONS DROPDOWN ---
+    const mentionDropdown = document.getElementById('mentionDropdown');
+    const entryCollaborators = document.getElementById('entryCollaborators');
+
+    function escapeRegExp(string) {
+        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
+    }
+
+    entryCollaborators?.addEventListener('input', (e) => {
+        const val = e.target.value;
+        const segments = val.split(',');
+        const lastPart = segments[segments.length - 1];
+        
+        // If they are typing immediately after an @
+        if (lastPart && lastPart.includes('@')) {
+            const mentionQuery = lastPart.split('@').pop().toLowerCase();
+            
+            let html = projectUsers
+                .filter(u => u.full_name.toLowerCase().includes(mentionQuery))
+                .map(u => `
+                <div class="mention-item" data-name="${escapeHtml(u.full_name)}">
+                    ${escapeHtml(u.full_name)}
+                </div>
+            `).join('');
+
+            // Add other fallback
+            html += `<div class="mention-item" data-name="${escapeHtml(mentionQuery) || 'Other'}">Unknown ("${escapeHtml(mentionQuery)}")</div>`;
+            
+            mentionDropdown.innerHTML = html;
+            mentionDropdown.style.display = 'flex';
+
+            // Bind clicks
+            mentionDropdown.querySelectorAll('.mention-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const name = item.getAttribute('data-name');
+                    // Replace the `@...` part with the selected name
+                    let updatedLastPart = lastPart.replace(new RegExp('@' + escapeRegExp(mentionQuery) + '$'), name);
+                    segments[segments.length - 1] = updatedLastPart;
+                    entryCollaborators.value = segments.join(',').trim() + ', ';
+                    mentionDropdown.style.display = 'none';
+                    entryCollaborators.focus();
+                });
+            });
+        } else {
+            mentionDropdown.style.display = 'none';
+        }
+    });
+
+    // Hide mentions drop when clicked away
+    document.addEventListener('click', (e) => {
+        if (entryCollaborators && !entryCollaborators.contains(e.target) && mentionDropdown && !mentionDropdown.contains(e.target)) {
+            mentionDropdown.style.display = 'none';
+        }
+    });
+
 });

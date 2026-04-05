@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coming Soon - Debug Dimension</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,600;0,700;0,800;1,700!family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #f8fafc;
+            --surface: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --accent-blue: #4f46e5;
+            --accent-red: #e11d48;
+            --font-main: 'Inter', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+
+        body {
+            margin: 0;
+            padding: 2rem;
+            background-color: var(--bg-color);
+            font-family: var(--font-main);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .layout-container {
+            display: flex;
+            gap: 2rem;
+            max-width: 1280px;
+            width: 100%;
+        }
+
+        /* SIDEBAR */
+        .sidebar {
+            width: 250px;
+            background: var(--surface);
+            border-radius: 1.5rem;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.02);
+            flex-shrink: 0;
+        }
+
+        .sidebar-header h2 {
+            font-size: 1.25rem;
+            font-weight: 800;
+            margin: 0 0 0.25rem 0;
+        }
+        
+        .sidebar-header p {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin: 0;
+        }
+
+        .btn-chaos {
+            background: #eff6ff;
+            color: var(--accent-blue);
+            border: none;
+            padding: 0.75rem 1rem;
+            border-radius: 0.75rem;
+            font-weight: 600;
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+        }
+
+        .survivors-list h3 {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-muted);
+            margin: 0 0 1rem 0;
+            font-weight: 700;
+        }
+
+        .survivor {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            margin-bottom: 0.75rem;
+        }
+
+        .dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+        }
+
+        .btn-escape {
+            margin-top: auto;
+            background: #b91c1c;
+            color: white;
+            border: none;
+            padding: 0.875rem;
+            border-radius: 0.75rem;
+            font-weight: 600;
+            font-size: 0.875rem;
+            cursor: pointer;
+            text-decoration: none;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(185, 28, 28, 0.2);
+            transition: transform 0.2s;
+        }
+        
+        .btn-escape:hover {
+            transform: scale(1.02);
+        }
+
+        /* MAIN CONTENT */
+        .main-content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .top-row {
+            display: flex;
+            gap: 1.5rem;
+        }
+
+        .hero-card {
+            flex: 1.2;
+            background: var(--surface);
+            border-radius: 1.5rem;
+            padding: 3rem;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.02);
+        }
+
+        .hero-card::after {
+            content: "404";
+            position: absolute;
+            top: -20px;
+            right: -20px;
+            font-size: 15rem;
+            font-weight: 800;
+            color: #f1f5f9;
+            z-index: 0;
+            line-height: 1;
+            opacity: 0.5;
+            transform: rotate(10deg);
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 1;
+        }
+
+        .badge-error {
+            background: #fee2e2;
+            color: #b91c1c;
+            font-size: 0.7rem;
+            font-weight: 800;
+            padding: 0.35rem 0.75rem;
+            border-radius: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            display: inline-block;
+            margin-bottom: 1.5rem;
+        }
+
+        .hero-title {
+            font-size: 2.75rem;
+            font-weight: 800;
+            line-height: 1.1;
+            margin: 0 0 1.5rem 0;
+            letter-spacing: -0.03em;
+        }
+
+        .hero-title span {
+            color: var(--accent-blue);
+            font-style: italic;
+        }
+
+        .hero-desc {
+            font-size: 1.05rem;
+            color: var(--text-muted);
+            line-height: 1.6;
+            margin: 0 0 2.5rem 0;
+            max-width: 90%;
+        }
+
+        .metrics-row {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .metric-box {
+            flex: 1;
+            background: #f8fafc;
+            border-radius: 1rem;
+            padding: 1.25rem;
+        }
+
+        .metric-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.65rem;
+            font-weight: 800;
+            margin-bottom: 0.75rem;
+        }
+
+        .prog-bar-bg {
+            height: 6px;
+            background: #e2e8f0;
+            border-radius: 3px;
+            margin-bottom: 0.75rem;
+            overflow: hidden;
+        }
+
+        .prog-bar-fill {
+            height: 100%;
+            border-radius: 3px;
+        }
+
+        .metric-sub {
+            font-size: 0.7rem;
+            font-style: italic;
+            color: var(--text-muted);
+            margin: 0;
+        }
+
+        /* IMAGE CARD */
+        .image-card {
+            flex: 0.8;
+            background: var(--surface);
+            border-radius: 1.5rem;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.02);
+        }
+
+        .meme-img {
+            width: 100%;
+            height: 380px;
+            object-fit: cover;
+            border-radius: 1rem;
+            background: #0f172a;
+        }
+
+        .image-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 0.5rem 0.5rem;
+        }
+
+        .av-stack {
+            display: flex;
+            align-items: center;
+        }
+
+        .av {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: #e2e8f0;
+            border: 2px solid white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.6rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            margin-left: -8px;
+        }
+        
+        .av:first-child { margin-left: 0; }
+        .av-blue { background: var(--accent-blue); color: white; }
+
+        /* GRID ROW */
+        .bottom-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.5rem;
+        }
+
+        .stat-card {
+            background: var(--surface);
+            border-radius: 1.5rem;
+            padding: 1.5rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.02);
+        }
+
+        .stat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.65rem;
+            font-weight: 800;
+            color: var(--text-muted);
+            margin-bottom: 1rem;
+            letter-spacing: 0.05em;
+        }
+
+        .stat-header svg {
+            width: 16px;
+            height: 16px;
+            color: var(--accent-blue);
+        }
+
+        .stat-val {
+            font-size: 1.75rem;
+            font-weight: 800;
+            margin: 0 0 0.25rem 0;
+            line-height: 1;
+        }
+
+        .stat-desc {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin: 0;
+        }
+
+        .commits-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .commit-item {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+
+        .card-purple {
+            background: var(--accent-blue);
+            color: white;
+        }
+
+        .card-purple .stat-header {
+            color: rgba(255,255,255,0.8);
+        }
+
+        .card-purple .stat-header svg {
+            color: white;
+            opacity: 0.8;
+        }
+
+        .card-purple .stat-val {
+            font-size: 1.25rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .card-purple .stat-desc {
+            color: rgba(255,255,255,0.8);
+            font-style: italic;
+        }
+
+        /* FOOTER ALGORITHM */
+        .footer-algo {
+            text-align: center;
+            margin-top: 1rem;
+        }
+
+        .footer-algo h4 {
+            font-size: 0.6rem;
+            letter-spacing: 0.2em;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin: 0 0 1rem 0;
+        }
+
+        .code-pill {
+            background: #e2e8f0;
+            padding: 0.75rem 1.5rem;
+            border-radius: 2rem;
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            display: inline-block;
+        }
+
+        .code-kw { color: var(--accent-blue); font-weight: 700; }
+        .code-fn { color: #b91c1c; }
+        .code-comment { color: #94a3b8; font-style: italic; }
+
+    </style>
+</head>
+<body>
+
+    <div class="layout-container">
+        <!-- SIDEBAR -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>Project Alpha</h2>
+                <p>Status: unstable_null</p>
+            </div>
+
+            <button class="btn-chaos">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width: 18px; height: 18px;">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                </svg>
+                The Chaos Log
+            </button>
+
+            <div class="survivors-list">
+                <h3>Current Survivors</h3>
+                <div class="survivor"><span class="dot" style="background:#22c55e;"></span>Abdullah Al Jadid</div>
+                <div class="survivor"><span class="dot" style="background:#f97316;"></span>Delvin Dsouza</div>
+                <div class="survivor"><span class="dot" style="background:#22c55e;"></span>Hanxi Zhu</div>
+                <div class="survivor"><span class="dot" style="background:#ef4444;"></span>Randinu</div>
+                <div class="survivor"><span class="dot" style="background:#22c55e;"></span>Nazmul Hasan</div>
+                <div class="survivor"><span class="dot" style="background:#8b5cf6;"></span>Reyaz-k</div>
+                <div class="survivor"><span class="dot" style="background:#eab308;"></span>Tarun Sharma</div>
+            </div>
+
+            <a href="javascript:history.back()" class="btn-escape">Emergency Escape</a>
+        </aside>
+
+        <!-- MAIN LAYOUT -->
+        <main class="main-content">
+            <div class="top-row">
+                <!-- HERO CARD -->
+                <div class="hero-card">
+                    <div class="hero-content">
+                        <div class="badge-error">ERROR 418: TEAPOT REALITY</div>
+                        <h1 class="hero-title">Currently debugging a<br>bug that <br><span>shouldn't exist in this<br>dimension.</span></h1>
+                        <p class="hero-desc">
+                            "Feature coming as soon as we figure out why 'true' is 'false'". We are currently in a committed relationship with Stack Overflow and haven't seen the sun in 3 business days. Hopefully we can finish before semester ends! Fingers crossed!
+                        </p>
+
+                        <div class="metrics-row">
+                            <div class="metric-box">
+                                <div class="metric-header">
+                                    <span>COFFEE TO CODE RATIO</span>
+                                    <span style="color: #b91c1c;">FAILING</span>
+                                </div>
+                                <div class="prog-bar-bg">
+                                    <div class="prog-bar-fill" style="width: 85%; background: #b91c1c;"></div>
+                                </div>
+                                <p class="metric-sub">Output: Jittery comments & existential dread.</p>
+                            </div>
+                            <div class="metric-box">
+                                <div class="metric-header">
+                                    <span>SANITY MARGIN</span>
+                                    <span style="color: var(--accent-blue);">CRITICAL</span>
+                                </div>
+                                <div class="prog-bar-bg">
+                                    <div class="prog-bar-fill" style="width: 15%; background: var(--accent-blue);"></div>
+                                </div>
+                                <p class="metric-sub">Reboot suggested. User is "Fine".</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- IMAGE CARD -->
+                <div class="image-card">
+                    <img src="/static/memory/funny_dev.png" alt="Meme" class="meme-img">
+                    <div class="image-footer">
+                        <div class="av-stack">
+                            <div class="av">AA</div>
+                            <div class="av">DD</div>
+                            <div class="av av-blue">+5</div>
+                        </div>
+                        <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 600;">
+                            Status: Investigating...
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bottom-grid">
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                        SURVIVAL
+                    </div>
+                    <h4 class="stat-val">14/14</h4>
+                    <p class="stat-desc">Meetings Survived Today</p>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: #ea580c;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                        VELOCITY
+                    </div>
+                    <h4 class="stat-val">∞</h4>
+                    <p class="stat-desc">Bug Backlog Growth Rate</p>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: #64748b;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        LATEST COMMITS
+                    </div>
+                    <div class="commits-list">
+                        <div class="commit-item">"Fixed bug"</div>
+                        <div class="commit-item">"Fixed bug again"</div>
+                        <div class="commit-item" style="color: #b91c1c;">"I hate this"</div>
+                        <div class="commit-item" style="color: var(--accent-blue); font-weight:700;">"PLEASE WORK"</div>
+                    </div>
+                </div>
+
+                <div class="stat-card card-purple">
+                    <div class="stat-header">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                        FORCE
+                    </div>
+                    <h4 class="stat-val">Force Deploy</h4>
+                    <p class="stat-desc">Ignore warnings, acquire glory.</p>
+                </div>
+            </div>
+            
+            <div class="footer-algo">
+                <h4>CORE ALGORITHM</h4>
+                <div class="code-pill">
+                    <span class="code-kw">while</span>(alive) { <span class="code-fn">eat</span>(); <span class="code-fn">code</span>(); <span class="code-comment">/* sleep(); // TODO: check if this is a reserved keyword */</span> }
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+</body>
+</html>
