@@ -217,4 +217,4 @@ __marimo__/
 
 # RAG / AI Brain
 chroma_data/
-app/static/uploads/rag/
+app/static/uploads/

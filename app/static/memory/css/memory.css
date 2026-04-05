@@ -1,37 +1,35 @@
 /* 
-    Project Memory Vanilla CSS Redesign
-    Faithfully translating Tailwind utility classes to semantic Custom CSS 
+    Project Memory — Page-specific styles
+    Global tokens in /static/css/common.css
+    Topbar / sidebar / avatar in /static/auth/css/common.css
 */
 
+/* Memory-specific tokens (don't override globals from common.css) */
 :root {
     --color-surface-lowest: #ffffff;
-    --color-surface: #f7f9fb;
     --color-on-surface: #191c1e;
     --color-on-surface-variant: #464554;
     --color-outline-variant: rgba(199, 196, 215, 0.4);
     --color-outline: #767586;
-    --color-primary: #4f46e5; /* Tailwind Indigo-600 */
-    --color-primary-light: #e0e7ff; /* Tailwind Indigo-100 */
+    --color-mem-primary-light: #e0e7ff;
     --color-primary-fade: rgba(79, 70, 229, 0.05);
-    --color-surface-low: #f1f5f9; /* Slate-100 */
-    --color-surface-high: #e2e8f0; /* Slate-200 */
-    
-    --font-family: 'Inter', sans-serif;
-}
-
-body {
-    background-color: var(--color-surface);
-    color: var(--color-on-surface);
-    font-family: var(--font-family);
-    -webkit-font-smoothing: antialiased;
+    --color-surface-low: #f1f5f9;
+    --color-surface-high: #e2e8f0;
 }
 
 /* ── LAYOUT ── */
 .memory-main {
-    padding: 1rem 2rem 3rem;
-    height: 100vh;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-width: 0;
+}
+
+.memory-scroll {
+    flex: 1;
     overflow-y: auto;
-    width: 100%;
+    padding: 28px 32px 48px;
 }
 
 .memory-layout {
@@ -164,17 +162,6 @@ body {
     height: 1.5rem;
 }
 
-.notif-dot {
-    position: absolute;
-    top: 6px;
-    right: 8px;
-    width: 8px;
-    height: 8px;
-    background-color: #ef4444;
-    border-radius: 50%;
-    border: 2px solid var(--color-surface);
-}
-
 /* ── GRID LAYOUT ── */
 .memory-layout {
     display: grid;
@@ -265,7 +252,7 @@ body {
     top: 0;
     bottom: 0;
     width: 2px;
-    background: linear-gradient(to bottom, transparent, var(--color-primary-light) 10%, var(--color-primary-light) 90%, transparent);
+    background: linear-gradient(to bottom, transparent, var(--color-mem-primary-light) 10%, var(--color-mem-primary-light) 90%, transparent);
 }
 
 /* ── TIMELINE CARD ENTRY ── */
@@ -306,7 +293,7 @@ body {
 .entry-icon.icon-summary {
     background-color: var(--color-surface-lowest);
     color: #6366f1; /* Indigo-500 */
-    border: 2px solid var(--color-primary-light);
+    border: 2px solid var(--color-mem-primary-light);
 }
 
 .entry-icon.icon-upload {
@@ -326,7 +313,7 @@ body {
 }
 
 .entry-card:hover {
-    border-color: var(--color-primary-light);
+    border-color: var(--color-mem-primary-light);
     box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
 }
 
@@ -584,48 +571,6 @@ body {
 }
 
 /* ── DROPDOWNS ── */
-.notif-dropdown {
-    position: absolute;
-    top: 3.5rem;
-    right: 0;
-    width: 20rem;
-    background: var(--color-surface-lowest);
-    border-radius: 1rem;
-    box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1);
-    border: 1px solid var(--color-surface-high);
-    z-index: 1000;
-    overflow: hidden;
-}
-
-.notif-header {
-    background: var(--color-surface-low);
-    padding: 0.75rem 1rem;
-    font-weight: 700;
-    font-size: 0.875rem;
-    border-bottom: 1px solid var(--color-surface-high);
-}
-
-.notif-body {
-    max-height: 20rem;
-    overflow-y: auto;
-}
-
-.notif-item {
-    padding: 1rem;
-    border-bottom: 1px solid var(--color-surface-low);
-    font-size: 0.875rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-}
-
-.notif-item:last-child {
-    border-bottom: none;
-}
-
-.notif-item .n-title { font-weight: 600; color: var(--color-on-surface); }
-.notif-item .n-time { font-size: 0.75rem; color: var(--color-outline); }
-
 .filter-dropdown {
     position: absolute;
     top: 3rem;

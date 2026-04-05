@@ -1,140 +1,164 @@
-/* LogiPlanner — Verify Email Page */
-document.addEventListener('DOMContentLoaded', async () => {
-    const statusCard = document.getElementById('statusCard');
-    const statusIcon = document.getElementById('statusIcon');
-    const statusText = document.getElementById('statusText');
-    const title = document.getElementById('verificationTitle');
-    const subtitle = document.getElementById('verificationSubtitle');
-    const message = document.getElementById('verificationMessage');
-    const loginLink = document.getElementById('verificationLoginLink');
-    const resendForm = document.getElementById('verifyResendForm');
-    const resendInput = document.getElementById('verifyResendEmail');
-    const resendMessage = document.getElementById('verifyResendMessage');
-    const resendBtn = resendForm?.querySelector('button[type="submit"]');
+/* LogiPlanner — Verify Email Page (OTP Code Flow) */
+document.addEventListener('DOMContentLoaded', () => {
+    const subtitle        = document.getElementById('verificationSubtitle');
+    const codeEntrySection = document.getElementById('codeEntrySection');
+    const successSection  = document.getElementById('successSection');
+    const signupLink      = document.getElementById('verificationSignupLink');
+    const resendSection   = document.getElementById('resendSection');
+    const verifyBtn       = document.getElementById('verifyCodeBtn');
+    const codeError       = document.getElementById('codeError');
+    const otpDigits       = Array.from(document.querySelectorAll('.otp-digit'));
+    const resendForm      = document.getElementById('verifyResendForm');
+    const resendInput     = document.getElementById('verifyResendEmail');
+    const resendMessage   = document.getElementById('verifyResendMessage');
+    const resendBtn       = resendForm?.querySelector('button[type="submit"]');
 
     const email = window.AuthUI.getQueryParam('email') || localStorage.getItem('pendingVerificationEmail') || '';
-    const token = window.AuthUI.getQueryParam('token');
 
     if (email && resendInput) resendInput.value = email;
+    if (email && subtitle) subtitle.textContent = `We sent a 6-digit code to ${email}. Enter it below.`;
 
-    const icons = {
-        pending: '<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="#f59e0b" stroke-width="2" fill="#fef3c7"/><circle cx="10" cy="10" r="4" fill="#f59e0b"/></svg>',
-        success: '<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="#10b981" stroke-width="2" fill="#d1fae5"/><path d="M6 10.5l2.5 2.5L14 8" stroke="#10b981" stroke-width="2" stroke-linecap="round"/></svg>',
-        error: '<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="#ef4444" stroke-width="2" fill="#fee2e2"/><path d="M7 7l6 6M13 7l-6 6" stroke="#ef4444" stroke-width="2" stroke-linecap="round"/></svg>'
-    };
+    otpDigits.forEach((input, idx) => {
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Backspace') {
+                if (input.value) {
+                    input.value = '';
+                    input.classList.remove('otp-digit--filled');
+                } else if (idx > 0) {
+                    otpDigits[idx - 1].focus();
+                }
+                e.preventDefault();
+                clearError();
+            } else if (e.key === 'ArrowLeft' && idx > 0) {
+                otpDigits[idx - 1].focus();
+                e.preventDefault();
+            } else if (e.key === 'ArrowRight' && idx < otpDigits.length - 1) {
+                otpDigits[idx + 1].focus();
+                e.preventDefault();
+            } else if (e.key === 'Enter') {
+                submitCode();
+            }
+        });
 
-    function setStatus(tone, label, heading, body) {
-        statusCard.className = 'status-card status-card--' + tone;
-        if (statusIcon) statusIcon.innerHTML = icons[tone] || '';
-        if (statusText) statusText.textContent = label;
-        if (title) title.textContent = heading;
-        if (message) message.textContent = body;
+        input.addEventListener('input', () => {
+            const val = input.value.replace(/\D/g, '');
+            input.value = val ? val[val.length - 1] : '';
+            clearError();
+            if (input.value) {
+                input.classList.add('otp-digit--filled');
+                if (idx < otpDigits.length - 1) otpDigits[idx + 1].focus();
+            } else {
+                input.classList.remove('otp-digit--filled');
+            }
+        });
+
+        // Handle paste anywhere in the OTP group
+        input.addEventListener('paste', (e) => {
+            e.preventDefault();
+            const pasted = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '');
+            if (!pasted) return;
+            otpDigits.forEach((d, i) => {
+                d.value = pasted[i] || '';
+                d.classList.toggle('otp-digit--filled', !!d.value);
+            });
+            const lastFilled = Math.min(pasted.length, otpDigits.length) - 1;
+            otpDigits[lastFilled].focus();
+            clearError();
+        });
+    });
+
+    // Auto-focus first digit on load
+    if (otpDigits[0]) otpDigits[0].focus();
+
+    // ── Helpers ───────────────────────────────────────────────────────
+    function getCode() {
+        return otpDigits.map(d => d.value).join('');
     }
 
-    if (token) {
-        if (subtitle) subtitle.textContent = 'Validating your verification link...';
+    function clearError() {
+        if (codeError) { codeError.textContent = ''; codeError.className = 'message'; }
+        otpDigits.forEach(d => d.classList.remove('otp-digit--error'));
+    }
+
+    function showError(msg) {
+        if (codeError) { codeError.textContent = msg; codeError.className = 'message message--error'; }
+        otpDigits.forEach(d => d.classList.add('otp-digit--error'));
+    }
+
+    function showSuccess() {
+        if (codeEntrySection) codeEntrySection.classList.add('hidden');
+        if (successSection)   successSection.classList.remove('hidden');
+        if (resendSection)    resendSection.style.display = 'none';
+        if (subtitle) subtitle.textContent = 'Account high-five! You are ready to go.';
+        localStorage.removeItem('pendingVerificationEmail');
+    }
+
+    // ── Submit code ───────────────────────────────────────────────────
+    async function submitCode() {
+        const code        = getCode();
+        const verifyEmail = email || resendInput?.value.trim() || '';
+
+        if (code.length < 6) {
+            showError('Please enter all 6 digits.');
+            return;
+        }
+        if (!verifyEmail) {
+            showError('Email address is missing. Use the resend form below to get a new code.');
+            return;
+        }
+
+        window.AuthUI.setButtonLoading(verifyBtn, true, 'Verify Code', 'Verifying...');
+        clearError();
+
         try {
-            const res = await fetch('/api/v1/verify-email/' + encodeURIComponent(token));
-            const data = await res.json();
-            if (res.ok) {
-                localStorage.removeItem('pendingVerificationEmail');
-                setStatus('success', 'Verified', 'Email Confirmed! ✓', data.message || 'Your email has been verified. You can now sign in.');
-                loginLink.classList.remove('hidden');
-                return;
+            const { response, data } = await window.AuthUI.postJson('/api/v1/verify-email', {
+                email: verifyEmail,
+                code,
+            });
+
+            if (response.ok) {
+                showSuccess();
+            } else if (response.status === 400) {
+                showError(data.detail || 'Invalid or expired code. Request a new one below.');
+                otpDigits.forEach(d => { d.value = ''; d.classList.remove('otp-digit--filled'); });
+                otpDigits[0].focus();
+            } else {
+                showError(data.detail || 'Something went wrong. Please try again.');
             }
-            setStatus('error', 'Failed', 'Verification Failed', data.detail || 'Invalid or expired token.');
         } catch (err) {
-            setStatus('error', 'Failed', 'Verification Failed', 'Network error while verifying.');
-        }
-    } else {
-        // First, check if the email exists in the database
-        if (email) {
-            try {
-                const res = await fetch('/api/v1/verification-status/' + encodeURIComponent(email));
-                if (res.status === 404) {
-                    setStatus('error', 'Not Found', 'Email Not Registered', 'This email is not registered. Please check for typos or sign up first.');
-                    if (resendForm) resendForm.style.display = 'none';
-                    if (subtitle) subtitle.textContent = '';
-                    const signupLink = document.getElementById('verificationSignupLink');
-                    if (signupLink) signupLink.classList.remove('hidden');
-                    return;
-                }
-            } catch (e) {
-                setStatus('error', 'Not Found', 'Email Not Registered', 'Could not check email status.');
-                if (resendForm) resendForm.style.display = 'none';
-                if (subtitle) subtitle.textContent = '';
-                return;
-            }
-            
-            setStatus('pending', 'Pending', 'Check Your Inbox', 'Open the verification email and click the link to continue.');
-            if (subtitle) subtitle.textContent = 'We sent a verification link to ' + email;
-
-            // Background polling for verification status
-            const checkStatus = async () => {
-                try {
-                    const res = await fetch('/api/v1/verification-status/' + encodeURIComponent(email));
-                    const data = await res.json();
-                    if (res.ok && data.is_verified) {
-                        if (window.verificationInterval) clearInterval(window.verificationInterval);
-                        localStorage.removeItem('pendingVerificationEmail');
-                        setStatus('success', 'Verified', 'Email Confirmed! ✓', 'Your email has been verified. You can now sign in.');
-                        if (loginLink) loginLink.classList.remove('hidden');
-                        if (subtitle) subtitle.textContent = 'Account high-five! You are ready to go.';
-                        return true;
-                    }
-                } catch (e) {
-                    // Silently fail polling errors
-                }
-                return false;
-            };
-
-            // Immediate check
-            const alreadyVerified = await checkStatus();
-            if (alreadyVerified) return;
-
-            let pollCount = 0;
-            const maxPolls = 60; // Poll for 5 minutes (every 5 seconds)
-            window.verificationInterval = setInterval(async () => {
-                pollCount++;
-                if (pollCount > maxPolls) {
-                    clearInterval(window.verificationInterval);
-                    return;
-                }
-                await checkStatus();
-            }, 5000);
-        } else {
-            // No token and no email provided
-            statusCard.style.display = 'none';
-            if (title) title.textContent = 'Verify Your Email';
-            if (subtitle) subtitle.textContent = 'Enter your email below to request a verification link.';
+            showError('Network error. Please check your connection and try again.');
+        } finally {
+            window.AuthUI.setButtonLoading(verifyBtn, false, 'Verify Code', 'Verifying...');
         }
     }
 
-    // Resend form
+    if (verifyBtn) verifyBtn.addEventListener('click', submitCode);
+
+    // ── Resend form ───────────────────────────────────────────────────
     if (resendForm && resendBtn) {
         resendForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const resendEmail = resendInput.value.trim();
             window.AuthUI.setMessage(resendMessage, '', '');
             window.AuthUI.setButtonLoading(resendBtn, true, 'Resend', 'Sending...');
+
             try {
                 const { response, data } = await window.AuthUI.postJson('/api/v1/resend-verification', { email: resendEmail });
                 if (response.ok) {
                     localStorage.setItem('pendingVerificationEmail', resendEmail);
-                    window.AuthUI.setMessage(resendMessage, 'success', data.message || 'Verification email sent!');
-                    
-                    statusCard.style.display = 'block'; // Ensure it's visible
-                    
                     if (data.message === 'Email already verified') {
-                        setStatus('success', 'Verified', 'Already Verified!', 'Your email was already confirmed. You can sign in now.');
-                        if (loginLink) loginLink.classList.remove('hidden');
-                        if (subtitle) subtitle.textContent = 'Account high-five! You are ready to go.';
+                        window.AuthUI.setMessage(resendMessage, 'success', 'Your email is already verified. You can sign in.');
+                        showSuccess();
                     } else {
-                        setStatus('pending', 'Pending', 'New Link Sent', 'Check your inbox for the newest verification email.');
-                        if (loginLink) loginLink.classList.add('hidden');
+                        window.AuthUI.setMessage(resendMessage, 'success', 'New code sent! Check your inbox.');
+                        // Clear OTP inputs ready for new code
+                        otpDigits.forEach(d => { d.value = ''; d.classList.remove('otp-digit--filled', 'otp-digit--error'); });
+                        otpDigits[0].focus();
+                        clearError();
+                        if (subtitle) subtitle.textContent = `We sent a new 6-digit code to ${resendEmail}.`;
                     }
                 } else {
-                    window.AuthUI.setMessage(resendMessage, 'error', data.detail || 'Could not resend.');
+                    window.AuthUI.setMessage(resendMessage, 'error', data.detail || 'Could not resend. Please try again.');
                 }
             } catch (err) {
                 window.AuthUI.setMessage(resendMessage, 'error', 'Network error.');
@@ -144,3 +168,4 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 });
+

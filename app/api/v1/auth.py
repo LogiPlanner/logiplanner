@@ -1,9 +1,11 @@
 from datetime import datetime, timezone
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
+from jose import jwt, JWTError
 from sqlalchemy.orm import Session
 from app.core.dependencies import get_current_user
 from app.core.database import get_db
+from app.core.config import settings
 from app.core.security import (
     create_access_token,
     create_refresh_token,
@@ -28,6 +30,7 @@ from app.schemas.auth import (
     TeamPreview,
     UserTeamsResponse,
     VerificationStatusResponse,
+    VerifyEmailRequest,
 )
 from app.utils.email import send_verification_email
 
@@ -67,7 +70,7 @@ async def signup(
     # Call directly with await — NOT wrapped in background_tasks.add_task()
     await send_verification_email(new_user.email, token, background_tasks)
 
-    return {"message": "Account created! Please check your email to verify."}
+    return {"message": "Account created! Please check your email for your verification code."}
 
 
 @router.post("/token", response_model=Token, include_in_schema=False)
@@ -126,6 +129,36 @@ async def login(user_data: UserLogin, db: Session = Depends(get_db)):
     }
 
 
+from pydantic import BaseModel as _BM
+
+class _RefreshBody(_BM):
+    refresh_token: str
+
+@router.post("/refresh", response_model=Token)
+async def refresh_tokens(body: _RefreshBody, db: Session = Depends(get_db)):
+    """Exchange a valid refresh token for a new access + refresh token pair."""
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid or expired refresh token.",
+    )
+    try:
+        payload = jwt.decode(body.refresh_token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        email: str = payload.get("sub")
+        token_type: str = payload.get("token_type")
+        if email is None or token_type != "refresh":
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+
+    user = db.query(User).filter(User.email == email).first()
+    if user is None or not user.is_active:
+        raise credentials_exception
+
+    new_access = create_access_token(data={"sub": user.email})
+    new_refresh = create_refresh_token(data={"sub": user.email})
+    return {"access_token": new_access, "refresh_token": new_refresh, "token_type": "bearer"}
+
+
 @router.post("/token", response_model=Token, include_in_schema=False)
 async def token(
     form_data: OAuth2PasswordRequestForm = Depends(),
@@ -168,7 +201,7 @@ async def resend_verification(
             seconds_left = int(120 - delta.total_seconds())
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=f"Please wait {seconds_left} seconds before requesting a new link."
+                detail=f"Please wait {seconds_left} seconds before requesting a new code."
             )
 
     token = create_verification_token()
@@ -178,14 +211,18 @@ async def resend_verification(
 
     # Call directly with await
     await send_verification_email(user.email, token, background_tasks)
-    return {"message": "Verification email sent. Check your inbox."}
+    return {"message": "Verification code sent. Check your inbox."}
 
 
-@router.get("/verify-email/{token}", response_model=MessageResponse)
-async def verify_email(token: str, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.verification_token == token).first()
+@router.post("/verify-email", response_model=MessageResponse)
+async def verify_email(payload: VerifyEmailRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == payload.email).first()
     if not user:
-        raise HTTPException(status_code=400, detail="Invalid or expired verification token")
+        raise HTTPException(status_code=404, detail="User not found")
+    if user.is_verified:
+        return {"message": "Email already verified"}
+    if not user.verification_token or user.verification_token != payload.code:
+        raise HTTPException(status_code=400, detail="Invalid or expired verification code")
 
     user.is_verified = True
     user.verification_token = None

@@ -12,13 +12,17 @@ import os
 import json
 import uuid
 from typing import List, Optional
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, BackgroundTasks
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 
 from app.core.dependencies import get_current_user
 from app.core.database import get_db
-from app.models.user import User, Team, Document, ChatMessage, UserRole, Role
+from app.models.user import User, Team, Project, Document, ChatMessage, UserRole, Role, user_team
+from app.models.calendar_task import CalendarTask, task_tagged_users
+from app.models.timeline import TimelineEntry
 from app.schemas.rag import (
     IngestTextRequest,
     IngestResponse,
@@ -51,12 +55,17 @@ UPLOAD_DIR = os.path.join("app", "static", "uploads", "rag")
 # ──────────────────────────────────────────────
 
 def _verify_team_access(user: User, team_id: int, db: Session) -> Team:
-    """Verify that the user belongs to the specified team."""
+    """Verify that the user belongs to the specified team using an explicit DB query."""
     team = db.query(Team).filter(Team.id == team_id).first()
     if not team:
         raise HTTPException(status_code=404, detail="Team not found")
 
-    if user not in team.users:
+    # Explicit SQL membership check — avoids lazy-load identity-map pitfalls
+    membership = db.query(user_team).filter(
+        user_team.c.user_id == user.id,
+        user_team.c.team_id == team_id,
+    ).first()
+    if not membership:
         raise HTTPException(status_code=403, detail="You are not a member of this team")
 
     return team
@@ -64,13 +73,16 @@ def _verify_team_access(user: User, team_id: int, db: Session) -> Team:
 
 def _get_user_team_role(user: User, team_id: int, db: Session) -> str:
     """
-    Get the user's role for a specific team.
+    Get the user's role for a SPECIFIC team.
+    Only considers UserRole records scoped to this team (team_id matches).
     Returns: 'owner', 'editor', 'viewer', or 'member' (treated as viewer).
     """
-    # Check user_roles for this user
     user_roles = (
         db.query(UserRole)
-        .filter(UserRole.user_id == user.id)
+        .filter(
+            UserRole.user_id == user.id,
+            UserRole.team_id == team_id,
+        )
         .all()
     )
 
@@ -80,7 +92,7 @@ def _get_user_team_role(user: User, team_id: int, db: Session) -> str:
             if role_name in ("owner", "editor", "viewer"):
                 return role_name
 
-    # Default: if they only have "member" role or no role, treat as viewer
+    # Default: member role or no role → viewer
     return "viewer"
 
 
@@ -93,6 +105,120 @@ def _require_editor_or_owner(user: User, team_id: int, db: Session) -> str:
             detail="Only team owners and editors can modify the knowledge base"
         )
     return role
+
+
+# Intent words that signal "show me data" rather than a conceptual question
+_RETRIEVAL_INTENTS = [
+    "show me", "show my", "list my", "list me", "give me", "what are my",
+    "what do i have", "what tasks", "my tasks", "my calendar", "my schedule",
+    "upcoming tasks", "open tasks", "pending tasks", "assigned to me",
+    "tagged to me", "calendar update", "task update", "tasks for",
+    "do i have any", "any tasks", "any meetings", "what's on my", "whats on my",
+]
+
+
+def _is_task_query(message: str) -> bool:
+    """True only when the user is clearly requesting their live task/calendar data."""
+    text = (message or "").lower()
+    return any(intent in text for intent in _RETRIEVAL_INTENTS)
+
+
+def _is_timeline_query(message: str) -> bool:
+    """True only when the user is clearly requesting their live timeline/memory data."""
+    text = (message or "").lower()
+    # Specific compound phrases that unambiguously mean "show me the timeline data"
+    specific_phrases = [
+        "timeline update", "timeline entries", "timeline entry",
+        "show timeline", "show the timeline", "show my timeline",
+        "memory timeline", "recent milestones", "recent decisions",
+        "project history entries", "latest timeline",
+    ]
+    return any(p in text for p in specific_phrases)
+
+
+def _build_live_timeline_summary(db: Session, team_id: int, max_items: int = 15) -> str:
+    """Build a rich card response from live TimelineEntry data for all projects in the team."""
+    projects = db.query(Project).filter(Project.team_id == team_id).all()
+
+    card_payload: dict = {
+        "type": "timeline",
+        "heading": "Memory Timeline — Latest Entries",
+        "url": "/memory",
+        "items": [],
+    }
+
+    if not projects:
+        return "__CARDS__:" + json.dumps(card_payload)
+
+    project_ids = [p.id for p in projects]
+    project_map = {p.id: p.project_name for p in projects}
+
+    entries = (
+        db.query(TimelineEntry)
+        .filter(TimelineEntry.project_id.in_(project_ids))
+        .order_by(TimelineEntry.created_at.desc())
+        .limit(max_items)
+        .all()
+    )
+
+    for e in entries:
+        proj_name = project_map.get(e.project_id, f"Project {e.project_id}")
+        ts = e.created_at.strftime("%b %d, %Y") if e.created_at else "Unknown date"
+        card_payload["items"].append({
+            "entry_type": e.entry_type.value,
+            "title": e.title,
+            "project": proj_name,
+            "date": ts,
+            "content": e.content[:180] + ("..." if len(e.content) > 180 else ""),
+        })
+
+    return "__CARDS__:" + json.dumps(card_payload)
+
+
+def _build_live_task_summary(db: Session, team_id: int, current_user: User, max_items: int = 12) -> str:
+    """Build a direct response from live calendar task data for the current user."""
+    now_utc = datetime.now(timezone.utc)
+
+    tasks = (
+        db.query(CalendarTask)
+        .outerjoin(task_tagged_users, CalendarTask.id == task_tagged_users.c.task_id)
+        .filter(
+            CalendarTask.team_id == team_id,
+            CalendarTask.is_completed.is_(False),
+            or_(
+                CalendarTask.user_id == current_user.id,
+                task_tagged_users.c.user_id == current_user.id,
+            ),
+            CalendarTask.end_datetime >= now_utc,
+        )
+        .distinct()
+        .order_by(CalendarTask.start_datetime.asc())
+        .limit(max_items)
+        .all()
+    )
+
+    card_payload: dict = {
+        "type": "calendar",
+        "heading": "Your Upcoming Tasks",
+        "url": "/dashboard",
+        "items": [],
+    }
+
+    if not tasks:
+        return "__CARDS__:" + json.dumps(card_payload)
+
+    for t in tasks:
+        start = t.start_datetime.astimezone(timezone.utc).strftime("%b %d %I:%M %p")
+        end = t.end_datetime.astimezone(timezone.utc).strftime("%b %d %I:%M %p")
+        card_payload["items"].append({
+            "title": t.title,
+            "priority": t.priority or "medium",
+            "start": start,
+            "end": end,
+            "location": t.location or None,
+        })
+
+    return "__CARDS__:" + json.dumps(card_payload)
 
 
 # ──────────────────────────────────────────────
@@ -409,6 +535,95 @@ async def chat_with_brain(
     within the shared team knowledge base.
     """
     team = _verify_team_access(current_user, data.team_id, db)
+
+    # Timeline check MUST come first — its prompts also contain retrieval intent
+    # phrases (e.g. "give me") that would otherwise match _is_task_query.
+    if _is_timeline_query(data.message):
+        timeline_response = _build_live_timeline_summary(db, data.team_id)
+
+        user_msg = ChatMessage(
+            team_id=data.team_id,
+            user_id=current_user.id,
+            session_id=data.session_id,
+            role="user",
+            content=data.message,
+        )
+        db.add(user_msg)
+
+        assistant_msg = ChatMessage(
+            team_id=data.team_id,
+            user_id=current_user.id,
+            session_id=data.session_id,
+            role="assistant",
+            content=timeline_response,
+            sources=json.dumps([
+                {
+                    "filename": "Live Memory Timeline",
+                    "page_number": 0,
+                    "uploader": "system",
+                    "doc_type": "timeline_entry",
+                }
+            ]),
+        )
+        db.add(assistant_msg)
+        db.commit()
+
+        return ChatResponse(
+            response=timeline_response,
+            sources=[
+                {
+                    "filename": "Live Memory Timeline",
+                    "page_number": 0,
+                    "uploader": "system",
+                    "doc_type": "timeline_entry",
+                }
+            ],
+            chunk_count=0,
+        )
+
+    # If the user is asking about tasks/calendar, answer from live DB.
+    elif _is_task_query(data.message):
+        task_response = _build_live_task_summary(db, data.team_id, current_user)
+
+        user_msg = ChatMessage(
+            team_id=data.team_id,
+            user_id=current_user.id,
+            session_id=data.session_id,
+            role="user",
+            content=data.message,
+        )
+        db.add(user_msg)
+
+        assistant_msg = ChatMessage(
+            team_id=data.team_id,
+            user_id=current_user.id,
+            session_id=data.session_id,
+            role="assistant",
+            content=task_response,
+            sources=json.dumps([
+                {
+                    "filename": "Live Calendar Tasks",
+                    "page_number": 0,
+                    "uploader": "system",
+                    "doc_type": "calendar_task",
+                }
+            ]),
+        )
+        db.add(assistant_msg)
+        db.commit()
+
+        return ChatResponse(
+            response=task_response,
+            sources=[
+                {
+                    "filename": "Live Calendar Tasks",
+                    "page_number": 0,
+                    "uploader": "system",
+                    "doc_type": "calendar_task",
+                }
+            ],
+            chunk_count=0,
+        )
 
     # Get THIS USER's recent chat history (private conversation)
     history_filter = [

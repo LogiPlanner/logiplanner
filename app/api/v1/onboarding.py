@@ -68,9 +68,9 @@ async def create_team_full(
     # Add user to team
     team.users.append(current_user)
 
-    # Assign owner role
+    # Assign owner role — scoped to this specific team
     owner_role = _get_or_create_role(db, "owner")
-    user_role = UserRole(user_id=current_user.id, role_id=owner_role.id)
+    user_role = UserRole(user_id=current_user.id, role_id=owner_role.id, team_id=team.id)
     db.add(user_role)
 
     db.commit()
@@ -205,6 +205,12 @@ async def upload_documents(
                             _doc.error_message = str(e)[:500]
                             _db.commit()
                     finally:
+                        if os.path.exists(fp):
+                            try:
+                                os.remove(fp)
+                                print(f"[RAG/ONBOARDING] Deleted uploaded file: {fp}")
+                            except Exception as cleanup_error:
+                                print(f"[RAG/ONBOARDING] Warning: Could not delete {fp}: {cleanup_error}")
                         _db.close()
 
                 background_tasks.add_task(
@@ -297,9 +303,9 @@ async def join_team_full(
     # Add to team
     team.users.append(current_user)
 
-    # Assign member role
+    # Assign member role — scoped to this specific team
     member_role = _get_or_create_role(db, "member")
-    user_role = UserRole(user_id=current_user.id, role_id=member_role.id)
+    user_role = UserRole(user_id=current_user.id, role_id=member_role.id, team_id=team.id)
     db.add(user_role)
 
     db.commit()
@@ -350,9 +356,16 @@ async def get_my_teams(
 
     result = []
     for t in teams:
-        # Determine user's role in this team
+        # Security: only consider roles scoped to THIS team.
         role_name = "viewer"  # default
-        user_roles = db.query(UserRole).filter(UserRole.user_id == current_user.id).all()
+        user_roles = (
+            db.query(UserRole)
+            .filter(
+                UserRole.user_id == current_user.id,
+                UserRole.team_id == t.id,
+            )
+            .all()
+        )
         for ur in user_roles:
             if ur.role and ur.role.name.lower() in ("owner", "editor", "viewer"):
                 role_name = ur.role.name.lower()

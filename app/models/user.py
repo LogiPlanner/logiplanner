@@ -86,6 +86,7 @@ class UserRole(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
     role_id = Column(Integer, ForeignKey("roles.id"))
+    team_id = Column(Integer, ForeignKey("teams.id"), nullable=True, index=True)  # scopes role to a specific team
     project_id = Column(Integer, ForeignKey("projects.id"), nullable=True)  # optional per-project role
 
     user = relationship("User", back_populates="user_roles")
@@ -115,7 +116,7 @@ class Document(Base):
     team_id = Column(Integer, ForeignKey("teams.id"), nullable=False)
     uploader_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     filename = Column(String, nullable=False)             # Original filename
-    stored_path = Column(String, nullable=False)           # Path on disk
+    stored_path = Column(String, nullable=True)            # Path on disk (null after processing)
     doc_type = Column(String, nullable=False)              # pdf/docx/txt/markdown/text
     file_size = Column(Integer, default=0)                 # Size in bytes
     chunk_count = Column(Integer, default=0)               # Number of chunks in vector store
@@ -151,3 +152,4 @@ class ChatMessage(Base):
     
 
 from app.models.timeline import TimelineEntry
+from app.models.calendar_task import CalendarTask

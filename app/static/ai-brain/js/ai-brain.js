@@ -1,5 +1,5 @@
-/**
- * AI Brain v2 — Frontend Logic
+﻿/**
+ * AI Brain v2 - Frontend Logic
  * =============================
  * - Chat Mode / Studio Mode toggle
  * - User-scoped private chat (NOT team chat)
@@ -8,18 +8,21 @@
  */
 
 document.addEventListener('DOMContentLoaded', () => {
-    // ── Auth Guard ──
-    const token = localStorage.getItem('access_token');
+    // Auth Guard
+    let token = localStorage.getItem('access_token');
     if (!token) { window.location.href = '/login'; return; }
 
     const API = '/api/v1';
-    const authHeader = () => ({ 'Authorization': `Bearer ${token}` });
+    const authHeader = () => ({ 'Authorization': `Bearer ${localStorage.getItem('access_token')}` });
     const jsonHeaders = () => ({
-        'Authorization': `Bearer ${token}`,
+        'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
         'Content-Type': 'application/json',
     });
 
-    // ── State ──
+    // Use the shared authFetch from common.js (handles token refresh + logout)
+    const aiFetch = (url, opts = {}) => window.__lp.authFetch(url, opts);
+
+    // State
     let currentTeamId = null;
     let currentRole = 'viewer';
     let currentMode = 'chat'; // 'chat' or 'studio'
@@ -33,7 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
         );
     }
 
-    // ── DOM ──
+    // DOM
     const teamSelect = document.getElementById('teamSelect');
     const roleBadge = document.getElementById('roleBadge');
     const brainContent = document.getElementById('brainContent');
@@ -43,11 +46,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const chatWelcome = document.getElementById('chatWelcome');
     const chatInput = document.getElementById('chatInput');
     const chatSendBtn = document.getElementById('chatSendBtn');
+    const quickPromptButtons = document.querySelectorAll('.chat-quick-prompt');
     const deleteChatBtn = document.getElementById('deleteChatBtn');
     const newChatBtn = document.getElementById('newChatBtn');
-    const chatModeBtn = document.getElementById('chatModeBtn');
-    const studioModeBtn = document.getElementById('studioModeBtn');
-    const modeToggle = document.getElementById('modeToggle');
+    const chatModeBtn = null;
+    const studioModeBtn = null;
+    const modeToggle = null;
     const kbUploadZone = document.getElementById('kbUploadZone');
     const fileInput = document.getElementById('kbFileInput');
     const docsList = document.getElementById('kbDocsList');
@@ -65,9 +69,8 @@ document.addEventListener('DOMContentLoaded', () => {
     brainContent.classList.add('mode-chat');
     chatMessages.style.display = 'none';
 
-    // ─────────────────────────────────────────
+    // Mobile sidebar
     // MOBILE SIDEBAR
-    // ─────────────────────────────────────────
     const mobileToggle = document.getElementById('mobileToggle');
     const sidebar = document.getElementById('mainSidebar');
     const overlay = document.getElementById('sidebarOverlay');
@@ -86,20 +89,37 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // ─────────────────────────────────────────
+    // Logout
     // LOGOUT
-    // ─────────────────────────────────────────
     document.getElementById('logoutBtn')?.addEventListener('click', () => {
         localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
         window.location.href = '/login';
     });
 
-    // ─────────────────────────────────────────
+    // Team loading and role
     // TEAM LOADING & ROLE
-    // ─────────────────────────────────────────
-    async function loadTeams() {
+    function getInitials(name) {
+        if (!name) return 'U';
+        return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+    }
+
+    async function loadUserProfile() {
         try {
-            const res = await fetch(`${API}/onboarding/my-teams`, { headers: authHeader() });
+            const res = await aiFetch(`${API}/profile-status`, { headers: authHeader() });
+            if (!res.ok) return;
+            const profile = await res.json();
+            const avatarEl = document.getElementById('avatarInitials');
+            if (avatarEl) avatarEl.textContent = getInitials(profile.full_name || '');
+        } catch (e) {
+            console.error('Error loading profile:', e);
+        }
+    }
+
+    async function loadTeams() {
+        loadUserProfile();
+        try {
+            const res = await aiFetch(`${API}/onboarding/my-teams`, { headers: authHeader() });
             if (!res.ok) return;
             const data = await res.json();
 
@@ -140,20 +160,6 @@ document.addEventListener('DOMContentLoaded', () => {
         // Studio mode: only owner/editor
         const canEdit = currentRole === 'owner' || currentRole === 'editor';
 
-        if (studioModeBtn) {
-            if (canEdit) {
-                studioModeBtn.classList.remove('disabled');
-                studioModeBtn.title = 'Knowledge Base + Chat';
-            } else {
-                studioModeBtn.classList.add('disabled');
-                studioModeBtn.title = 'Only owners and editors can access Studio Mode';
-                // Force chat mode if viewer
-                if (currentMode === 'studio') {
-                    switchMode('chat');
-                }
-            }
-        }
-
         // Upload zone visibility
         if (kbUploadZone) {
             kbUploadZone.classList.toggle('hidden', !canEdit);
@@ -167,34 +173,25 @@ document.addEventListener('DOMContentLoaded', () => {
         loadChatHistory();
     }
 
-    // ─────────────────────────────────────────
-    // MODE TOGGLE
-    // ─────────────────────────────────────────
+    // Mode toggle
+    // MODE TOGGLE (ai-brain is always Chat; Studio is at /studio)
     function switchMode(mode) {
         currentMode = mode;
         brainContent.classList.remove('mode-chat', 'mode-studio');
         brainContent.classList.add(`mode-${mode}`);
-
-        chatModeBtn.classList.toggle('active', mode === 'chat');
-        studioModeBtn.classList.toggle('active', mode === 'studio');
     }
 
-    chatModeBtn?.addEventListener('click', () => switchMode('chat'));
-
-    studioModeBtn?.addEventListener('click', () => {
-        const canEdit = currentRole === 'owner' || currentRole === 'editor';
-        if (!canEdit) return;
-        switchMode('studio');
-    });
-
-    // ─────────────────────────────────────────
+    // Knowledge base documents
     // KNOWLEDGE BASE: DOCUMENTS
-    // ─────────────────────────────────────────
-    async function loadDocuments() {
+    let _pollAttempts = 0;
+    const _MAX_POLL_ATTEMPTS = 20; // stop after ~60s
+
+    async function loadDocuments(isPolled = false) {
         try {
-            const res = await fetch(`${API}/rag/documents/${currentTeamId}`, { headers: authHeader() });
+            const res = await aiFetch(`${API}/rag/documents/${currentTeamId}`, { headers: authHeader() });
             if (!res.ok) return;
             const data = await res.json();
+            if (!isPolled) _pollAttempts = 0; // reset on manual load
             renderDocuments(data.documents);
         } catch (e) {
             console.error('Error loading documents:', e);
@@ -210,7 +207,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         docsEmpty.style.display = 'none';
 
-        const icons = { pdf: '📕', docx: '📘', txt: '📄', markdown: '📝', text: '✏️', unknown: '📎' };
+        const icons = { pdf: 'PDF', docx: 'DOC', txt: 'TXT', markdown: 'MD', text: 'TXT', unknown: 'FILE' };
         const canEdit = currentRole === 'owner' || currentRole === 'editor';
 
         docsList.innerHTML = docs.map(doc => `
@@ -231,14 +228,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
                 <button class="kb-doc__delete ${canEdit ? '' : 'hidden'}" 
                         onclick="window._deleteDocument(${doc.id}, '${escapeHtml(doc.filename)}')" 
-                        title="Delete document">🗑️</button>
+                        title="Delete document">DEL</button>
             </div>
         `).join('');
 
-        // Poll for processing docs
+        // Poll for processing docs (max _MAX_POLL_ATTEMPTS to avoid infinite loop on stuck docs)
         const processing = docs.filter(d => d.status === 'pending' || d.status === 'processing');
-        if (processing.length > 0) {
-            setTimeout(() => { loadDocuments(); loadStats(); }, 3000);
+        if (processing.length > 0 && _pollAttempts < _MAX_POLL_ATTEMPTS) {
+            _pollAttempts++;
+            setTimeout(() => { loadDocuments(true); loadStats(); }, 3000);
+        } else if (_pollAttempts >= _MAX_POLL_ATTEMPTS) {
+            _pollAttempts = 0;
+            console.warn('RAG polling stopped: documents may be stuck in processing state.');
         }
     }
 
@@ -250,7 +251,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!confirm(`Delete "${filename}" from the knowledge base?`)) return;
 
         try {
-            const res = await fetch(`${API}/rag/documents/${docId}`, {
+            const res = await aiFetch(`${API}/rag/documents/${docId}`, {
                 method: 'DELETE',
                 headers: authHeader(),
             });
@@ -264,9 +265,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // ─────────────────────────────────────────
+    // File upload
     // FILE UPLOAD
-    // ─────────────────────────────────────────
     if (kbUploadZone) {
         kbUploadZone.addEventListener('dragover', (e) => {
             e.preventDefault();
@@ -306,12 +306,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const origHTML = kbUploadZone.innerHTML;
         kbUploadZone.innerHTML = `
-            <div class="kb-upload__icon">⏳</div>
+            <div class="kb-upload__icon">...</div>
             <div class="kb-upload__text">Uploading ${files.length} file(s)...</div>
         `;
 
         try {
-            const res = await fetch(`${API}/rag/ingest`, {
+            const res = await aiFetch(`${API}/rag/ingest`, {
                 method: 'POST',
                 headers: authHeader(),
                 body: formData,
@@ -332,9 +332,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function resetUploadZone() {
         kbUploadZone.innerHTML = `
-            <div class="kb-upload__icon">📄</div>
+            <div class="kb-upload__icon">FILE</div>
             <div class="kb-upload__text"><strong>Drop files here</strong> or browse</div>
-            <div class="kb-upload__hint">PDF, DOCX, TXT, MD — up to 20MB each</div>
+            <div class="kb-upload__hint">PDF, DOCX, TXT, MD - up to 20MB each</div>
             <input type="file" id="kbFileInput" multiple accept=".pdf,.doc,.docx,.txt,.md">
         `;
         const newInput = document.getElementById('kbFileInput');
@@ -346,12 +346,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // ─────────────────────────────────────────
+    // Stats
     // STATS
-    // ─────────────────────────────────────────
     async function loadStats() {
         try {
-            const res = await fetch(`${API}/rag/stats/${currentTeamId}`, { headers: authHeader() });
+            const res = await aiFetch(`${API}/rag/stats/${currentTeamId}`, { headers: authHeader() });
             if (!res.ok) return;
             const stats = await res.json();
             statDocs.textContent = `${stats.document_count || 0} docs`;
@@ -361,9 +360,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // ─────────────────────────────────────────
+    // AI chat
     // AI CHAT (user-scoped / private)
-    // ─────────────────────────────────────────
     function showMessages() {
         chatWelcome.style.display = 'none';
         chatMessages.style.display = 'flex';
@@ -380,7 +378,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function loadChatHistory() {
         try {
             // Load sessions list first
-            const sessRes = await fetch(`${API}/rag/chat/sessions/${currentTeamId}`, {
+            const sessRes = await aiFetch(`${API}/rag/chat/sessions/${currentTeamId}`, {
                 headers: authHeader(),
             });
             let sessions = [];
@@ -407,7 +405,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function loadSessionMessages(sessionId) {
         try {
-            const res = await fetch(`${API}/rag/chat/history/${currentTeamId}?limit=50&session_id=${sessionId}`, {
+            const res = await aiFetch(`${API}/rag/chat/history/${currentTeamId}?limit=50&session_id=${sessionId}`, {
                 headers: authHeader(),
             });
             if (!res.ok) return;
@@ -432,9 +430,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // ─────────────────────────────────────────
+    // Recent chats panel
     // RECENT CHATS PANEL (Sessions-based)
-    // ─────────────────────────────────────────
     function renderRecentSessions(sessions) {
         if (!recentChatsList) return;
 
@@ -469,16 +466,16 @@ document.addEventListener('DOMContentLoaded', () => {
             html += `<div class="recent-chats__date-label">${label}</div>`;
             items.forEach(session => {
                 const preview = session.preview.length > 45
-                    ? session.preview.substring(0, 45) + '…'
+                    ? session.preview.substring(0, 45) + '...'
                     : session.preview;
                 const time = new Date(session.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
                 const isActive = session.session_id === currentSessionId ? ' recent-chat-item--active' : '';
                 html += `
                     <div class="recent-chat-item${isActive}" data-session-id="${escapeHtml(session.session_id)}">
-                        <div class="recent-chat-item__icon">💬</div>
+                        <div class="recent-chat-item__icon">AI</div>
                         <div class="recent-chat-item__info">
                             <div class="recent-chat-item__text">${escapeHtml(preview)}</div>
-                            <div class="recent-chat-item__time">${time} · ${session.message_count} msgs</div>
+                            <div class="recent-chat-item__time">${time} - ${session.message_count} msgs</div>
                         </div>
                     </div>
                 `;
@@ -522,7 +519,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // New Chat button — starts a fresh session without deleting from DB
+    // New Chat button - starts a fresh session without deleting from DB
     if (newChatBtn) {
         newChatBtn.addEventListener('click', () => {
             currentSessionId = generateSessionId();
@@ -550,7 +547,7 @@ document.addEventListener('DOMContentLoaded', () => {
         showTypingIndicator();
 
         try {
-            const res = await fetch(`${API}/rag/chat`, {
+            const res = await aiFetch(`${API}/rag/chat`, {
                 method: 'POST',
                 headers: jsonHeaders(),
                 body: JSON.stringify({ team_id: currentTeamId, message, session_id: currentSessionId }),
@@ -563,11 +560,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 appendMessage('assistant', data.response, data.sources);
             } else {
                 const err = await res.json().catch(() => ({}));
-                appendMessage('assistant', `⚠️ ${err.detail || 'Something went wrong. Please try again.'}`);
+                appendMessage('assistant', `[Warning] ${err.detail || 'Something went wrong. Please try again.'}`);
             }
         } catch (e) {
             hideTypingIndicator();
-            appendMessage('assistant', '⚠️ Network error. Please check your connection.');
+            appendMessage('assistant', '[Warning] Network error. Please check your connection.');
         }
 
         isTyping = false;
@@ -580,7 +577,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function refreshRecentChats() {
         try {
-            const res = await fetch(`${API}/rag/chat/sessions/${currentTeamId}`, {
+            const res = await aiFetch(`${API}/rag/chat/sessions/${currentTeamId}`, {
                 headers: authHeader(),
             });
             if (!res.ok) return;
@@ -593,7 +590,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const msgDiv = document.createElement('div');
         msgDiv.className = `chat-msg chat-msg--${role}`;
 
-        const avatarContent = role === 'user' ? 'U' : '🧠';
+        const avatarContent = role === 'user' ? 'U' : 'AI';
         const avatar = `<div class="chat-msg__avatar">${avatarContent}</div>`;
 
         let sourcesHtml = '';
@@ -605,16 +602,24 @@ document.addEventListener('DOMContentLoaded', () => {
             }).join('');
             sourcesHtml = `
                 <div class="chat-msg__sources">
-                    <div class="chat-msg__sources-title">📚 Sources Referenced</div>
+                    <div class="chat-msg__sources-title">Sources Referenced</div>
                     ${sourceItems}
                 </div>
             `;
         }
 
+        let bodyHtml;
+        const cardData = parseCardPayload(content);
+        if (cardData) {
+            bodyHtml = renderLiveCards(cardData);
+        } else {
+            bodyHtml = formatMarkdown(content);
+        }
+
         msgDiv.innerHTML = `
             ${avatar}
             <div class="chat-msg__content">
-                ${formatMarkdown(content)}
+                ${bodyHtml}
                 ${sourcesHtml}
             </div>
         `;
@@ -622,12 +627,133 @@ document.addEventListener('DOMContentLoaded', () => {
         chatMessages.appendChild(msgDiv);
     }
 
+    function parseCardPayload(content) {
+        if (!content || typeof content !== 'string') return null;
+
+        const marker = '__CARDS__:';
+        const normalized = content.trimStart();
+        const markerIndex = normalized.indexOf(marker);
+        if (markerIndex < 0) return null;
+
+        let payload = normalized.slice(markerIndex + marker.length).trim();
+        if (!payload) return null;
+
+        // Handle fenced markdown payloads: ```json ... ```
+        if (payload.startsWith('```')) {
+            const fenceMatch = payload.match(/^```(?:json)?\s*([\s\S]*?)\s*```/i);
+            if (fenceMatch && fenceMatch[1]) {
+                payload = fenceMatch[1].trim();
+            }
+        }
+
+        try {
+            return JSON.parse(payload);
+        } catch (e) {
+            // Fallback: try parsing the first JSON object in the text.
+            const firstBrace = payload.indexOf('{');
+            const lastBrace = payload.lastIndexOf('}');
+            if (firstBrace >= 0 && lastBrace > firstBrace) {
+                const candidate = payload.slice(firstBrace, lastBrace + 1);
+                try {
+                    return JSON.parse(candidate);
+                } catch (_ignored) {
+                    return null;
+                }
+            }
+            return null;
+        }
+    }
+
+    function renderLiveCards(data) {
+        if (!data) return '';
+        const typeIcons = { timeline: 'TIME', calendar: 'CAL', workspace: 'WS' };
+        const icon = typeIcons[data.type] || 'LIST';
+        const items = data.items || [];
+
+        let html = `
+            <div class="live-cards">
+                <div class="live-cards__heading">
+                    <span>${icon}</span>
+                    <span>${escapeHtml(data.heading || '')}</span>
+                    <a href="${escapeHtml(data.url || '#')}" class="live-cards__view-all">View All -></a>
+                </div>
+        `;
+
+        if (items.length === 0) {
+            html += `<div class="live-cards__empty">Nothing to show right now.</div>`;
+        } else if (data.type === 'timeline') {
+            const typeMeta = {
+                decision:  { label: 'Decision',  cls: 'decision',  ico: 'DEC' },
+                milestone: { label: 'Milestone', cls: 'milestone', ico: 'MS' },
+                summary:   { label: 'Summary',   cls: 'summary',   ico: 'SUM' },
+                upload:    { label: 'Upload',    cls: 'upload',    ico: 'UP' },
+            };
+            items.forEach(item => {
+                const t = typeMeta[item.entry_type] || { label: item.entry_type, cls: 'default', ico: 'ITEM' };
+                html += `
+                    <div class="live-card live-card--${t.cls}">
+                        <div class="live-card__accent"></div>
+                        <div class="live-card__body">
+                            <div class="live-card__row-top">
+                                <span class="live-card__type-badge live-card__type-badge--${t.cls}">${t.ico} ${t.label}</span>
+                                <span class="live-card__meta-date">${escapeHtml(item.date || '')}</span>
+                            </div>
+                            <div class="live-card__title">${escapeHtml(item.title || '')}</div>
+                            <div class="live-card__project">Project: ${escapeHtml(item.project || '')}</div>
+                            ${item.content ? `<div class="live-card__desc">${escapeHtml(item.content)}</div>` : ''}
+                        </div>
+                        <a href="${escapeHtml(data.url || '/memory')}" class="live-card__open-btn">Open -></a>
+                    </div>
+                `;
+            });
+        } else if (data.type === 'calendar') {
+            items.forEach(item => {
+                const pCls = item.priority === 'high' ? 'high' : item.priority === 'low' ? 'low' : 'medium';
+                html += `
+                    <div class="live-card live-card--task">
+                        <div class="live-card__accent"></div>
+                        <div class="live-card__body">
+                            <div class="live-card__row-top">
+                                <span class="live-card__priority-badge live-card__priority-badge--${pCls}">${escapeHtml(item.priority || 'medium')}</span>
+                            </div>
+                            <div class="live-card__title">${escapeHtml(item.title || '')}</div>
+                            <div class="live-card__meta-date">${escapeHtml(item.start)} -> ${escapeHtml(item.end)}</div>
+                            ${item.location ? `<div class="live-card__project">Location: ${escapeHtml(item.location)}</div>` : ''}
+                        </div>
+                        <a href="${escapeHtml(data.url || '/dashboard')}" class="live-card__open-btn">Open -></a>
+                    </div>
+                `;
+            });
+        } else {
+            items.forEach(item => {
+                html += `
+                    <div class="live-card live-card--task">
+                        <div class="live-card__accent"></div>
+                        <div class="live-card__body">
+                            <div class="live-card__row-top">
+                                ${item.badge ? `<span class="live-card__type-badge live-card__type-badge--summary">${escapeHtml(item.badge)}</span>` : ''}
+                                ${item.meta ? `<span class="live-card__meta-date">${escapeHtml(item.meta)}</span>` : ''}
+                            </div>
+                            <div class="live-card__title">${escapeHtml(item.title || '')}</div>
+                            ${item.secondary ? `<div class="live-card__project">${escapeHtml(item.secondary)}</div>` : ''}
+                            ${item.description ? `<div class="live-card__desc">${escapeHtml(item.description)}</div>` : ''}
+                        </div>
+                        <a href="${escapeHtml(item.href || data.url || '/dashboard')}" class="live-card__open-btn">${escapeHtml(item.cta || 'Open ->')}</a>
+                    </div>
+                `;
+            });
+        }
+
+        html += `</div>`;
+        return html;
+    }
+
     function showTypingIndicator() {
         const el = document.createElement('div');
         el.className = 'chat-typing';
         el.id = 'typingIndicator';
         el.innerHTML = `
-            <div class="chat-typing__avatar">🧠</div>
+            <div class="chat-typing__avatar">AI</div>
             <div class="chat-typing__dots">
                 <div class="chat-typing__dot"></div>
                 <div class="chat-typing__dot"></div>
@@ -654,9 +780,8 @@ document.addEventListener('DOMContentLoaded', () => {
         chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + 'px';
     });
 
-    // ─────────────────────────────────────────
+    // Delete chat
     // DELETE CHAT (custom modal)
-    // ─────────────────────────────────────────
     const deleteModal = document.getElementById('deleteModal');
     const deleteModalCancel = document.getElementById('deleteModalCancel');
     const deleteModalConfirm = document.getElementById('deleteModalConfirm');
@@ -699,7 +824,7 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 deleteChatBtn.disabled = true;
                 const deleteUrl = `${API}/rag/chat/history/${currentTeamId}?session_id=${encodeURIComponent(currentSessionId)}`;
-                const res = await fetch(deleteUrl, {
+                const res = await aiFetch(deleteUrl, {
                     method: 'DELETE',
                     headers: authHeader(),
                 });
@@ -723,16 +848,27 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Quick prompts
+    function runQuickPrompt(promptText) {
+        const prompt = (promptText || '').trim();
+        if (!prompt) return;
+        chatInput.value = prompt;
+        sendMessage();
+    }
+
     document.querySelectorAll('.chat-welcome__suggestion').forEach(btn => {
         btn.addEventListener('click', () => {
-            chatInput.value = btn.textContent.trim();
-            sendMessage();
+            runQuickPrompt(btn.textContent.trim());
         });
     });
 
-    // ─────────────────────────────────────────
+    quickPromptButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            runQuickPrompt(btn.dataset.prompt || btn.textContent.trim());
+        });
+    });
+
+    // Utilities
     // UTILITIES
-    // ─────────────────────────────────────────
     function escapeHtml(str) {
         if (!str) return '';
         return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -746,11 +882,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function getStatusIcon(status) {
-        return { ready: '✅', pending: '⏳', processing: '⚙️', error: '❌' }[status] || '❓';
+        return { ready: '[ok]', pending: '[...]', processing: '[...]', error: '[x]' }[status] || '[?]';
     }
 
     function getDocIcon(type) {
-        return { pdf: '📕', docx: '📘', txt: '📄', markdown: '📝', text: '✏️' }[type] || '📎';
+        return { pdf: 'PDF', docx: 'DOC', txt: 'TXT', markdown: 'MD', text: 'TXT' }[type] || 'FILE';
     }
 
     function formatMarkdown(text) {
@@ -762,7 +898,7 @@ document.addEventListener('DOMContentLoaded', () => {
             .replace(/\*(.+?)\*/g, '<em>$1</em>')
             .replace(/^### (.+)$/gm, '<strong style="font-size:0.92rem;">$1</strong>')
             .replace(/^## (.+)$/gm, '<strong style="font-size:0.98rem;">$1</strong>')
-            .replace(/^[-•] (.+)$/gm, '<li>$1</li>')
+            .replace(/^[-*\u2022] (.+)$/gm, '<li>$1</li>')
             .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
             .replace(/\n\n/g, '</p><p>')
             .replace(/\n/g, '<br>');
@@ -779,6 +915,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // ─── Init ───
+    // Init
     loadTeams();
 });

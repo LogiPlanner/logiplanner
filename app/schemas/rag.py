@@ -18,6 +18,12 @@ class IngestTextRequest(BaseModel):
     content: str                        # The text content to ingest
 
 
+class IngestURLRequest(BaseModel):
+    """Request to ingest content from a URL."""
+    team_id: int
+    url: str
+
+
 class DocumentResponse(BaseModel):
     """Response model for a single document."""
     id: int

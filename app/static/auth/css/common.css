@@ -3,66 +3,8 @@
    Plans With Logic  ·  Premium SaaS Aesthetic
    ═══════════════════════════════════════════════════════════════ */
 
-/* ─── Google Fonts ─── */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
-
-/* ─── Design Tokens ─── */
-:root {
-    /* Core palette */
-    --color-primary:       #4f46e5;
-    --color-primary-dark:  #3730a3;
-    --color-primary-light: #818cf8;
-    --color-accent:        #06d6a0;
-    --color-accent-dark:   #059669;
-
-    /* Dark surfaces (brand panels) */
-    --color-dark-900:  #0c0a1d;
-    --color-dark-800:  #131136;
-    --color-dark-700:  #1a1744;
-    --color-dark-600:  #242154;
-
-    /* Light surfaces */
-    --color-surface:   #ffffff;
-    --color-page-bg:   #f4f5fa;
-    --color-card:      #ffffff;
-
-    /* Text */
-    --color-text:      #1e1b4b;
-    --color-text-sec:  #4b5563;
-    --color-text-muted:#9ca3af;
-    --color-text-inv:  #f8fafc;
-
-    /* Borders */
-    --color-border:    #e5e7eb;
-    --color-border-lt: #f3f4f6;
-
-    /* Feedback */
-    --color-success:   #10b981;
-    --color-error:     #ef4444;
-    --color-warning:   #f59e0b;
-
-    /* Effects */
-    --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
-    --shadow-md: 0 4px 16px rgba(0,0,0,0.08);
-    --shadow-lg: 0 10px 40px rgba(0,0,0,0.12);
-    --shadow-xl: 0 20px 60px rgba(0,0,0,0.16);
-    --shadow-glow: 0 0 40px rgba(79,70,229,0.15);
-
-    /* Radii */
-    --radius-sm: 8px;
-    --radius-md: 12px;
-    --radius-lg: 16px;
-    --radius-xl: 20px;
-    --radius-2xl: 24px;
-    --radius-full: 999px;
-
-    /* Transitions */
-    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-    --transition: 0.25s var(--ease-out);
-}
-
-
 /* ─── Reset & Base ─── */
+/* Design tokens are in /static/css/common.css */
 *, *::before, *::after {
     box-sizing: border-box;
     margin: 0;
@@ -1029,6 +971,56 @@ a:hover { color: var(--color-primary-dark); }
     margin-top: 2px;
 }
 
+/* Project / Team Selector */
+.sidebar__project {
+    padding: 4px 12px 8px;
+    position: relative;
+    z-index: 1;
+}
+
+.sidebar__project-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-text-muted);
+    padding: 0 4px;
+    margin-bottom: 6px;
+}
+
+.sidebar__project-label svg {
+    width: 14px;
+    height: 14px;
+    opacity: 0.5;
+}
+
+.sidebar__project-select {
+    width: 100%;
+    padding: 9px 32px 9px 12px;
+    border: 1.5px solid var(--color-border);
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--color-text);
+    background: var(--color-surface);
+    cursor: pointer;
+    outline: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.sidebar__project-select:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(79,70,229,0.1);
+}
+
 /* Navigation */
 .sidebar__nav {
     flex: 1;
@@ -1203,25 +1195,55 @@ a:hover { color: var(--color-primary-dark); }
     gap: 24px;
 }
 
-.topbar__tabs {
+/* Page title in topbar */
+.topbar__page-title {
     display: flex;
-    gap: 4px;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--color-text);
+}
+.topbar__page-title svg {
+    width: 18px;
+    height: 18px;
+    opacity: 0.65;
 }
 
-.topbar__tab {
-    padding: 8px 16px;
+/* Chat / Studio mode switcher pill in topbar */
+.topbar__mode-switcher {
+    display: flex;
+    background: var(--color-page-bg);
+    border: 1px solid var(--color-border-lt);
     border-radius: var(--radius-sm);
-    font-size: 0.85rem;
+    padding: 3px;
+    gap: 2px;
+}
+.topbar__mode-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 0.78rem;
     font-weight: 500;
-    color: var(--color-text-sec);
+    color: var(--color-text-muted);
     text-decoration: none;
     transition: all var(--transition);
 }
-.topbar__tab:hover { background: var(--color-page-bg); color: var(--color-text); }
-.topbar__tab.active {
-    background: rgba(79,70,229,0.08);
-    color: var(--color-primary-dark);
+.topbar__mode-btn svg {
+    width: 15px;
+    height: 15px;
+}
+.topbar__mode-btn:hover {
+    color: var(--color-text-sec);
+    background: rgba(0,0,0,0.03);
+}
+.topbar__mode-btn--active {
+    background: var(--color-surface);
+    color: var(--color-primary);
     font-weight: 600;
+    box-shadow: var(--shadow-sm);
 }
 
 .topbar__right {
@@ -1504,6 +1526,93 @@ a:hover { color: var(--color-primary-dark); }
     gap: 16px;
 }
 
+
+/* ═══════════════════════════════════════════════════════════════
+   SHARED NAVIGATION — Mobile toggle, overlay, logout button
+   (Moved here from base.html inline <style> block)
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Mobile hamburger toggle */
+.mobile-toggle {
+    display: none;
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    z-index: 100;
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    background: var(--color-surface, #fff);
+    border: 1.5px solid var(--color-border, #e5e7eb);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.25s ease;
+}
+
+.mobile-toggle svg {
+    width: 20px;
+    height: 20px;
+    stroke: var(--color-text, #1e1b4b);
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.mobile-toggle:hover { background: var(--color-page-bg, #f4f5fa); }
+
+/* Sidebar backdrop overlay */
+.sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 40;
+    backdrop-filter: blur(4px);
+}
+.sidebar-overlay.active { display: block; }
+
+/* Base logout button (sidebar overrides below) */
+.btn-logout {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 12px 16px;
+    border: none;
+    background: rgba(239,68,68,0.06);
+    color: #b91c1c;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    font-family: inherit;
+}
+.btn-logout svg { width: 18px; height: 18px; }
+.btn-logout:hover { background: rgba(239,68,68,0.12); }
+
+@media (max-width: 768px) {
+    .mobile-toggle { display: flex; }
+
+    .sidebar {
+        position: fixed !important;
+        left: -280px;
+        top: 0;
+        height: 100vh;
+        z-index: 50;
+        transition: left 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        box-shadow: none;
+    }
+
+    .sidebar.open {
+        left: 0;
+        box-shadow: 4px 0 24px rgba(0,0,0,0.12);
+    }
+}
+
 .calendar__nav {
     display: flex;
     align-items: center;
@@ -1717,3 +1826,43 @@ a:hover { color: var(--color-primary-dark); }
     transition: color var(--transition);
 }
 .content__footer-links a:hover { color: var(--color-text-sec); }
+
+/* ─── Notification dropdown (topbar — shared across all pages) ─── */
+.notif-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: 20rem;
+    background: var(--color-surface);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--color-border-lt);
+    z-index: 200;
+    overflow: hidden;
+}
+
+.notif-header {
+    background: var(--color-page-bg);
+    padding: 0.75rem 1rem;
+    font-weight: 700;
+    font-size: 0.875rem;
+    color: var(--color-text);
+    border-bottom: 1px solid var(--color-border-lt);
+}
+
+.notif-body {
+    max-height: 20rem;
+    overflow-y: auto;
+}
+
+.notif-item {
+    padding: 1rem;
+    border-bottom: 1px solid var(--color-page-bg);
+    font-size: 0.875rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+.notif-item:last-child { border-bottom: none; }
+.notif-item .n-title { font-weight: 600; color: var(--color-text); }
+.notif-item .n-time  { font-size: 0.75rem; color: var(--color-text-muted); }
