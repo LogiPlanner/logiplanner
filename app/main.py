@@ -122,3 +122,7 @@ async def memory_page(request: Request):
 async def root_redirect():
     from fastapi.responses import RedirectResponse
     return RedirectResponse(url="/login")
+
+@app.get("/coming-soon")
+async def coming_soon_page(request: Request):
+    return templates.TemplateResponse("coming_soon.html", {"request": request})

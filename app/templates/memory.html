@@ -13,7 +13,6 @@
     <!-- Topbar -->
     <header class="memory-topbar">
         <div class="topbar-left">
-            <h2 class="project-title" id="projectTitle">Loading...</h2>
             <nav class="topbar-nav" id="topbarNav">
                 <a href="#" class="active" data-filter="all">Timeline</a>
                 <a href="#" data-filter="milestone">Milestones</a>
@@ -54,8 +53,8 @@
         <section class="timeline-canvas">
             <div class="timeline-header">
                 <div>
-                    <h3 class="canvas-title">Project Memory Timeline</h3>
-                    <p class="canvas-subtitle">A chronological trace of project intelligence and key shifts.</p>
+                    <h1 class="canvas-title" id="projectTitle" style="font-size: 2rem; font-weight: 700; color: #1e293b; margin-bottom: 0.5rem; letter-spacing: -0.02em;">Loading...</h1>
+                    <p class="canvas-subtitle" style="font-size: 1rem; color: #64748b; font-weight: 400; margin: 0;">The story of the project: How it started vs. how it’s going!</p>
                 </div>
                 <div class="canvas-actions" style="position: relative;">
                     <button class="btn-outline" id="filterBtn">
@@ -66,21 +65,26 @@
                         Filter
                     </button>
                     <!-- Filter Dropdown -->
-                    <div class="filter-dropdown" id="filterDropdown" style="display: none;">
+                    <div class="filter-dropdown" id="filterDropdown" style="display: none; width: 16rem;">
                         <label class="filter-label">Sort Date</label>
                         <select id="sortBox" class="filter-select">
                             <option value="newest">Newest First</option>
                             <option value="oldest">Oldest First</option>
                         </select>
                         <hr class="filter-divider">
-                        <label class="filter-label">Include Types</label>
-                        <div class="filter-checkboxes">
-                            <label><input type="checkbox" value="decision" checked class="type-check"> Decisions</label>
-                            <label><input type="checkbox" value="milestone" checked class="type-check">
-                                Milestones</label>
-                            <label><input type="checkbox" value="summary" checked class="type-check"> Summaries</label>
-                            <label><input type="checkbox" value="upload" checked class="type-check"> Archives</label>
+                        <label class="filter-label">Impact Level</label>
+                        <div class="filter-checkboxes" style="margin-bottom: 1rem;">
+                            <label><input type="checkbox" value="critical" class="impact-check"> Critical</label>
+                            <label><input type="checkbox" value="high" class="impact-check"> High</label>
+                            <label><input type="checkbox" value="medium" class="impact-check"> Medium</label>
+                            <label><input type="checkbox" value="low" class="impact-check"> Low</label>
+                            <label><input type="checkbox" value="none" class="impact-check"> Normal</label>
                         </div>
+                        <label class="filter-label">Collaborator Search</label>
+                        <input type="text" id="filterCollab" class="filter-select" placeholder="e.g. Alex" style="margin-bottom: 1rem;">
+                        
+                        <label class="filter-label">Tags Search</label>
+                        <input type="text" id="filterTags" class="filter-select" placeholder="e.g. TechStack">
                     </div>
                     <button class="btn-outline" id="exportBtn">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -124,7 +128,7 @@
                     </div>
                     <h4>LogiPlanner</h4>
                     <p class="insight-desc">Best Project Management Software with Artificial Intelligence!</p>
-                    <button class="btn-glass">Coming Soon!</button>
+                    <a href="/coming-soon" class="btn-glass" style="text-align: center; text-decoration: none; display: block; box-sizing: border-box;">Coming Soon!</a>
                 </div>
             </div>
 
@@ -190,7 +194,13 @@
     <!-- Add/Edit Entry Modal -->
     <div class="modal-overlay" id="entryModal">
         <div class="modal-box">
-            <h3 class="modal-box__title" id="modalTitle">Add Memory Entry</h3>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h3 class="modal-box__title" id="modalTitle" style="margin-bottom: 0;">Add Memory Entry</h3>
+                <div>
+                    <input type="file" id="autoFillFile" style="display:none;" accept=".txt,.pdf,.docx,.md">
+                    <button type="button" id="autoFillBtn" class="action-btn" style="color: #6366f1; border-color: #6366f1; background: #eef2ff; font-weight:600;">✨ Auto-Fill via Document</button>
+                </div>
+            </div>
             <form id="entryForm" class="entry-form">
                 <input type="hidden" id="editEntryId" value="">
 
@@ -220,9 +230,10 @@
                             <option value="critical">Critical</option>
                         </select>
                     </div>
-                    <div class="w-half">
-                        <label>Collaborators (Comma separated names)</label>
-                        <input type="text" id="entryCollaborators" placeholder="E.g., Alex Rivera, Marcus">
+                    <div class="w-half" style="position: relative;">
+                        <label>Collaborators</label>
+                        <input type="text" id="entryCollaborators" placeholder="Type @ to search users or comma separate...">
+                        <div id="mentionDropdown" class="mention-dropdown" style="display: none;"></div>
                     </div>
                 </div>
 
@@ -266,6 +277,21 @@
                     style="background: var(--color-surface-low); border-radius: 0.75rem;">Cancel</button>
                 <button type="button" class="btn-submit" id="confirmDeleteBtn" style="background: #ef4444;">Delete
                     Entry</button>
+            </div>
+        </div>
+    </div>
+    <!-- Error Modal -->
+    <div class="modal-overlay" id="errorModal" style="z-index: 110;">
+        <div class="modal-box" style="max-width: 24rem; text-align: center; padding: 2.5rem 2rem;">
+            <div style="width: 48px; height: 48px; border-radius: 50%; background: #fef3c7; color: #d97706; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem;">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width: 24px; height: 24px;">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+            </div>
+            <h3 class="modal-box__title" id="errorModalTitle" style="margin-bottom: 0.5rem; font-size: 1.125rem;">Extraction Error</h3>
+            <p id="errorModalDesc" style="font-size: 0.875rem; color: var(--color-on-surface-variant); margin-bottom: 2rem; line-height: 1.5;">An error occurred.</p>
+            <div class="modal-box__actions" style="margin-top: 0; justify-content: center;">
+                <button type="button" class="btn-submit" id="closeErrorBtn" style="background: #d97706; width: 100%;">Got it</button>
             </div>
         </div>
     </div>

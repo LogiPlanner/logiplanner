@@ -1,6 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, UploadFile, File
 from sqlalchemy.orm import Session
 from typing import List
+import os
+import uuid
+import json
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
@@ -9,7 +12,17 @@ from app.models.timeline import TimelineEntry
 from app.schemas.timeline import TimelineEntryCreate, TimelineEntryResponse, TimelineEntryUpdate, MemoryAnalyticsResponse
 
 from langchain_core.documents import Document as LCDocument
+from langchain_openai import ChatOpenAI
+from langchain_core.messages import SystemMessage, HumanMessage
+from app.core.config import settings
+from app.rag.processor import load_document, validate_file
+from pydantic import BaseModel
 from app.rag.engine import rag_engine
+
+class AutoFillResponse(BaseModel):
+    title: str
+    content: str
+    tags: str
 
 router = APIRouter()
 
@@ -109,6 +122,81 @@ def get_project_users(
     if not project or current_user not in project.users:
         raise HTTPException(status_code=403, detail="Not authorized")
     return [{"id": u.id, "email": u.email, "full_name": u.full_name or u.email.split("@")[0]} for u in project.users]
+
+@router.post("/auto-fill", response_model=AutoFillResponse)
+async def auto_fill_from_document(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Extracts text from an uploaded document and magically auto-fills entry inputs
+    via an LLM. Does NOT ingest into RAG db (yet — that happens upon saving the form).
+    """
+    content = await file.read()
+    file_size = len(content)
+    
+    is_valid, error = validate_file(file.filename, file_size)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=error)
+        
+    safe_name = f"{uuid.uuid4().hex[:8]}_{file.filename}"
+    upload_dir = os.path.join("app", "static", "uploads", "temp")
+    os.makedirs(upload_dir, exist_ok=True)
+    file_path = os.path.join(upload_dir, safe_name)
+    
+    with open(file_path, "wb") as f:
+        f.write(content)
+        
+    try:
+        raw_docs = load_document(file_path, file.filename)
+        text_content = "\n".join([doc.page_content for doc in raw_docs])
+        if not text_content.strip():
+            raise HTTPException(
+                status_code=400, 
+                detail="No readable text found. If this is a scanned image or PDF, please upload a document with highlightable text, or try a standard .txt/.docx file."
+            )
+            
+        # Initialize an isolated Langchain Chat wrapper
+        llm = ChatOpenAI(
+            model=settings.RAG_CHAT_MODEL,
+            openai_api_key=settings.OPENAI_API_KEY,
+            temperature=0.1
+        )
+        
+        prompt = (
+            "You are an AI assistant. Analyze the following text and extract three things:\n"
+            "1. A concise 'title' (max 8 words).\n"
+            "2. A 'content' summary (2-3 sentences max) capturing the core outcome or meaning.\n"
+            "3. A 'tags' string of 1-4 comma-separated highly-relevant keywords.\n"
+            "Respond ONLY in valid JSON format: {\"title\": \"...\", \"content\": \"...\", \"tags\": \"...\"}\n\n"
+            f"TEXT TO ANALYZE:\n{text_content[:8000]}" # truncate for safety and speed
+        )
+        
+        system = SystemMessage(content="You are a JSON-only response bot.")
+        human = HumanMessage(content=prompt)
+        
+        res = llm.invoke([system, human])
+        raw_response = res.content.strip()
+        if raw_response.startswith('```json'):
+            raw_response = raw_response[7:-3].strip()
+        elif raw_response.startswith('```'):
+            raw_response = raw_response[3:-3].strip()
+            
+        parsed = json.loads(raw_response)
+        
+        return AutoFillResponse(
+            title=parsed.get("title", ""),
+            content=parsed.get("content", ""),
+            tags=parsed.get("tags", "")
+        )
+        
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"AI processing error: {str(e)}")
+    finally:
+        if os.path.exists(file_path):
+            os.remove(file_path)
 
 @router.delete("/{entry_id}")
 def delete_timeline_entry(
