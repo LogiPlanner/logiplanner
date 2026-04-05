@@ -36,6 +36,9 @@ class User(Base):
     is_verified = Column(Boolean, default=False)              # for email verification (auth.pdf)
     verification_token = Column(String, nullable=True, unique=True)
     last_verification_sent = Column(DateTime(timezone=True), nullable=True)
+    notify_email = Column(Boolean, default=True)
+    notify_dashboard = Column(Boolean, default=True)
+    notify_deadline = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
@@ -66,6 +69,7 @@ class Team(Base):
     description = Column(Text, nullable=True)
     invite_code = Column(String, unique=True, default=lambda: str(uuid.uuid4())[:8])
     company_id = Column(Integer, ForeignKey("companies.id"), nullable=True)
+    ai_sensitivity = Column(Integer, default=84)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     company = relationship("Company", back_populates="teams")

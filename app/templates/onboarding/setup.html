@@ -1,5 +1,5 @@
 {% extends "onboarding/base.html" %}
-{% block title %}Set Up Your Team — LogiPlanner{% endblock %}
+{% block title %}Set Up Your Project — LogiPlanner{% endblock %}
 {% block body_class %}onboarding-page{% endblock %}
 {% block content %}
 <div class="onboarding">
@@ -18,7 +18,7 @@
 
         <div class="onboarding__brand-content">
             <h1 class="onboarding__brand-title">Set up your<br><em>Project Brain.</em></h1>
-            <p class="onboarding__brand-desc">You're almost there. Create a new team or join an existing one to start building your project's AI-powered memory.</p>
+            <p class="onboarding__brand-desc">You're almost there. Create a new project or join an existing one to start building your project's AI-powered memory.</p>
 
             <!-- Progress Steps (dynamic) -->
             <div class="onboarding__progress" id="progressSteps">
@@ -47,15 +47,15 @@
                 <div class="choose-cards">
                     <div class="choose-card" id="chooseCreate" onclick="startFlow('create')">
                         <div class="choose-card__icon" style="background:rgba(79,70,229,0.1);">🚀</div>
-                        <div class="choose-card__title">Create a Team</div>
-                        <div class="choose-card__desc">Start a new project. Set up your team, add documents, and invite members.</div>
+                        <div class="choose-card__title">Create a Project</div>
+                        <div class="choose-card__desc">Start a new project. Set up your workspace, add documents, and invite members.</div>
                         <div class="choose-card__badge">Project Lead</div>
                     </div>
                     <div class="choose-card" id="chooseJoin" onclick="startFlow('join')">
                         <div class="choose-card__icon" style="background:rgba(6,214,160,0.1);">🤝</div>
-                        <div class="choose-card__title">Join a Team</div>
-                        <div class="choose-card__desc">Got an invite code? Join your team and get a smart project brief instantly.</div>
-                        <div class="choose-card__badge">Team Member</div>
+                        <div class="choose-card__title">Join a Project</div>
+                        <div class="choose-card__desc">Got an invite code? Join your project and get a smart brief instantly.</div>
+                        <div class="choose-card__badge">Project Member</div>
                     </div>
                 </div>
             </div>
@@ -65,18 +65,18 @@
             <!-- ═══════════════════════════════════════════ -->
             <div class="wizard-step" id="step-create-1">
                 <button class="wizard-back" onclick="goBack('step-choose')">&larr; Back</button>
-                <div class="wizard-step__badge">Step 1 of 4 — Team Info</div>
-                <h2 class="wizard-step__title">Name your team</h2>
-                <p class="wizard-step__subtitle">This is how your team members will find and recognize your project.</p>
+                <div class="wizard-step__badge">Step 1 of 4 — Project Info</div>
+                <h2 class="wizard-step__title">Name your project</h2>
+                <p class="wizard-step__subtitle">This is how your project members will find and recognize your workspace.</p>
 
                 <form id="createStep1Form">
                     <div class="form-group">
-                        <label for="c_teamName">Team Name</label>
-                        <input type="text" id="c_teamName" class="form-input" placeholder="e.g. LogiPlanner Core Team" required>
+                        <label for="c_teamName">Project Name</label>
+                        <input type="text" id="c_teamName" class="form-input" placeholder="e.g. LogiPlanner Core" required>
                     </div>
                     <div class="form-group">
                         <label for="c_teamDesc">Description <span class="form-label-hint">(optional)</span></label>
-                        <textarea id="c_teamDesc" class="form-input form-textarea" placeholder="What is this team working on?" rows="3"></textarea>
+                        <textarea id="c_teamDesc" class="form-input form-textarea" placeholder="What is this project about?" rows="3"></textarea>
                     </div>
                     <button type="submit" class="btn btn--primary btn--full" id="createStep1Btn">Continue</button>
                 </form>
@@ -182,13 +182,13 @@
             <!-- ═══════════════════════════════════════════ -->
             <div class="wizard-step" id="step-create-4">
                 <button class="wizard-back" onclick="goBack('step-create-3')">&larr; Back</button>
-                <div class="wizard-step__badge">Step 4 of 4 — Invite Team</div>
-                <h2 class="wizard-step__title">Invite your team</h2>
+                <div class="wizard-step__badge">Step 4 of 4 — Invite Members</div>
+                <h2 class="wizard-step__title">Invite your project members</h2>
                 <p class="wizard-step__subtitle">Add members by email. They'll get a link to join instantly.</p>
 
                 <!-- Invite Code Display -->
                 <div class="invite-code-card" id="inviteCodeCard" style="display:none;">
-                    <div class="invite-code-card__label">Your Team Invite Code</div>
+                    <div class="invite-code-card__label">Your Project Invite Code</div>
                     <div class="invite-code-card__code" id="inviteCodeDisplay"></div>
                     <button type="button" class="btn btn--ghost btn--sm" onclick="copyInviteCode()">📋 Copy Code</button>
                 </div>
@@ -217,16 +217,16 @@
             <!-- ═══════════════════════════════════════════ -->
             <div class="wizard-step" id="step-join-1">
                 <button class="wizard-back" onclick="goBack('step-choose')">&larr; Back</button>
-                <div class="wizard-step__badge">Step 1 of 3 — Find Your Team</div>
+                <div class="wizard-step__badge">Step 1 of 3 — Find Your Project</div>
                 <h2 class="wizard-step__title">Enter your invite code</h2>
-                <p class="wizard-step__subtitle">Your team lead should have shared a code with you.</p>
+                <p class="wizard-step__subtitle">Your project lead should have shared a code with you.</p>
 
                 <form id="joinStep1Form">
                     <div class="form-group">
                         <label for="j_inviteCode">Invite Code</label>
                         <input type="text" id="j_inviteCode" class="form-input form-input--large" placeholder="e.g. a3f8c12b" autocomplete="off" required>
                     </div>
-                    <button type="submit" class="btn btn--primary btn--full" id="joinStep1Btn">Find Team</button>
+                    <button type="submit" class="btn btn--primary btn--full" id="joinStep1Btn">Find Project</button>
                 </form>
 
                 <!-- Team Preview (appears after lookup) -->
@@ -237,7 +237,7 @@
                         <div class="team-preview-card__meta" id="j_previewMeta"></div>
                         <div class="team-preview-card__owner" id="j_previewOwner"></div>
                     </div>
-                    <button type="button" class="btn btn--primary" onclick="showStep('step-join-2')">Join This Team</button>
+                        <button type="button" class="btn btn--primary" onclick="showStep('step-join-2')">Join This Project</button>
                 </div>
                 <div id="joinStep1Msg" class="message" aria-live="polite"></div>
             </div>
@@ -249,7 +249,7 @@
                 <button class="wizard-back" onclick="goBack('step-join-1')">&larr; Back</button>
                 <div class="wizard-step__badge">Step 2 of 3 — Your Details</div>
                 <h2 class="wizard-step__title">Complete your profile</h2>
-                <p class="wizard-step__subtitle">Let the team know who you are.</p>
+                <p class="wizard-step__subtitle">Let the project members know who you are.</p>
 
                 <form id="joinStep2Form">
                     <div class="form-group">
@@ -261,7 +261,7 @@
                         <input type="text" id="j_jobTitle" class="form-input" placeholder="e.g. Software Developer" required>
                     </div>
                     <div class="form-group">
-                        <label for="j_rolePref">Team Role Preference</label>
+                        <label for="j_rolePref">Project Role Preference</label>
                         <select id="j_rolePref" class="form-select">
                             <option value="">Select your preferred role...</option>
                             <option value="Project Lead">Project Lead</option>
@@ -287,7 +287,7 @@
 
                 <div class="brief-card" id="briefCard">
                     <div class="brief-card__section">
-                        <div class="brief-card__label">Team</div>
+                        <div class="brief-card__label">Project</div>
                         <div class="brief-card__value" id="brief_teamName">—</div>
                     </div>
                     <div class="brief-card__section">

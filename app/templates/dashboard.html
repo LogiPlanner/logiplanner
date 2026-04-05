@@ -26,22 +26,22 @@
                     <div class="welcome-banner__content">
                         <div class="welcome-banner__eyebrow" id="teamLabel">Your Workspace</div>
                         <h1 class="welcome-banner__title" id="welcomeTitle">Welcome to <em>LogiPlanner</em></h1>
-                        <p class="welcome-banner__subtitle" id="welcomeSubtitle">Your team's AI-powered project brain. Upload documents, ask questions, and never lose context again.</p>
+                        <p class="welcome-banner__subtitle" id="welcomeSubtitle">Your project's AI-powered brain. Upload documents, ask questions, and never lose context again.</p>
                         <div class="welcome-banner__actions">
                             <a href="/ai-brain" class="welcome-banner__btn welcome-banner__btn--primary">
                                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                                 Open AI Brain
                             </a>
-                            <a href="/team-select" class="welcome-banner__btn welcome-banner__btn--ghost">
+                            <a href="/onboarding" class="welcome-banner__btn welcome-banner__btn--ghost">
                                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                                Manage Teams
+                                Manage Projects
                             </a>
                         </div>
                     </div>
                     <div class="welcome-banner__team-info" id="bannerTeamInfo" style="display:none;">
                         <div class="welcome-banner__team-info-title">
                             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                            Team Info
+                            Project Info
                         </div>
                         <div id="bannerTeamInfoBody"></div>
                     </div>
@@ -152,10 +152,10 @@
                                     </div>
                                     <div class="quick-action__arrow"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></div>
                                 </a>
-                                <a href="/team-select" class="quick-action">
+                                <a href="/settings?tab=project" class="quick-action">
                                     <div class="quick-action__icon quick-action__icon--amber">👥</div>
                                     <div class="quick-action__text">
-                                        <div class="quick-action__title">Invite Team Members</div>
+                                        <div class="quick-action__title">Manage Project Members</div>
                                         <div class="quick-action__desc">Share your invite code with colleagues</div>
                                     </div>
                                     <div class="quick-action__arrow"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></div>
@@ -174,8 +174,8 @@
                                 <div class="quick-action" id="step1" style="opacity:0.5;">
                                     <div class="quick-action__icon quick-action__icon--teal">✅</div>
                                     <div class="quick-action__text">
-                                        <div class="quick-action__title">Create a Team</div>
-                                        <div class="quick-action__desc">Done! Your team is ready.</div>
+                                        <div class="quick-action__title">Create a Project</div>
+                                        <div class="quick-action__desc">Done! Your project is ready.</div>
                                     </div>
                                 </div>
                                 <a href="/ai-brain" class="quick-action" id="step2">
@@ -230,7 +230,7 @@
                 <div class="task-modal__field">
                     <label for="taskDescInput">Description <span class="task-modal__optional">(optional — use @name to tag members)</span></label>
                     <div class="task-modal__mention-wrap">
-                        <textarea id="taskDescInput" rows="3" placeholder="Add details... type @ to tag a team member"></textarea>
+                        <textarea id="taskDescInput" rows="3" placeholder="Add details... type @ to tag a project member"></textarea>
                         <div class="task-modal__mention-dropdown" id="mentionDropdown"></div>
                     </div>
                 </div>

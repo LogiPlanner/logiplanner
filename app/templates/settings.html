@@ -1,0 +1,318 @@
+{% extends "base.html" %}
+
+{% block title %}Settings — LogiPlanner{% endblock %}
+{% block meta_description %}Manage your professional workspace and preferences.{% endblock %}
+
+{% block styles %}
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/static/css/settings.css">
+{% endblock %}
+
+{% from "partials/navbar.html" import topbar %}
+
+{% block content %}
+<main class="settings-main">
+    <!-- Topbar Navigation -->
+    {% call topbar() %}
+        <div class="topbar-left" style="display: flex; align-items: center;">
+            <div class="topbar__page-title" style="margin-right: 24px;">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                <span>Settings</span>
+            </div>
+            <nav class="topbar-nav" id="topbarNav">
+                <a href="#" class="settings-nav__item active" data-target="profile">Profile</a>
+                <a href="#" class="settings-nav__item" data-target="permissions">Roles</a>
+                <a href="#" class="settings-nav__item" data-target="project">Workspace</a>
+            </nav>
+        </div>
+        <div style="flex:1; display:flex; justify-content:flex-end; padding-right:20px;">
+            <div style="position:relative; width:250px;">
+                <span class="material-symbols-outlined" style="position:absolute; left:12px; top:10px; font-size:18px; color:var(--sys-outline);">search</span>
+                <input type="text" placeholder="Search settings..." style="width:100%; padding:8px 16px 8px 36px; border-radius:20px; border:none; background:var(--sys-surface-low); font-size:0.85rem; outline:none;">
+            </div>
+        </div>
+    {% endcall %}
+
+    <div class="settings-scroll">
+        <div class="settings-container">
+            <div class="settings-content">
+
+                <!-- 1. Profile Tab -->
+                <div class="settings-panel active" id="panel-profile">
+                    <div class="profile-grid">
+                        
+                        <!-- User Profile Section -->
+                        <div class="card card-white card-col-8">
+                            <form id="profileForm">
+                                <div class="card-header-flex">
+                                    <div>
+                                        <h3 class="card-title">User Profile</h3>
+                                        <p class="card-subtitle">Update your photo and personal details.</p>
+                                    </div>
+                                    <button type="submit" class="btn-primary" id="profileSaveBtn">Save Changes</button>
+                                </div>
+                                
+                                <div style="display:flex; flex-direction:column; gap:40px;">
+                                    <!-- Inner content flex container -->
+                                    <div style="display:flex; flex-wrap:wrap; gap:40px;">
+                                        
+                                        <!-- Avatar -->
+                                        <div style="display:flex; flex-direction:column; align-items:center; gap:16px;">
+                                            <div class="avatar-wrap">
+                                                <img src="/static/img/default-avatar.webp" alt="Avatar" id="profileAvatarImg" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9IiNlMmU4ZjAiLz48L3N2Zz4='">
+                                                <button type="button" class="avatar-edit-btn">
+                                                    <span class="material-symbols-outlined" style="font-size:18px;">edit</span>
+                                                </button>
+                                            </div>
+                                            <p style="font-size:0.65rem; font-weight:700; color:var(--sys-outline); text-transform:uppercase; letter-spacing:1px; margin:0;">Avatar 1024x1024</p>
+                                        </div>
+                                        
+                                        <!-- Fields -->
+                                        <div style="flex:1; display:grid; grid-template-columns: 1fr 1fr; gap:24px;">
+                                            <div style="display:flex; flex-direction:column;">
+                                                <label class="form-label" for="profileName">Full Name</label>
+                                                <input type="text" id="profileName" class="form-input" required>
+                                            </div>
+                                            <div style="display:flex; flex-direction:column;">
+                                                <label class="form-label" for="profileEmail">Email Address</label>
+                                                <input type="email" id="profileEmail" class="form-input" required>
+                                            </div>
+                                            <div style="grid-column: span 2; display:flex; flex-direction:column;">
+                                                <label class="form-label" for="workspaceRole">Workspace Role</label>
+                                                <select id="workspaceRole" class="form-input" disabled>
+                                                    <option value="owner">Project Lead</option>
+                                                    <option value="editor">Editor</option>
+                                                    <option value="viewer">Viewer</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+
+                        <!-- AI Brain Core Card -->
+                        <div class="card card-indigo card-col-4">
+                            <div class="ai-header-flex">
+                                <div class="ai-icon">
+                                    <span class="material-symbols-outlined">psychology</span>
+                                </div>
+                                <h3 class="ai-title">AI Brain Core</h3>
+                            </div>
+                            
+                            <div style="margin-bottom: 40px;">
+                                <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:16px;">
+                                    <label style="font-size:0.875rem; font-weight:500; opacity:0.8;">Intelligence Sensitivity</label>
+                                    <span style="font-size:1.5rem; font-weight:700;" id="sensitivityValue">84%</span>
+                                </div>
+                                <div style="position:relative; width:100%; height:6px; background:rgba(255,255,255,0.2); border-radius:8px;">
+                                    <div id="sensitivityFill" style="position:absolute; top:0; left:0; height:100%; background:white; border-radius:8px; width:84%;"></div>
+                                    <input type="range" id="sensitivitySlider" min="0" max="100" value="84" style="position:absolute; width:100%; top:0; height:100%; opacity:0; cursor:pointer;">
+                                </div>
+                                <div style="display:flex; justify-content:space-between; margin-top:8px; font-size:0.625rem; font-weight:700; opacity:0.6; text-transform:uppercase; letter-spacing:1px;">
+                                    <span>Conservative</span>
+                                    <span>Creative</span>
+                                </div>
+                            </div>
+                            
+                            <div style="display:flex; flex-direction:column; gap:16px;">
+                                <p style="font-size:0.75rem; font-weight:700; opacity:0.6; text-transform:uppercase; letter-spacing:1px; margin:0;">Active Integrations</p>
+                                
+                                <div class="integration-box">
+                                    <div style="display:flex; align-items:center; gap:12px;">
+                                        <span class="material-symbols-outlined">cloud_done</span>
+                                        <span style="font-size:0.875rem; font-weight:500;">Google Drive</span>
+                                    </div>
+                                    <span style="font-size:0.625rem; font-weight:700; background:#34d399; color:#064e3b; padding:2px 8px; border-radius:99px;">ACTIVE</span>
+                                </div>
+                                
+                                <div class="integration-box">
+                                    <div style="display:flex; align-items:center; gap:12px;">
+                                        <span class="material-symbols-outlined">brush</span>
+                                        <span style="font-size:0.875rem; font-weight:500;">Miro Boards</span>
+                                    </div>
+                                    <span style="font-size:0.625rem; font-weight:700; background:rgba(255,255,255,0.2); color:white; padding:2px 8px; border-radius:99px;">CONNECTED</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Team Members & Permissions -->
+                        <div class="card card-gray card-col-7">
+                            <div class="card-header-flex">
+                                <div>
+                                    <h3 class="card-title">Team Members</h3>
+                                    <p class="card-subtitle">Manage who has access to this workspace.</p>
+                                </div>
+                                <button type="button" class="btn-secondary" id="openInviteModal">
+                                    <span class="material-symbols-outlined">person_add</span> Invite
+                                </button>
+                            </div>
+                            
+                            <div style="margin-bottom: 24px; padding: 16px; border: 1px dashed var(--sys-outline); border-radius: 1rem; background: var(--sys-surface-lowest); display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <div style="font-weight:700; font-size:0.875rem; color:var(--sys-on-surface);">Quick Invite Link</div>
+                                    <div style="font-size: 0.75rem; color:var(--sys-on-surface-variant);">Share code with teammates.</div>
+                                </div>
+                                <div style="display:flex; align-items:center; gap: 8px;">
+                                    <div style="padding: 6px 12px; background: var(--sys-surface-container); border-radius: 0.5rem; font-family: monospace; font-size: 0.95rem; letter-spacing: 1px; color:var(--sys-on-surface);" id="projectSettingsInviteCode">
+                                        --------
+                                    </div>
+                                    <button type="button" id="copySettingsInviteCode" style="background:#cbd5e1; color:#0f172a; padding: 6px 12px; font-size: 0.75rem; border:none; border-radius:0.5rem; cursor:pointer;" title="Copy Code">📋 Copy</button>
+                                </div>
+                            </div>
+
+                            <div id="teamMembersList" style="display:flex; flex-direction:column;">
+                                <!-- JS Injection -->
+                            </div>
+                        </div>
+
+                        <!-- Notifications Section -->
+                        <div class="card card-white card-col-5">
+                            <div style="margin-bottom:32px;">
+                                <h3 class="card-title">Notifications</h3>
+                                <p class="card-subtitle">Choose how you want to be alerted.</p>
+                            </div>
+                            
+                            <div style="display:flex; flex-direction:column;">
+                                <div class="notif-item">
+                                    <div style="display:flex; align-items:center; gap:16px;">
+                                        <div class="notif-icon-box" style="background:#eff6ff; color:#4f46e5;">
+                                            <span class="material-symbols-outlined">alternate_email</span>
+                                        </div>
+                                        <div class="notif-text">
+                                            <h4>Email Notifications</h4>
+                                            <p>Daily digest of project changes.</p>
+                                        </div>
+                                    </div>
+                                    <div class="toggle-switch active" id="toggleEmail"></div>
+                                </div>
+                                
+                                <div class="notif-item">
+                                    <div style="display:flex; align-items:center; gap:16px;">
+                                        <div class="notif-icon-box" style="background:#fff7ed; color:#ea580c;">
+                                            <span class="material-symbols-outlined">dashboard</span>
+                                        </div>
+                                        <div class="notif-text">
+                                            <h4>Dashboard Alerts</h4>
+                                            <p>In-app popups and task updates.</p>
+                                        </div>
+                                    </div>
+                                    <div class="toggle-switch active" id="toggleDashboard"></div>
+                                </div>
+                                
+                                <div class="notif-item">
+                                    <div style="display:flex; align-items:center; gap:16px;">
+                                        <div class="notif-icon-box" style="background:#f1f5f9; color:#475569;">
+                                            <span class="material-symbols-outlined">schedule</span>
+                                        </div>
+                                        <div class="notif-text">
+                                            <h4>Task Deadlines</h4>
+                                            <p>Reminders 24h before due dates.</p>
+                                        </div>
+                                    </div>
+                                    <div class="toggle-switch" id="toggleDeadline"></div>
+                                </div>
+                                
+                                <div style="margin-top:32px; padding-top:32px; border-top:1px solid rgba(118, 117, 134, 0.1);">
+                                    <div style="background:var(--sys-surface-low); border-radius:1rem; padding:16px; display:flex; align-items:center; justify-content:space-between;">
+                                        <span style="font-size:0.75rem; font-weight:500; color:var(--sys-on-surface-variant);">Desktop Notifications</span>
+                                        <button style="background:none; border:none; color:var(--sys-primary); font-size:0.75rem; font-weight:700; cursor:pointer;" type="button">Enable Prompts</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- 2. Roles (Mapped to Full Canvas) -->
+                <div class="settings-panel" id="panel-permissions">
+                    <div class="profile-grid">
+                        <div class="card card-white card-col-12">
+                            <div class="card-header-flex">
+                                <div>
+                                    <h3 class="card-title">Permissions & Roles</h3>
+                                    <p class="card-subtitle">Assign access levels to your project members to maintain security.</p>
+                                </div>
+                            </div>
+                            <div id="permissionsList" style="display:flex; flex-direction:column;">
+                                <!-- Rendered by JS -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Project Settings (Workspace) -->
+                <div class="settings-panel" id="panel-project">
+                    <div class="profile-grid">
+                        <div class="card card-white card-col-12">
+                            <form id="projectForm" style="max-width:800px; margin:0 auto; width:100%;">
+                                <div class="card-header-flex">
+                                    <div>
+                                        <h3 class="card-title">Workspace Configuration</h3>
+                                        <p class="card-subtitle">Manage your overall workspace identity and global details.</p>
+                                    </div>
+                                    <button type="submit" class="btn-primary" id="projectSaveBtn">Save Changes</button>
+                                </div>
+                                <div style="display:flex; flex-direction:column; gap:24px;">
+                                    <div style="display:flex; flex-direction:column;">
+                                        <label class="form-label" for="projectName">Workspace Name</label>
+                                        <input type="text" id="projectName" class="form-input" required>
+                                    </div>
+                                    <div style="display:flex; flex-direction:column;">
+                                        <label class="form-label" for="projectDesc">Description / Mission Statement</label>
+                                        <textarea id="projectDesc" class="form-input" rows="5"></textarea>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</main>
+
+<!-- Invite Modal -->
+<div class="settings-modal-overlay" id="inviteModalOverlay">
+    <div class="settings-modal">
+        <h3>Invite a Project Member</h3>
+        <p>We'll send them an email to join this project.</p>
+        <form id="inviteForm" style="display:flex; flex-direction:column; gap:16px;">
+            <div style="display:flex; flex-direction:column;">
+                <label class="form-label">Email Address</label>
+                <input type="email" id="inviteEmail" class="form-input" required placeholder="name@company.com">
+            </div>
+            <div style="display:flex; flex-direction:column;">
+                <label class="form-label">Assign Role</label>
+                <select id="inviteRole" class="form-input">
+                    <option value="owner">Owner (Full Access)</option>
+                    <option value="editor">Editor (Can modify tasks/docs)</option>
+                    <option value="viewer" selected>Viewer (Read-only)</option>
+                </select>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:8px;">
+                <button type="button" class="btn-secondary" style="border-color:transparent; color:var(--sys-outline);" id="inviteCancel">Cancel</button>
+                <button type="submit" class="btn-primary" id="inviteSubmitBtn">Send Invite</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Remove Confirm Modal -->
+<div class="settings-modal-overlay" id="removeModalOverlay">
+    <div class="settings-modal">
+        <h3 style="color:#ef4444;">Remove Member</h3>
+        <p>Are you sure you want to remove <strong id="removeMemberName" style="color:var(--sys-on-surface);">this member</strong> from the project? They will lose all access.</p>
+        <div style="display:flex; justify-content:flex-end; gap:12px;">
+            <input type="hidden" id="removeMemberId">
+            <button type="button" class="btn-secondary" style="border-color:transparent; color:var(--sys-outline);" id="removeCancel">Cancel</button>
+            <button type="button" class="btn-primary" style="background:#ef4444;" id="removeConfirmBtn">Yes, Remove</button>
+        </div>
+    </div>
+</div>
+
+<!-- Additional script logic for new UI toggles is housed in settings.js -->
+<script src="/static/js/settings.js"></script>
+{% endblock %}

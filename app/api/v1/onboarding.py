@@ -378,6 +378,7 @@ async def get_my_teams(
             "invite_code": t.invite_code,
             "member_count": len(t.users),
             "role": role_name,
+            "ai_sensitivity": t.ai_sensitivity,
         })
 
     return {"teams": result}
