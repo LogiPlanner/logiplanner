@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const timelineEmpty = document.getElementById('timelineEmpty');
     const searchInput = document.getElementById('searchInput');
     const topbarNavLinks = document.querySelectorAll('#topbarNav a');
+    const projectTitle = document.getElementById('projectTitle');
     
     // Analytics Elements
     const statDecisions = document.getElementById('statDecisions');
@@ -78,13 +79,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 const projects = await res.json();
                 if (projects.length > 0) {
                     currentProjectId = projects[0].id;
+                    if (projectTitle) {
+                        projectTitle.textContent = projects[0].project_name || 'Project Memory';
+                    }
                     loadProjectData(currentProjectId);
                 } else {
+                    if (projectTitle) {
+                        projectTitle.textContent = 'Project Memory';
+                    }
                     timelineEmpty.style.display = 'block';
                 }
             }
         } catch(e) {
             console.error('Failed to fetch projects', e);
+            if (projectTitle) {
+                projectTitle.textContent = 'Project Memory';
+            }
         }
     }
 
