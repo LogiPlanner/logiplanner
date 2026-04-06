@@ -1,450 +1,364 @@
 document.addEventListener("DOMContentLoaded", () => {
-    
-    // Elements
-    const navItems = document.querySelectorAll(".settings-nav__item");
-    const panels = document.querySelectorAll(".settings-panel");
-    const restrictedOverlay = document.getElementById("restrictedOverlay");
-    
-    const profileForm = document.getElementById("profileForm");
-    const projectForm = document.getElementById("projectForm");
-    
-    const teamMembersList = document.getElementById("teamMembersList");
-    const permissionsList = document.getElementById("permissionsList");
-    
-    // New Elements
-    const toggleEmail = document.getElementById("toggleEmail");
+
+    /* ── Element refs ── */
+    const navLinks     = document.querySelectorAll(".stg-nav__link");
+    const sections     = document.querySelectorAll(".stg-section");
+
+    const profileForm  = document.getElementById("profileForm");
+    const projectForm  = document.getElementById("projectForm");
+
+    const toggleEmail     = document.getElementById("toggleEmail");
     const toggleDashboard = document.getElementById("toggleDashboard");
-    const toggleDeadline = document.getElementById("toggleDeadline");
+    const toggleDeadline  = document.getElementById("toggleDeadline");
+
     const sensitivitySlider = document.getElementById("sensitivitySlider");
-    const sensitivityFill = document.getElementById("sensitivityFill");
-    const sensitivityValue = document.getElementById("sensitivityValue");
-    const workspaceRole = document.getElementById("workspaceRole");
-    
+    const sensitivityValue  = document.getElementById("sensitivityValue");
+
+    const teamMembersList = document.getElementById("teamMembersList");
+
     const inviteModalOverlay = document.getElementById("inviteModalOverlay");
     const openInviteModalBtn = document.getElementById("openInviteModal");
-    const inviteCancelBtn = document.getElementById("inviteCancel");
-    const inviteForm = document.getElementById("inviteForm");
-    
+    const inviteCancel       = document.getElementById("inviteCancel");
+    const inviteCancelBtn    = document.getElementById("inviteCancelBtn");
+    const inviteForm         = document.getElementById("inviteForm");
+
     const removeModalOverlay = document.getElementById("removeModalOverlay");
-    const removeCancelBtn = document.getElementById("removeCancel");
-    const removeConfirmBtn = document.getElementById("removeConfirmBtn");
-    
-    const copyInviteCodeBtn = document.getElementById("copySettingsInviteCode");
-    const inviteCodeDisplay = document.getElementById("projectSettingsInviteCode");
+    const removeCancel       = document.getElementById("removeCancel");
+    const removeCloseBtn     = document.getElementById("removeCloseBtn");
+    const removeConfirmBtn   = document.getElementById("removeConfirmBtn");
 
-    // State
-    let userRole = "viewer"; // Default to lowest
-    let currentTeamId = null;
+    const copyInviteCodeBtn  = document.getElementById("copySettingsInviteCode");
+    const inviteCodeDisplay  = document.getElementById("projectSettingsInviteCode");
+
+    /* ── State ── */
+    let userRole       = "viewer";
+    let currentTeamId  = null;
     let currentUserData = null;
-    let currentInviteCode = null;
 
-    // ----- INITIALIZATION -----
-    
+    /* ═══════════════════ INIT ═══════════════════ */
+
     async function init() {
-        // First check profile status to get user info and team
         try {
-            const token = localStorage.getItem("access_token");
-            if (!token) {
-                window.location.href = "/login";
-                return;
+            // 1. Profile
+            const profileRes = await window.__lp.authFetch("/api/v1/profile-status");
+            if (profileRes.status === 401 || profileRes.status === 403) throw new Error("auth");
+            if (!profileRes.ok) { console.warn("Profile-status non-OK:", profileRes.status); return; }
+            const profile = await profileRes.json();
+            currentUserData = profile;
+
+            document.getElementById("profileName").value  = profile.full_name || "";
+            document.getElementById("profileEmail").value = profile.email || "";
+
+            // Avatar initial
+            const initial = (profile.full_name || profile.email || "U").charAt(0).toUpperCase();
+            const avatarEl = document.getElementById("avatarInitial");
+            if (avatarEl) avatarEl.textContent = initial;
+
+            const dispName = document.getElementById("avatarDisplayName");
+            if (dispName) dispName.textContent = profile.full_name || profile.email;
+
+            setToggle(toggleEmail, !!profile.notify_email);
+            setToggle(toggleDashboard, !!profile.notify_dashboard);
+            setToggle(toggleDeadline, !!profile.notify_deadline);
+
+            if (!profile.has_teams) { userRole = "viewer"; return; }
+
+            // 2. Teams
+            const teamsRes = await window.__lp.authFetch("/api/v1/onboarding/my-teams");
+            if (!teamsRes.ok) return;
+            const teamsData = await teamsRes.json();
+            if (!teamsData.teams.length) return;
+
+            const storedId = parseInt(localStorage.getItem("selected_team_id"));
+            const activeTeam = teamsData.teams.find(t => t.id === storedId) || teamsData.teams[0];
+
+            currentTeamId = activeTeam.id;
+            localStorage.setItem("selected_team_id", currentTeamId);
+            userRole = activeTeam.role;
+
+            document.getElementById("projectName").value = activeTeam.team_name || "";
+            document.getElementById("projectDesc").value = activeTeam.description || "";
+
+            const roleDisp = document.getElementById("workspaceRoleDisplay");
+            if (roleDisp) roleDisp.textContent = capitalize(userRole);
+            const avatarRole = document.getElementById("avatarDisplayRole");
+            if (avatarRole) avatarRole.textContent = capitalize(userRole);
+
+            if (sensitivitySlider && activeTeam.ai_sensitivity !== undefined) {
+                sensitivitySlider.value = activeTeam.ai_sensitivity;
+                if (sensitivityValue) sensitivityValue.textContent = activeTeam.ai_sensitivity + "%";
             }
-            
-            // 1. Get profile status (which gives us user info)
-            const profileRes = await fetch("/api/v1/profile-status", {
-                headers: { "Authorization": `Bearer ${token}` }
-            });
-            if (profileRes.status !== 200) throw new Error("Not authenticated");
-            const profileData = await profileRes.json();
-            currentUserData = profileData;
-            
-            // Populate profile form
-            document.getElementById("profileName").value = profileData.full_name || '';
-            document.getElementById("profileEmail").value = profileData.email || '';
-            
-            if(toggleEmail) toggleEmail.classList.toggle("active", profileData.notify_email);
-            if(toggleDashboard) toggleDashboard.classList.toggle("active", profileData.notify_dashboard);
-            if(toggleDeadline) toggleDeadline.classList.toggle("active", profileData.notify_deadline);
-            
-            if (!profileData.has_teams) {
-                // If no team, restrict team/project tabs heavily
-                userRole = "viewer";
-                return;
+
+            if (inviteCodeDisplay && activeTeam.invite_code) {
+                inviteCodeDisplay.textContent = activeTeam.invite_code;
             }
-            
-            // 2. We need the active team to populate Team and Project tables.
-            // Check Sidebar's teamSelect or get first team from /my-teams
-            // Note: correct endpoint is /onboarding/my-teams
-            const myTeamsRes = await fetch("/api/v1/onboarding/my-teams", {
-                headers: { "Authorization": `Bearer ${token}` }
-            });
-            if (myTeamsRes.status === 200) {
-                const teamsData = await myTeamsRes.json();
-                if (teamsData.teams.length > 0) {
-                    // parseInt: localStorage returns strings, team IDs are integers
-                    const storedId = parseInt(localStorage.getItem("selected_team_id"));
-                    const matchedTeam = teamsData.teams.find(t => t.id === storedId);
-                    const activeTeam = matchedTeam || teamsData.teams[0];
-                    
-                    currentTeamId = activeTeam.id;
-                    localStorage.setItem("selected_team_id", currentTeamId);
-                    userRole = activeTeam.role; // "owner", "editor", or "viewer"
-                    currentInviteCode = activeTeam.invite_code;
-                    
-                    console.log(`[Settings] Project: ${activeTeam.team_name} | Role: ${userRole}`);
-                    
-                    document.getElementById("projectName").value = activeTeam.team_name;
-                    document.getElementById("projectDesc").value = activeTeam.description || "";
-                    
-                    if (workspaceRole) workspaceRole.value = userRole;
-                    
-                    if(sensitivitySlider && activeTeam.ai_sensitivity !== undefined) {
-                        sensitivitySlider.value = activeTeam.ai_sensitivity;
-                        if(sensitivityFill) sensitivityFill.style.width = activeTeam.ai_sensitivity + "%";
-                        if(sensitivityValue) sensitivityValue.innerText = activeTeam.ai_sensitivity + "%";
-                    }
-                    
-                    if (inviteCodeDisplay && currentInviteCode) {
-                        inviteCodeDisplay.innerText = currentInviteCode;
-                    }
-                    
-                    // Load team members
-                    await loadTeamMembers();
-                }
+
+            await loadTeamMembers();
+
+            // URL tab restore
+            const tab = new URLSearchParams(window.location.search).get("tab");
+            if (tab) {
+                const link = document.querySelector(`.stg-nav__link[data-target="${tab}"]`);
+                if (link) link.click();
             }
-            
-            // Auto-select tab if in URL
-            const urlParams = new URLSearchParams(window.location.search);
-            const tabUrl = urlParams.get('tab');
-            if (tabUrl) {
-                const targetBtn = document.querySelector(`.settings-nav__item[data-target="${tabUrl}"]`);
-                if (targetBtn) targetBtn.click();
-            }
-            
         } catch (e) {
             console.error(e);
             window.location.href = "/login";
         }
     }
-    
+
     init();
 
-    // ----- NAVIGATION -----
-    
-    navItems.forEach(item => {
-        item.addEventListener("click", () => {
-            const target = item.getAttribute("data-target");
-            
-            // Deactivate all
-            navItems.forEach(n => n.classList.remove("active"));
-            panels.forEach(p => p.classList.remove("active"));
-            
-            // Activate target
-            item.classList.add("active");
-            document.getElementById(`panel-${target}`).classList.add("active");
-            
-            // Check Permissions (Only owners can see Team/Permissions/Project)
-            if (target !== 'profile') {
-                if (userRole !== 'owner') {
-                    restrictedOverlay.classList.add("active");
-                } else {
-                    restrictedOverlay.classList.remove("active");
-                }
-            } else {
-                restrictedOverlay.classList.remove("active");
-            }
+    /* ═══════════════════ NAVIGATION ═══════════════════ */
+
+    navLinks.forEach(link => {
+        link.addEventListener("click", (e) => {
+            e.preventDefault();
+            const target = link.dataset.target;
+            navLinks.forEach(l => l.classList.remove("active"));
+            sections.forEach(s => s.classList.remove("active"));
+            link.classList.add("active");
+            const panel = document.getElementById(`section-${target}`);
+            if (panel) panel.classList.add("active");
         });
     });
 
-    // ----- PROFILE MANAGEMENT -----
-    
+    /* ═══════════════════ PROFILE ═══════════════════ */
+
     profileForm.addEventListener("submit", async (e) => {
         e.preventDefault();
         const payload = {
             full_name: document.getElementById("profileName").value,
             email: document.getElementById("profileEmail").value
         };
-        const success = await apiCall("/api/v1/settings/profile", "PUT", payload);
-        if (success) {
-            showToast("Profile updated successfully", "success");
-            // If sidebar username element exists, update it
+        const res = await apiCall("/api/v1/settings/profile", "PUT", payload);
+        if (res) {
+            showToast("Profile updated", "success");
             const sbName = document.getElementById("sidebarUserName");
             if (sbName) sbName.textContent = payload.full_name;
+            const dispName = document.getElementById("avatarDisplayName");
+            if (dispName) dispName.textContent = payload.full_name;
+            const avatarEl = document.getElementById("avatarInitial");
+            if (avatarEl) avatarEl.textContent = (payload.full_name || "U").charAt(0).toUpperCase();
         }
     });
 
-    // Auto-save logic for toggles and sliders
-    function attachToggleLogic(el, fieldName) {
+    /* ═══════════════════ TOGGLES ═══════════════════ */
+
+    function setToggle(el, on) {
+        if (!el) return;
+        el.setAttribute("aria-checked", on ? "true" : "false");
+    }
+
+    function attachToggle(el, field) {
         if (!el) return;
         el.addEventListener("click", async () => {
-            const isActive = el.classList.contains("active");
-            const newValue = !isActive;
-            el.classList.toggle("active");
-            
+            const next = el.getAttribute("aria-checked") !== "true";
+            setToggle(el, next);
             const payload = {};
-            payload[fieldName] = newValue;
+            payload[field] = next;
             await apiCall("/api/v1/settings/profile", "PUT", payload);
         });
     }
-    
-    attachToggleLogic(toggleEmail, "notify_email");
-    attachToggleLogic(toggleDashboard, "notify_dashboard");
-    attachToggleLogic(toggleDeadline, "notify_deadline");
+
+    attachToggle(toggleEmail, "notify_email");
+    attachToggle(toggleDashboard, "notify_dashboard");
+    attachToggle(toggleDeadline, "notify_deadline");
+
+    /* ═══════════════════ AI SENSITIVITY ═══════════════════ */
 
     if (sensitivitySlider) {
         sensitivitySlider.addEventListener("input", (e) => {
-            const val = e.target.value;
-            if(sensitivityFill) sensitivityFill.style.width = val + "%";
-            if(sensitivityValue) sensitivityValue.innerText = val + "%";
+            if (sensitivityValue) sensitivityValue.textContent = e.target.value + "%";
         });
         sensitivitySlider.addEventListener("change", async (e) => {
-            if(!currentTeamId) return;
+            if (!currentTeamId) return;
             const val = parseInt(e.target.value);
             const res = await apiCall(`/api/v1/settings/teams/${currentTeamId}`, "PUT", { ai_sensitivity: val });
-            if(res) {
-                showToast("AI Sensitivity updated", "success");
-            }
+            if (res) showToast("AI sensitivity updated", "success");
         });
     }
 
-    // ----- PROJECT SETTINGS -----
-    
+    /* ═══════════════════ PROJECT ═══════════════════ */
+
     projectForm.addEventListener("submit", async (e) => {
         e.preventDefault();
         if (!currentTeamId) return;
-        
         const payload = {
             team_name: document.getElementById("projectName").value,
             description: document.getElementById("projectDesc").value
         };
         const res = await apiCall(`/api/v1/settings/teams/${currentTeamId}`, "PUT", payload);
         if (res) {
-            showToast("Project settings updated", "success");
-            
-            // To prevent duplicate options logic issues with common.js, let's just force a clean page reload
-            // This is safer and guarantees the sidebar and dashboard catch the new project name everywhere
-            setTimeout(() => {
-                window.location.reload();
-            }, 500);
+            showToast("Workspace updated", "success");
+            setTimeout(() => window.location.reload(), 500);
         }
     });
 
-    // ----- TEAM MANAGEMENT & PERMISSIONS -----
-    
+    /* ═══════════════════ TEAM MEMBERS ═══════════════════ */
+
     async function loadTeamMembers() {
         if (!currentTeamId) return;
         const res = await apiCall(`/api/v1/settings/teams/${currentTeamId}/members`, "GET");
-        if (res && res.members) {
-            renderTeamList(res.members);
-            renderPermissionsList(res.members);
-        }
+        if (res && res.members) renderMembers(res.members);
     }
-    
-    function renderTeamList(members) {
-        teamMembersList.innerHTML = "";
-        members.forEach(member => {
-            const isSelf = member.email === currentUserData?.email;
-            const div = document.createElement("div");
-            div.className = "team-item";
-            
-            // Randomly select one of the user snippet avatar colors
-            const avatarColors = [
-                { bg: 'bg-indigo-100', text: 'text-indigo-600', color: '#4f46e5', bkg: '#e0e7ff' },
-                { bg: 'bg-orange-100', text: 'text-orange-600', color: '#ea580c', bkg: '#ffedd5' },
-                { bg: 'bg-slate-100', text: 'text-slate-600', color: '#475569', bkg: '#f1f5f9' }
-            ];
-            const c = avatarColors[member.id % avatarColors.length];
 
-            div.innerHTML = `
-                <div style="display:flex; align-items:center; gap:16px;">
-                    <div class="team-avatar" style="background:${c.bkg}; color:${c.color};">
-                        ${member.avatar.includes('img') ? member.avatar : `<span style="font-size:14px;">${member.avatar}</span>`}
-                    </div>
-                    <div class="team-info">
-                        <h4>${member.full_name} ${isSelf ? '(You)' : ''}</h4>
-                        <p>${member.email}</p>
+    const avatarPalette = [
+        { bg: "#e0e7ff", fg: "#4f46e5" },
+        { bg: "#ffedd5", fg: "#ea580c" },
+        { bg: "#d1fae5", fg: "#059669" },
+        { bg: "#fce7f3", fg: "#db2777" },
+        { bg: "#f1f5f9", fg: "#475569" },
+    ];
+
+    function renderMembers(members) {
+        teamMembersList.innerHTML = "";
+        const isOwner = userRole === "owner";
+
+        members.forEach(m => {
+            const isSelf = m.email === currentUserData?.email;
+            const c = avatarPalette[m.id % avatarPalette.length];
+            const initials = (m.full_name || m.email || "U").charAt(0).toUpperCase();
+
+            const row = document.createElement("div");
+            row.className = "stg-member";
+
+            row.innerHTML = `
+                <div class="stg-member__user">
+                    <div class="stg-member__avatar" style="background:${c.bg};color:${c.fg};">${initials}</div>
+                    <div style="min-width:0;">
+                        <div class="stg-member__name">${escapeHtml(m.full_name)}${isSelf ? ' <span style="color:var(--color-text-muted);font-weight:400;">(you)</span>' : ''}</div>
+                        <div class="stg-member__email">${escapeHtml(m.email)}</div>
                     </div>
                 </div>
-                <div style="display:flex; align-items:center; gap:16px;">
-                    <select class="form-input" style="padding: 6px 32px 6px 12px; font-size:0.75rem; font-weight:600; border-radius:0.5rem; background:var(--sys-surface-low);" disabled>
-                        <option>${capitalizeRole(member.role)}</option>
+                <div>
+                    <select class="stg-member__role-select" data-id="${m.id}" ${(!isOwner || isSelf) ? 'disabled' : ''}>
+                        <option value="owner" ${m.role === 'owner' ? 'selected' : ''}>Owner</option>
+                        <option value="editor" ${m.role === 'editor' ? 'selected' : ''}>Editor</option>
+                        <option value="viewer" ${m.role === 'viewer' ? 'selected' : ''}>Viewer</option>
                     </select>
-                    <button class="settings-btn-icon" data-id="${member.id}" data-name="${member.full_name}" title="Remove Member" style="background:none; border:none; color:var(--sys-outline); cursor:pointer; padding:4px;" ${isSelf ? 'disabled' : ''}>
-                        <span class="material-symbols-outlined" style="font-size:20px;">delete</span>
+                </div>
+                <div>
+                    <button class="stg-member__remove" data-id="${m.id}" data-name="${escapeHtml(m.full_name)}" ${(isSelf || !isOwner) ? 'disabled' : ''} title="Remove member">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                     </button>
                 </div>
             `;
-            teamMembersList.appendChild(div);
+
+            teamMembersList.appendChild(row);
         });
-        
-        // Attach remove events
-        teamMembersList.querySelectorAll(".settings-btn-icon").forEach(btn => {
+
+        // Role change handlers
+        teamMembersList.querySelectorAll(".stg-member__role-select").forEach(sel => {
+            sel.addEventListener("change", async (e) => {
+                const userId = sel.dataset.id;
+                const res = await apiCall(`/api/v1/settings/teams/${currentTeamId}/roles/${userId}`, "PUT", { role_name: e.target.value });
+                if (res) {
+                    showToast(`Role updated to ${capitalize(e.target.value)}`, "success");
+                }
+                loadTeamMembers();
+            });
+        });
+
+        // Remove handlers
+        teamMembersList.querySelectorAll(".stg-member__remove").forEach(btn => {
             btn.addEventListener("click", () => {
-                document.getElementById("removeMemberId").value = btn.getAttribute("data-id");
-                document.getElementById("removeMemberName").textContent = btn.getAttribute("data-name");
+                document.getElementById("removeMemberId").value = btn.dataset.id;
+                document.getElementById("removeMemberName").textContent = btn.dataset.name;
                 removeModalOverlay.classList.add("active");
             });
         });
     }
-    
-    function renderPermissionsList(members) {
-        permissionsList.innerHTML = "";
-        members.forEach(member => {
-            const isSelf = member.email === currentUserData?.email;
-            
-            const div = document.createElement("div");
-            div.className = "team-item";
-            
-            const avatarColors = [
-                { bg: 'bg-indigo-100', text: 'text-indigo-600', color: '#4f46e5', bkg: '#e0e7ff' },
-                { bg: 'bg-orange-100', text: 'text-orange-600', color: '#ea580c', bkg: '#ffedd5' },
-                { bg: 'bg-slate-100', text: 'text-slate-600', color: '#475569', bkg: '#f1f5f9' }
-            ];
-            const c = avatarColors[member.id % avatarColors.length];
 
-            div.innerHTML = `
-                <div style="display:flex; align-items:center; gap:16px;">
-                    <div class="team-avatar" style="background:${c.bkg}; color:${c.color};">
-                        ${member.avatar.includes('img') ? member.avatar : `<span style="font-size:14px;">${member.avatar}</span>`}
-                    </div>
-                    <div class="team-info">
-                        <h4>${member.full_name} ${isSelf ? '(You)' : ''}</h4>
-                        <p>${member.email}</p>
-                    </div>
-                </div>
-                <div style="display:flex; align-items:center; gap:16px;">
-                    <select class="settings-select form-input" style="padding: 6px 32px 6px 12px; font-size:0.75rem; font-weight:600; border-radius:0.5rem; background:var(--sys-surface-low);" data-id="${member.id}" ${isSelf ? 'disabled' : ''}>
-                        <option value="owner" ${member.role === 'owner' ? 'selected' : ''}>Owner</option>
-                        <option value="editor" ${member.role === 'editor' ? 'selected' : ''}>Editor</option>
-                        <option value="viewer" ${member.role === 'viewer' ? 'selected' : ''}>Viewer</option>
-                    </select>
-                </div>
-            `;
-            permissionsList.appendChild(div);
-        });
-        
-        // Attach change role events
-        permissionsList.querySelectorAll(".settings-select").forEach(sel => {
-            sel.addEventListener("change", async (e) => {
-                const userId = sel.getAttribute("data-id");
-                const newRole = e.target.value;
-                const res = await apiCall(`/api/v1/settings/teams/${currentTeamId}/roles/${userId}`, "PUT", { role_name: newRole });
-                if (res) {
-                    showToast(`Role updated to ${capitalizeRole(newRole)}`, "success");
-                    loadTeamMembers(); // Refresh UI to sync Project Settings tab
-                } else {
-                    // Revert UI on failure
-                    loadTeamMembers(); 
-                }
-            });
-        });
-    }
+    /* ═══════════════════ INVITE CODE ═══════════════════ */
 
-    // ----- MODALS & UTILS -----
-    
-    if (copyInviteCodeBtn && inviteCodeDisplay) {
+    if (copyInviteCodeBtn) {
         copyInviteCodeBtn.addEventListener("click", () => {
-            const code = inviteCodeDisplay.innerText;
+            const code = inviteCodeDisplay.textContent;
             if (code && code !== "--------") {
-                navigator.clipboard.writeText(code).then(() => {
-                    showToast("Invite code copied to clipboard", "success");
-                });
+                navigator.clipboard.writeText(code).then(() => showToast("Invite code copied", "success"));
             }
         });
     }
 
+    /* ═══════════════════ MODALS ═══════════════════ */
+
+    function closeModal(overlay) { overlay.classList.remove("active"); }
+
     openInviteModalBtn.addEventListener("click", () => inviteModalOverlay.classList.add("active"));
-    inviteCancelBtn.addEventListener("click", () => inviteModalOverlay.classList.remove("active"));
-    
+    inviteCancel.addEventListener("click", () => closeModal(inviteModalOverlay));
+    inviteCancelBtn.addEventListener("click", () => closeModal(inviteModalOverlay));
+
     inviteForm.addEventListener("submit", async (e) => {
         e.preventDefault();
         const payload = {
             email: document.getElementById("inviteEmail").value,
             role: document.getElementById("inviteRole").value
         };
-        
         const res = await apiCall(`/api/v1/settings/teams/${currentTeamId}/invites`, "POST", payload);
         if (res) {
-            showToast("Invite Sent!", "success");
-            inviteModalOverlay.classList.remove("active");
+            showToast("Invite sent!", "success");
+            closeModal(inviteModalOverlay);
             inviteForm.reset();
             loadTeamMembers();
         }
     });
-    
-    removeCancelBtn.addEventListener("click", () => removeModalOverlay.classList.remove("active"));
-    
+
+    removeCancel.addEventListener("click", () => closeModal(removeModalOverlay));
+    removeCloseBtn.addEventListener("click", () => closeModal(removeModalOverlay));
+
     removeConfirmBtn.addEventListener("click", async () => {
         const userId = document.getElementById("removeMemberId").value;
         const res = await apiCall(`/api/v1/settings/teams/${currentTeamId}/members/${userId}`, "DELETE");
         if (res) {
             showToast("Member removed", "success");
-            removeModalOverlay.classList.remove("active");
+            closeModal(removeModalOverlay);
             loadTeamMembers();
         }
     });
 
+    /* ═══════════════════ UTILITIES ═══════════════════ */
 
-    // ----- UTILITIES -----
-    
-    async function apiCall(endpoint, method, bodyObj = null) {
-        const token = localStorage.getItem("access_token");
-        const options = {
-            method: method,
-            headers: {
-                "Authorization": `Bearer ${token}`
-            }
-        };
-        if (bodyObj) {
-            options.headers["Content-Type"] = "application/json";
-            options.body = JSON.stringify(bodyObj);
+    async function apiCall(endpoint, method, body = null) {
+        const opts = { method, headers: {} };
+        if (body) {
+            opts.headers["Content-Type"] = "application/json";
+            opts.body = JSON.stringify(body);
         }
-        
         try {
-            const response = await fetch(endpoint, options);
-            if (!response.ok) {
-                const errData = await response.json();
-                showToast(errData.detail || "An error occurred", "error");
+            const r = await window.__lp.authFetch(endpoint, opts);
+            if (!r.ok) {
+                const err = await r.json().catch(() => ({}));
+                showToast(err.detail || "Something went wrong", "error");
                 return null;
             }
-            return await response.json();
-        } catch (e) {
-            showToast("Network Error: Could not reach server", "error");
+            return await r.json();
+        } catch {
+            showToast("Network error — could not reach server", "error");
             return null;
         }
     }
 
     function showToast(message, type = "success") {
-        // Simple toast implementation mapped to UI
-        const toast = document.createElement("div");
-        toast.style.position = "fixed";
-        toast.style.bottom = "24px";
-        toast.style.right = "24px";
-        toast.style.padding = "12px 24px";
-        toast.style.borderRadius = "8px";
-        toast.style.color = "white";
-        toast.style.fontWeight = "500";
-        toast.style.zIndex = "9999";
-        toast.style.boxShadow = "0 10px 15px -3px rgba(0,0,0,0.5)";
-        toast.style.animation = "fadeIn 0.3s ease";
-        
-        if (type === "success") {
-            toast.style.background = "#06d6a0"; // primary teal
-        } else {
-            toast.style.background = "#ef4444"; // red
-        }
-        
-        toast.innerText = message;
-        document.body.appendChild(toast);
-        
+        const el = document.createElement("div");
+        el.className = `stg-toast stg-toast--${type}`;
+        el.textContent = message;
+        document.body.appendChild(el);
         setTimeout(() => {
-            toast.style.opacity = "0";
-            toast.style.transition = "opacity 0.3s";
-            setTimeout(() => toast.remove(), 300);
+            el.style.opacity = "0";
+            el.style.transition = "opacity 0.3s";
+            setTimeout(() => el.remove(), 300);
         }, 3000);
     }
-    
-    function capitalizeRole(str) {
-        if (!str) return '';
-        return str.charAt(0).toUpperCase() + str.slice(1);
+
+    function capitalize(s) {
+        return s ? s.charAt(0).toUpperCase() + s.slice(1) : "";
+    }
+
+    function escapeHtml(str) {
+        if (!str) return "";
+        const d = document.createElement("div");
+        d.textContent = str;
+        return d.innerHTML;
     }
 });
