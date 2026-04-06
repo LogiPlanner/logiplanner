@@ -131,7 +131,8 @@ document.addEventListener("DOMContentLoaded", () => {
     // ----- NAVIGATION -----
     
     navItems.forEach(item => {
-        item.addEventListener("click", () => {
+        item.addEventListener("click", (event) => {
+            event.preventDefault();
             const target = item.getAttribute("data-target");
             
             // Deactivate all
@@ -143,14 +144,8 @@ document.addEventListener("DOMContentLoaded", () => {
             document.getElementById(`panel-${target}`).classList.add("active");
             
             // Check Permissions (Only owners can see Team/Permissions/Project)
-            if (target !== 'profile') {
-                if (userRole !== 'owner') {
-                    restrictedOverlay.classList.add("active");
-                } else {
-                    restrictedOverlay.classList.remove("active");
-                }
-            } else {
-                restrictedOverlay.classList.remove("active");
+            if (restrictedOverlay) {
+                restrictedOverlay.classList.toggle("active", target !== 'profile' && userRole !== 'owner');
             }
         });
     });

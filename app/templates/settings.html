@@ -35,7 +35,14 @@
 
     <div class="settings-scroll">
         <div class="settings-container">
-            <div class="settings-content">
+            <div class="settings-content" style="position:relative;">
+
+                <!-- Restricted access overlay (shown to non-owners on restricted tabs) -->
+                <div class="restricted-overlay" id="restrictedOverlay">
+                    <span class="material-symbols-outlined restricted-overlay__icon">lock</span>
+                    <h3 class="restricted-overlay__title">Access Restricted</h3>
+                    <p class="restricted-overlay__subtitle">Only workspace owners can view and edit this section.</p>
+                </div>
 
                 <!-- 1. Profile Tab -->
                 <div class="settings-panel active" id="panel-profile">

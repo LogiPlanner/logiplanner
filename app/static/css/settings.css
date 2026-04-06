@@ -305,6 +305,41 @@ select.form-input {
 .settings-modal h3 { margin: 0 0 8px 0; font-size: 1.25rem; }
 .settings-modal p { margin: 0 0 24px 0; color: #64748b; font-size: 0.95rem; }
 
+/* Restricted access overlay */
+.restricted-overlay {
+    display: none;
+    position: absolute;
+    inset: 0;
+    background: rgba(247, 249, 251, 0.92);
+    backdrop-filter: blur(4px);
+    z-index: 10;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    text-align: center;
+    border-radius: 1rem;
+}
+.restricted-overlay.active {
+    display: flex;
+}
+.restricted-overlay__icon {
+    font-size: 3rem;
+    color: var(--sys-outline);
+    font-variation-settings: 'FILL' 0, 'wght' 300;
+}
+.restricted-overlay__title {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--sys-on-surface);
+}
+.restricted-overlay__subtitle {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--sys-outline);
+}
+
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
