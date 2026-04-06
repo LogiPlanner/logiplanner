@@ -152,6 +152,21 @@ document.addEventListener('DOMContentLoaded', () => {
         studioMain.classList.toggle('viewer-mode', !canEdit);
     }
 
+    // ── Ingest Tab Switching ──
+    const ingestTabs = document.querySelectorAll('.ingest-tab');
+    const ingestPanes = document.querySelectorAll('.ingest-pane');
+
+    ingestTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const target = tab.dataset.tab;
+            ingestTabs.forEach(t => t.classList.remove('ingest-tab--active'));
+            ingestPanes.forEach(p => p.classList.remove('ingest-pane--active'));
+            tab.classList.add('ingest-tab--active');
+            const pane = document.querySelector(`.ingest-pane[data-pane="${target}"]`);
+            if (pane) pane.classList.add('ingest-pane--active');
+        });
+    });
+
     function loadAll() {
         if (!currentTeamId) return;
         loadDocuments();
