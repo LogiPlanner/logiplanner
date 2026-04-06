@@ -111,15 +111,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (data.teams && data.teams.length > 0) {
                 teamSelect.innerHTML = '';
+                const savedTeam = localStorage.getItem('selected_team_id');
                 data.teams.forEach(t => {
                     const opt = document.createElement('option');
                     opt.value = t.id;
                     opt.textContent = t.team_name;
                     opt.dataset.role = t.role || 'viewer';
+                    if (savedTeam && parseInt(savedTeam) === t.id) opt.selected = true;
                     teamSelect.appendChild(opt);
                 });
-                currentTeamId = data.teams[0].id;
-                currentRole = data.teams[0].role || 'viewer';
+                const matchedTeam = savedTeam && data.teams.find(t => t.id === parseInt(savedTeam));
+                currentTeamId = matchedTeam ? matchedTeam.id : data.teams[0].id;
+                currentRole = matchedTeam ? (matchedTeam.role || 'viewer') : (data.teams[0].role || 'viewer');
+                teamSelect.value = currentTeamId;
+                localStorage.setItem('selected_team_id', currentTeamId);
                 applyRole();
                 loadAll();
             } else {
@@ -134,6 +139,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const selected = teamSelect.selectedOptions[0];
         currentTeamId = parseInt(teamSelect.value);
         currentRole = selected?.dataset.role || 'viewer';
+        localStorage.setItem('selected_team_id', currentTeamId);
         applyRole();
         loadAll();
     });

@@ -78,9 +78,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (res.ok) {
                 const projects = await res.json();
                 if (projects.length > 0) {
-                    currentProjectId = projects[0].id;
+                    // Pick the project matching the selected team, or fall back to first
+                    const savedTeam = localStorage.getItem('selected_team_id');
+                    const matched = savedTeam && projects.find(p => p.team_id === parseInt(savedTeam));
+                    const chosen = matched || projects[0];
+                    currentProjectId = chosen.id;
                     if (projectTitle) {
-                        projectTitle.textContent = projects[0].project_name || 'Project Memory';
+                        projectTitle.textContent = chosen.project_name || 'Project Memory';
                     }
                     loadProjectData(currentProjectId);
                 } else {
@@ -548,6 +552,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Init
     fetchProjects();
+
+    // React to sidebar team switch
+    const _teamSel = document.getElementById('teamSelect');
+    if (_teamSel) {
+        _teamSel.addEventListener('change', function () {
+            localStorage.setItem('selected_team_id', _teamSel.value);
+            fetchProjects();
+        });
+    }
 
     // Simple Polling Simulator for Notifications
     setInterval(() => {

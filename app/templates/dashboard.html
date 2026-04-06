@@ -20,56 +20,94 @@
         <!-- Scrollable Content -->
         <div class="dashboard-scroll">
 
-            <!-- Welcome Banner -->
-            <div class="welcome-banner">
-                <div class="welcome-banner__inner">
-                    <div class="welcome-banner__content">
-                        <div class="welcome-banner__eyebrow" id="teamLabel">Your Workspace</div>
-                        <h1 class="welcome-banner__title" id="welcomeTitle">Welcome to <em>LogiPlanner</em></h1>
-                        <p class="welcome-banner__subtitle" id="welcomeSubtitle">Your team's AI-powered project brain. Upload documents, ask questions, and never lose context again.</p>
-                        <div class="welcome-banner__actions">
-                            <a href="/ai-brain" class="welcome-banner__btn welcome-banner__btn--primary">
-                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-                                Open AI Brain
-                            </a>
-                            <a href="/team-select" class="welcome-banner__btn welcome-banner__btn--ghost">
-                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                                Manage Teams
-                            </a>
-                        </div>
+            <!-- Hero Header — Slim, personal, date-aware -->
+            <div class="hero-header">
+                <div class="hero-header__left">
+                    <div class="hero-header__eyebrow" id="teamLabel">Your Workspace</div>
+                    <h1 class="hero-header__title" id="welcomeTitle">Welcome back</h1>
+                    <p class="hero-header__date" id="heroDate"></p>
+                </div>
+                <div class="hero-header__actions">
+                    <a href="/ai-brain" class="hero-header__btn hero-header__btn--primary">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                        Open AI Brain
+                    </a>
+                    <a href="/team-select" class="hero-header__btn hero-header__btn--ghost">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                        Manage Teams
+                    </a>
+                </div>
+            </div>
+
+            <!-- Stats Strip — Project health at a glance -->
+            <div class="stats-strip">
+                <div class="stat-chip" id="statDocs">
+                    <div class="stat-chip__icon stat-chip__icon--indigo">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
                     </div>
-                    <div class="welcome-banner__team-info" id="bannerTeamInfo" style="display:none;">
-                        <div class="welcome-banner__team-info-title">
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                            Team Info
-                        </div>
-                        <div id="bannerTeamInfoBody"></div>
+                    <div class="stat-chip__body">
+                        <span class="stat-chip__value" id="statDocsValue">—</span>
+                        <span class="stat-chip__label">Documents</span>
+                    </div>
+                </div>
+                <div class="stat-chip" id="statTasks">
+                    <div class="stat-chip__icon stat-chip__icon--emerald">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+                    </div>
+                    <div class="stat-chip__body">
+                        <span class="stat-chip__value" id="statTasksValue">—</span>
+                        <span class="stat-chip__label">Active Tasks</span>
+                    </div>
+                </div>
+                <div class="stat-chip" id="statMembers">
+                    <div class="stat-chip__icon stat-chip__icon--violet">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                    </div>
+                    <div class="stat-chip__body">
+                        <span class="stat-chip__value" id="statMembersValue">—</span>
+                        <span class="stat-chip__label">Team Members</span>
+                    </div>
+                </div>
+                <div class="stat-chip" id="statBrain">
+                    <div class="stat-chip__icon stat-chip__icon--amber">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                    </div>
+                    <div class="stat-chip__body">
+                        <span class="stat-chip__value" id="statBrainValue">—</span>
+                        <span class="stat-chip__label">Knowledge Chunks</span>
                     </div>
                 </div>
             </div>
 
-            <!-- Stats Row -->
-            <div class="stats-row" id="statsRow">
-                <div class="stat-card">
-                    <div class="stat-card__icon stat-card__icon--purple">📄</div>
-                    <div>
-                        <div class="stat-card__value" id="statDocuments">—</div>
-                        <div class="stat-card__label">Documents</div>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-card__icon stat-card__icon--teal">🧩</div>
-                    <div>
-                        <div class="stat-card__value" id="statChunks">—</div>
-                        <div class="stat-card__label">Knowledge Chunks</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Content Grid -->
+            <!-- Main Content Grid — Two columns -->
             <div class="content-grid">
-                <!-- Left Column -->
-                <div style="display:flex;flex-direction:column;gap:20px;">
+
+                <!-- LEFT COLUMN — Today + Calendar -->
+                <div class="content-col">
+
+                    <!-- Today's Focus — What matters right now -->
+                    <div class="card card--focus">
+                        <div class="card__header">
+                            <h3 class="card__title">
+                                <svg class="card__title-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                                Today's Focus
+                            </h3>
+                            <span class="card__header-tag" id="todayFocusCount">0 tasks</span>
+                        </div>
+                        <div class="card__body card__body--flush">
+                            <div class="focus-loading" id="todayFocusLoading">
+                                <div class="focus-spinner"></div>
+                            </div>
+                            <div class="focus-empty" id="todayFocusEmpty" style="display:none;">
+                                <div class="focus-empty__icon">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="32" height="32"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+                                </div>
+                                <p>All clear for today!</p>
+                                <span>No tasks due. Enjoy your focus time or plan ahead.</span>
+                            </div>
+                            <div class="focus-list" id="todayFocusList"></div>
+                        </div>
+                    </div>
 
                     <!-- Calendar -->
                     <div class="card">
@@ -100,18 +138,17 @@
                             </div>
                         </div>
                     </div>
-
                 </div>
 
-                <!-- Right Column -->
-                <div style="display:flex;flex-direction:column;gap:20px;">
+                <!-- RIGHT COLUMN — AI + Knowledge + Quick Actions -->
+                <div class="content-col">
 
                     <!-- AI Actionable Steps -->
                     <div class="card ai-suggestions-card" id="aiSuggestionsCard">
                         <div class="card__header">
                             <h3 class="card__title">
                                 <svg class="card__title-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
-                                AI Actionable Steps
+                                AI Insights
                             </h3>
                             <button class="ai-suggestions__refresh-btn" id="aiSuggestionsRefresh" title="Refresh suggestions">
                                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
@@ -129,70 +166,95 @@
                         </div>
                     </div>
 
+                    <!-- Recent Knowledge -->
+                    <div class="card">
+                        <div class="card__header">
+                            <h3 class="card__title">
+                                <svg class="card__title-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+                                Recent Knowledge
+                            </h3>
+                            <a href="/ai-brain" class="card__header-link">View all</a>
+                        </div>
+                        <div class="card__body card__body--flush" id="recentKnowledgeBody">
+                            <div class="dashboard-info-card__loading" id="recentKnowledgeLoading">
+                                <div class="dashboard-info-card__spinner"></div>
+                            </div>
+                            <div class="dashboard-info-card__empty" id="recentKnowledgeEmpty" style="display:none;">
+                                <span>No documents yet. Upload files to your AI Brain to get started.</span>
+                            </div>
+                            <div class="dashboard-info-card__list" id="recentKnowledgeList"></div>
+                        </div>
+                    </div>
+
                     <!-- Quick Actions -->
                     <div class="card">
                         <div class="card__header">
                             <h3 class="card__title">Quick Actions</h3>
                         </div>
                         <div class="card__body">
-                            <div class="quick-actions">
-                                <a href="/ai-brain" class="quick-action">
-                                    <div class="quick-action__icon quick-action__icon--purple">🧠</div>
-                                    <div class="quick-action__text">
-                                        <div class="quick-action__title">Ask AI Brain</div>
-                                        <div class="quick-action__desc">Chat with your project knowledge</div>
+                            <div class="quick-actions-grid">
+                                <a href="/ai-brain" class="qa-tile">
+                                    <div class="qa-tile__icon qa-tile__icon--purple">
+                                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
                                     </div>
-                                    <div class="quick-action__arrow"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></div>
+                                    <span class="qa-tile__label">Ask AI Brain</span>
                                 </a>
-                                <a href="/ai-brain" class="quick-action" id="uploadAction">
-                                    <div class="quick-action__icon quick-action__icon--teal">📤</div>
-                                    <div class="quick-action__text">
-                                        <div class="quick-action__title">Upload Documents</div>
-                                        <div class="quick-action__desc">Feed knowledge into your AI Brain</div>
+                                <a href="/ai-brain" class="qa-tile" id="uploadAction">
+                                    <div class="qa-tile__icon qa-tile__icon--teal">
+                                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
                                     </div>
-                                    <div class="quick-action__arrow"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></div>
+                                    <span class="qa-tile__label">Upload Docs</span>
                                 </a>
-                                <a href="/team-select" class="quick-action">
-                                    <div class="quick-action__icon quick-action__icon--amber">👥</div>
-                                    <div class="quick-action__text">
-                                        <div class="quick-action__title">Invite Team Members</div>
-                                        <div class="quick-action__desc">Share your invite code with colleagues</div>
+                                <a href="/memory" class="qa-tile">
+                                    <div class="qa-tile__icon qa-tile__icon--emerald">
+                                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
                                     </div>
-                                    <div class="quick-action__arrow"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></div>
+                                    <span class="qa-tile__label">Project Memory</span>
+                                </a>
+                                <a href="/team-select" class="qa-tile">
+                                    <div class="qa-tile__icon qa-tile__icon--amber">
+                                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
+                                    </div>
+                                    <span class="qa-tile__label">Invite Team</span>
                                 </a>
                             </div>
                         </div>
                     </div>
 
                     <!-- Getting Started (shown for empty KBs) -->
-                    <div class="card" id="gettingStartedCard" style="display:none;">
+                    <div class="card card--onboarding" id="gettingStartedCard" style="display:none;">
                         <div class="card__header">
-                            <h3 class="card__title">🚀 Getting Started</h3>
+                            <h3 class="card__title">
+                                <svg class="card__title-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                                Get Started
+                            </h3>
                         </div>
                         <div class="card__body">
-                            <div class="quick-actions">
-                                <div class="quick-action" id="step1" style="opacity:0.5;">
-                                    <div class="quick-action__icon quick-action__icon--teal">✅</div>
-                                    <div class="quick-action__text">
-                                        <div class="quick-action__title">Create a Team</div>
-                                        <div class="quick-action__desc">Done! Your team is ready.</div>
+                            <div class="onboarding-steps">
+                                <div class="onboarding-step onboarding-step--done" id="step1">
+                                    <div class="onboarding-step__check">
+                                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                                    </div>
+                                    <div class="onboarding-step__text">
+                                        <span class="onboarding-step__title">Create a Team</span>
+                                        <span class="onboarding-step__desc">Your team is ready</span>
                                     </div>
                                 </div>
-                                <a href="/ai-brain" class="quick-action" id="step2">
-                                    <div class="quick-action__icon quick-action__icon--purple">📤</div>
-                                    <div class="quick-action__text">
-                                        <div class="quick-action__title">Upload Your First Document</div>
-                                        <div class="quick-action__desc">PDFs, DOCX, TXT — feed your AI Brain</div>
+                                <a href="/ai-brain" class="onboarding-step" id="step2">
+                                    <div class="onboarding-step__num">2</div>
+                                    <div class="onboarding-step__text">
+                                        <span class="onboarding-step__title">Upload Your First Document</span>
+                                        <span class="onboarding-step__desc">PDFs, DOCX, TXT — feed your AI Brain</span>
                                     </div>
-                                    <div class="quick-action__arrow"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></div>
+                                    <svg class="onboarding-step__arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                                 </a>
-                                <a href="/ai-brain" class="quick-action" id="step3">
-                                    <div class="quick-action__icon quick-action__icon--amber">💬</div>
-                                    <div class="quick-action__text">
-                                        <div class="quick-action__title">Ask Your First Question</div>
-                                        <div class="quick-action__desc">Chat with the AI about your project</div>
+                                <a href="/ai-brain" class="onboarding-step" id="step3">
+                                    <div class="onboarding-step__num">3</div>
+                                    <div class="onboarding-step__text">
+                                        <span class="onboarding-step__title">Ask Your First Question</span>
+                                        <span class="onboarding-step__desc">Chat with the AI about your project</span>
                                     </div>
-                                    <div class="quick-action__arrow"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></div>
+                                    <svg class="onboarding-step__arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                                 </a>
                             </div>
                         </div>
@@ -200,15 +262,6 @@
                 </div>
             </div>
 
-            <!-- Footer -->
-            <div class="dashboard-footer">
-                <div class="dashboard-footer__links">
-                    <a href="#">Support</a>
-                    <a href="#">Privacy</a>
-                    <a href="#">API Status</a>
-                </div>
-                <div class="dashboard-footer__brain">AI Brain: Ready</div>
-            </div>
         </div>
     </main>
 

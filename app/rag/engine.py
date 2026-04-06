@@ -24,6 +24,7 @@ Usage:
 """
 
 import json
+import re
 import time
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone
@@ -438,6 +439,120 @@ class RAGEngine:
             return col.count() > 0
         except Exception:
             return False
+
+    def get_recent_chunks(self, team_id: int, limit: int = 6) -> List[Dict[str, Any]]:
+        """
+        Get the most recently uploaded knowledge chunks for a team,
+        sorted by upload timestamp descending.
+
+        Returns list of dicts with keys: content, filename, doc_type,
+        uploader_email, uploaded_at, chunk_index, page_number.
+        """
+        self._ensure_initialized()
+        collection_name = self._get_collection_name(team_id)
+
+        try:
+            collection = self._chroma_client.get_collection(collection_name)
+            total = collection.count()
+            if total == 0:
+                return []
+
+            all_data = collection.get(include=["documents", "metadatas"])
+            docs = all_data.get("documents", [])
+            metas = all_data.get("metadatas", [])
+
+            items = []
+            for i, (text, meta) in enumerate(zip(docs, metas)):
+                items.append({
+                    "content": text or "",
+                    "filename": meta.get("filename", "Unknown"),
+                    "doc_type": meta.get("doc_type", "unknown"),
+                    "uploader_email": meta.get("uploader_email", ""),
+                    "uploaded_at": meta.get("uploaded_at", ""),
+                    "chunk_index": meta.get("chunk_index", 0),
+                    "page_number": meta.get("page_number", 0),
+                })
+
+            # Sort by uploaded_at descending (newest first)
+            items.sort(key=lambda x: x["uploaded_at"], reverse=True)
+            return items[:limit]
+
+        except Exception as e:
+            print(f"[RAG] Error fetching recent chunks: {e}")
+            return []
+
+    def summarize_recent_chunks(self, team_id: int, limit: int = 6) -> List[Dict[str, Any]]:
+        """
+        Get recent chunks and use LLM to generate a short summary for each.
+        Returns list of dicts with: summary, filename, doc_type, uploaded_at.
+        """
+        chunks = self.get_recent_chunks(team_id, limit=limit)
+        if not chunks:
+            return []
+
+        # Build a single prompt asking the LLM to summarize all chunks at once
+        chunk_texts = []
+        for i, c in enumerate(chunks):
+            snippet = (c["content"] or "").strip()
+            if len(snippet) > 500:
+                snippet = snippet[:500] + "..."
+            chunk_texts.append(f"[{i+1}] (source: {c['filename']})\n{snippet}")
+
+        joined = "\n\n".join(chunk_texts)
+
+        from langchain_core.messages import SystemMessage, HumanMessage
+        messages = [
+            SystemMessage(content=(
+                "You are a knowledge summarizer. The user will provide numbered text chunks "
+                "from uploaded documents. For EACH chunk, write ONE concise summary sentence "
+                "(max 25 words) describing what that chunk is about. "
+                "Return ONLY a numbered list matching the input numbers, one summary per line. "
+                "Do not add any extra text."
+            )),
+            HumanMessage(content=joined),
+        ]
+
+        try:
+            response = self._invoke_llm_with_retry(messages)
+            lines = response.content.strip().split("\n")
+
+            # Parse numbered lines like "[1] ..." or "1. ..." or "1) ..."
+            summaries = []
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+                # Strip numbering prefix
+                cleaned = re.sub(r"^\[?\d+\]?[\.\)\-:\s]*", "", line).strip()
+                if cleaned:
+                    summaries.append(cleaned)
+
+            # Map summaries back to chunks
+            result = []
+            for i, c in enumerate(chunks):
+                result.append({
+                    "summary": summaries[i] if i < len(summaries) else "Knowledge chunk from " + c["filename"],
+                    "filename": c["filename"],
+                    "doc_type": c["doc_type"],
+                    "uploaded_at": c["uploaded_at"],
+                })
+            return result
+
+        except Exception as e:
+            print(f"[RAG] LLM summarization failed, falling back: {e}")
+            # Fallback: truncate content as summary
+            result = []
+            for c in chunks:
+                preview = (c["content"] or "").replace("\n", " ").strip()
+                if len(preview) > 100:
+                    preview = preview[:100] + "..."
+                result.append({
+                    "summary": preview or "Knowledge chunk from " + c["filename"],
+                    "filename": c["filename"],
+                    "doc_type": c["doc_type"],
+                    "uploaded_at": c["uploaded_at"],
+                })
+            return result
 
 
 # ─── Singleton instance ───
