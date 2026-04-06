@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, UploadFile, File
 from sqlalchemy.orm import Session
-from sqlalchemy import Table
 from typing import List
 import os
 import uuid
