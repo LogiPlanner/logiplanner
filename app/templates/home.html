@@ -1,0 +1,235 @@
+{% extends "auth/base.html" %}
+
+{% block title %}LogiPlanner | AI-powered project memory and team alignment{% endblock %}
+{% block meta_description %}LogiPlanner helps teams capture project memory, automate follow-up, and stay aligned with AI-assisted planning.{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="/static/home/css/home.css">
+{% endblock %}
+
+{% block content %}
+<nav class="navbar">
+    <div class="navbar__container">
+        <a href="/" class="navbar__logo">
+            <span class="navbar__logo-text">LP</span>
+            LogiPlanner
+        </a>
+        <div class="navbar__menu">
+            <a href="#features" class="navbar__link">Features</a>
+            <a href="#how-it-works" class="navbar__link">How it works</a>
+            <a href="#pricing" class="navbar__link">Pricing</a>
+            <a href="#" class="navbar__link">Resources</a>
+        </div>
+        <div class="navbar__actions">
+            <a href="/login" class="navbar__link navbar__cta">Login</a>
+        </div>
+    </div>
+</nav>
+
+<div class="homepage">
+    <header class="hero-section">
+        <div class="hero-bg">
+            <canvas id="particleCanvas" class="hero-particles"></canvas>
+            <div class="hero-shape hero-shape--1"></div>
+            <div class="hero-shape hero-shape--2"></div>
+            <div class="hero-shape hero-shape--3"></div>
+        </div>
+        <div class="hero-container">
+            <div class="hero-brand">
+                <div class="hero-logo">
+                    <span>LP</span>
+                </div>
+                <span>PLANS WITH LOGIC</span>
+            </div>
+            <div class="hero-headline">
+                <h1>Your team's <span class="hero-highlight">Project Memory</span>.</h1>
+                <p>Stop losing context. LogiPlanner builds a living AI-powered memory of your project — every decision, milestone, and update — so your team stays aligned.</p>
+            </div>
+            <div class="hero-features">
+                <div class="hero-feature-card">
+                    <div class="hero-feature-icon hero-feature-icon--1">🧠</div>
+                    <h3>AI Project Brain</h3>
+                    <p>Ingests docs, meetings, and updates into one searchable memory.</p>
+                </div>
+                <div class="hero-feature-card">
+                    <div class="hero-feature-icon hero-feature-icon--2">⚡</div>
+                    <h3>Smart Onboarding</h3>
+                    <p>New members get an instant project brief — no chasing context.</p>
+                </div>
+                <div class="hero-feature-card">
+                    <div class="hero-feature-icon hero-feature-icon--3">🎯</div>
+                    <h3>AI Actionable Steps</h3>
+                    <p>Deadlines and actionable steps driven by your Project Brain.</p>
+                </div>
+            </div>
+            <div class="hero-actions">
+                <a class="button button--primary button--lg" href="#features">See how it works</a>
+            </div>
+            <div class="hero-status">
+                <div class="status-dot"></div>
+                <span id="healthMessage">Backend healthy and running</span>
+            </div>
+        </div>
+        <div class="hero-divider">
+            <svg viewBox="0 0 1440 100" preserveAspectRatio="none">
+                <path d="M0,40 Q360,0 720,40 T1440,40 L1440,100 L0,100 Z" fill="currentColor"></path>
+            </svg>
+        </div>
+    </header>
+
+    <section class="assistant-section">
+        <div class="assistant-grid">
+            <div class="assistant-copy">
+                <span class="section-label">AI assistant</span>
+                <h2>Move work forward with a built-in AI assistant.</h2>
+                <p>Accelerate execution with an intelligent, context-aware assistant that thinks, recommends, and runs work for your team at scale.</p>
+                <div class="assistant-actions">
+                    <a href="#features" class="button button--primary">Get Started</a>
+                    <a href="#features" class="button button--secondary">Learn more</a>
+                </div>
+                <div class="assistant-highlights">
+                    <div>• Instant project briefs for new team members</div>
+                    <div>• Natural language follow-up planning</div>
+                    <div>• Teams stay aligned without manual handoffs</div>
+                </div>
+            </div>
+            <div class="assistant-card">
+                <div class="assistant-card__header">
+                    <div>
+                        <p class="assistant-card__title">Hey James, how can I help you today?</p>
+                    </div>
+                    <div class="assistant-card__avatar"></div>
+                </div>
+                <div class="assistant-card__body">
+                    <div class="assistant-input-card">
+                        <p class="assistant-input-copy">Hey James, how can I help you today?</p>
+                        <div class="assistant-input-actions">
+                            <span class="assistant-input-icon">@</span>
+                            <span class="assistant-input-icon">+</span>
+                            <button class="assistant-submit" type="button">→</button>
+                        </div>
+                    </div>
+                    <div class="assistant-quick-tasks">
+                        <span>Create a project plan</span>
+                        <span>Research venues for conference</span>
+                        <span>Summarize last meeting</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="features" class="feature-section">
+        <div class="section-heading">
+            <p class="section-label">Why teams choose LogiPlanner</p>
+            <h2>Manage projects with context, clarity, and AI support.</h2>
+        </div>
+        <div class="feature-grid">
+            <article class="feature-card">
+                <h3>Project memory</h3>
+                <p>Capture notes, decisions, and documents beside your timeline so nothing gets lost in chat or email.</p>
+            </article>
+            <article class="feature-card">
+                <h3>Actionable AI</h3>
+                <p>Ask the system for follow-ups, next steps, and insights using the same backend that powers the app.</p>
+            </article>
+            <article class="feature-card">
+                <h3>Unified workflow</h3>
+                <p>Connect timeline updates, tasks, and goals into one single source of truth for your team.</p>
+            </article>
+        </div>
+    </section>
+
+
+    <section class="testimonial-section">
+        <div class="testimonial-card">
+            <p class="testimonial-quote">“LogiPlanner made it effortless to keep our project decisions and follow-up actions connected in one place.”</p>
+            <div class="testimonial-meta">
+                <strong>Emily Carter</strong>
+                <span>Product Operations Lead</span>
+            </div>
+        </div>
+        <div class="testimonial-card testimonial-card--accent">
+            <p class="testimonial-quote">“The homepage itself proves the app is built around clean APIs and a modern workflow.”</p>
+            <div class="testimonial-meta">
+                <strong>Marcus Lee</strong>
+                <span>Engineering Manager</span>
+            </div>
+        </div>
+    </section>
+</div>
+
+<footer class="footer">
+    <div class="footer__container">
+        <div class="footer__sections">
+            <div class="footer__section">
+                <h4>Product</h4>
+                <ul>
+                    <li><a href="#">Features</a></li>
+                    <li><a href="#">Integrations</a></li>
+                    <li><a href="#">Pricing</a></li>
+                    <li><a href="#">Mobile app</a></li>
+                    <li><a href="#">Security</a></li>
+                </ul>
+            </div>
+            <div class="footer__section">
+                <h4>Solutions</h4>
+                <ul>
+                    <li><a href="#">Project planning</a></li>
+                    <li><a href="#">Team collaboration</a></li>
+                    <li><a href="#">AI insights</a></li>
+                    <li><a href="#">Resource management</a></li>
+                    <li><a href="#">Timeline tracking</a></li>
+                </ul>
+            </div>
+            <div class="footer__section">
+                <h4>Resources</h4>
+                <ul>
+                    <li><a href="#">Documentation</a></li>
+                    <li><a href="#">Blog</a></li>
+                    <li><a href="#">Guides</a></li>
+                    <li><a href="#">API</a></li>
+                    <li><a href="#">Templates</a></li>
+                </ul>
+            </div>
+            <div class="footer__section">
+                <h4>Company</h4>
+                <ul>
+                    <li><a href="#">About us</a></li>
+                    <li><a href="#">Careers</a></li>
+                    <li><a href="#">Contact</a></li>
+                    <li><a href="#">Status</a></li>
+                    <li><a href="#">Partners</a></li>
+                </ul>
+            </div>
+            <div class="footer__section">
+                <h4>Legal</h4>
+                <ul>
+                    <li><a href="#">Terms</a></li>
+                    <li><a href="#">Privacy</a></li>
+                    <li><a href="#">Cookies</a></li>
+                    <li><a href="#">Compliance</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer__bottom">
+            <div class="footer__info">
+                <p>&copy; 2026 LogiPlanner. All rights reserved.</p>
+            </div>
+            <div class="footer__social">
+                <a href="#" class="footer__social-link" title="Twitter">𝕏</a>
+                <a href="#" class="footer__social-link" title="LinkedIn">in</a>
+                <a href="#" class="footer__social-link" title="GitHub">⚙</a>
+            </div>
+            <div class="footer__apps">
+                <a href="#" class="footer__app-link">App Store</a>
+                <a href="#" class="footer__app-link">Google Play</a>
+            </div>
+        </div>
+    </div>
+</footer>
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/home/js/home.js"></script>
+{% endblock %}
