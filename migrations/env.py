@@ -10,7 +10,10 @@ from alembic import context
 
 sys.path.insert(0, str(Path(__file__).parents[1]))   
 
-from app.models.user import Base  
+from app.models.user import Base
+import app.models.meeting
+import app.models.timeline
+import app.models.calendar_task
 
 config = context.config
 

@@ -1,0 +1,564 @@
+{% extends "base.html" %}
+
+{% block title %}Meeting Notes - LogiPlanner{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="/static/css/meetings.css">
+<!-- Quill CSS -->
+<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+<link href="https://cdn.quilljs.com/1.3.6/quill.bubble.css" rel="stylesheet">
+<style>
+    /* Toast Container */
+    #toastContainer {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .toast {
+        background: #1f2937;
+        color: white;
+        padding: 12px 20px;
+        border-radius: 6px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        opacity: 0;
+        transition: opacity 0.3s;
+        font-size: 14px;
+        font-family: inherit;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .toast.success {
+        border-left: 4px solid #10b981;
+    }
+
+    .toast.error {
+        border-left: 4px solid #ef4444;
+    }
+
+    /* Proper floating modal */
+    #notesModal {
+        position: absolute;
+        resize: both;
+        overflow: hidden;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        z-index: 1000;
+    }
+
+    #notesModal .modal-header {
+        cursor: grab;
+    }
+
+    #notesModal .modal-header:active {
+        cursor: grabbing;
+    }
+
+    .record-btn-pulsing {
+        animation: pulse-red 1.5s infinite;
+        color: #ef4444 !important;
+    }
+
+    @keyframes pulse-red {
+        0% {
+            transform: scale(1);
+            opacity: 1;
+        }
+
+        50% {
+            transform: scale(1.1);
+            opacity: 0.8;
+        }
+
+        100% {
+            transform: scale(1);
+            opacity: 1;
+        }
+    }
+
+    /* History Sidebar Overrides */
+    #historySidebar {
+        position: fixed;
+        right: -400px;
+        top: 60px;
+        width: 350px;
+        height: calc(100vh - 60px);
+        background: white;
+        box-shadow: -4px 0 15px rgba(0, 0, 0, 0.05);
+        transition: right 0.3s ease;
+        z-index: 900;
+        padding: 20px;
+        border-left: 1px solid #e5e7eb;
+    }
+
+    #historySidebar.open {
+        right: 0;
+    }
+
+    .toolbar-left {
+        background: #fdfdfd;
+        border-radius: 20px;
+        padding: 12px 8px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        gap: 16px;
+        border: 1px solid #e5e7eb;
+    }
+
+    .tool-btn {
+        border-radius: 12px;
+        padding: 8px;
+    }
+
+    .tool-btn:hover {
+        background: #f3f4f6;
+    }
+
+    .tool-btn.active {
+        background: #e0e7ff;
+        color: #4f46e5;
+    }
+
+    #canvasContextMenu li:hover {
+        background-color: #f3f4f6;
+    }
+
+    /* Remote Cursor Styling */
+    .remote-cursor {
+        position: absolute;
+        pointer-events: none;
+        z-index: 10000;
+        transition: left 0.1s linear, top 0.1s linear;
+    }
+
+    .remote-cursor svg {
+        filter: drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.2));
+    }
+
+    .remote-cursor-name {
+        position: absolute;
+        top: 15px;
+        left: 15px;
+        background: #4f46e5;
+        color: white;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 500;
+        white-space: nowrap;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<main class="meetings-main">
+    <input type="hidden" id="currentTeamId" value="{{ request.session.get('team_id') }}">
+    <div id="toastContainer"></div>
+
+    <!-- Top Navigation Area -->
+    <header class="meetings-header">
+        <div class="search-container">
+            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="#9ca3af">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input type="text" placeholder="Search workspace..." class="search-input">
+        </div>
+
+        <div class="view-tabs">
+            <button class="view-tab active" id="tabWhiteboard">Whiteboard</button>
+            <button class="view-tab" id="tabEditor">Notes</button>
+            <div class="history" id="tabHistory" style="cursor: pointer;">
+                <span>History</span>
+                <div class="avatars" id="activeUsersList" style="display: flex; align-items: center;">
+                    <!-- Real-time users injected via WebSocket presence -->
+                </div>
+            </div>
+        </div>
+
+        <div class="header-actions">
+            <!-- Record Button moved to Top Right -->
+            <button class="icon-btn" id="topRecordBtn" title="Record Meeting">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M12 2C9.243 2 7 4.243 7 7v6c0 2.757 2.243 5 5 5s5-2.243 5-5V7c0-2.757-2.243-5-5-5z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 13v-1M5 13v-1M12 22v-4M8 22h8" />
+                </svg>
+            </button>
+
+
+            <div class="position-relative" id="notificationDropdownWrapper">
+                <button class="icon-btn position-relative" id="notificationBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                    </svg>
+                    <div class="notification-dot"></div>
+                </button>
+                <div id="notificationsPopup"
+                    style="display: none; position: absolute; right: 0; top: 100%; margin-top: 8px; width: 280px; background: white; border: 1px solid #e5e7eb; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); z-index: 1000; flex-direction: column; padding: 12px;">
+                    <div
+                        style="font-weight: 600; font-size: 14px; padding-bottom: 8px; border-bottom: 1px solid #e5e7eb; margin-bottom: 8px;">
+                        Notifications</div>
+                    <div style="font-size: 13px; color: #6b7280; text-align: center; padding: 16px 0;">No new
+                        notifications</div>
+                </div>
+            </div>
+            <div class="position-relative" id="exportDropdownWrapper" style="margin-left: 8px;">
+                <button class="share-btn" id="exportBoardBtn" style="display:flex; align-items:center; gap:6px;">
+                    Export
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+                </button>
+                <div id="exportPopup"
+                    style="display: none; position: absolute; right: 0; top: 100%; margin-top: 8px; width: 160px; background: white; border: 1px solid #e5e7eb; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); z-index: 1000; flex-direction: column; padding: 6px;">
+                    <button class="tool-btn" data-export="png" style="width: 100%; text-align: left; justify-content: flex-start; border-radius: 4px; padding: 8px 12px; font-size:13px; color:#374151;">Download PNG</button>
+                    <button class="tool-btn" data-export="jpeg" style="width: 100%; text-align: left; justify-content: flex-start; border-radius: 4px; padding: 8px 12px; font-size:13px; color:#374151;">Download JPEG</button>
+                    <div style="height: 1px; background: #e5e7eb; margin: 4px 0;"></div>
+                    <button class="tool-btn" data-export="svg" style="width: 100%; text-align: left; justify-content: flex-start; border-radius: 4px; padding: 8px 12px; font-size:13px; color:#374151;">Download SVG</button>
+                </div>
+            </div>
+            <div class="topbar__avatar" id="userAvatar">
+                <span id="avatarInitials">U</span>
+                <div class="topbar__dropdown">
+                    <a href="/settings" class="topbar__dropdown-item">Profile Settings</a>
+                    <button type="button" id="navbarLogoutBtn" class="topbar__dropdown-item"
+                        style="border:none;background:transparent;text-align:left;width:100%;font-family:inherit;cursor:pointer;">Sign
+                        Out</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="meetings-workspace">
+        <!-- Whiteboard Area -->
+        <div class="whiteboard-area" id="whiteboardContainer" style="position: relative;">
+
+            <div class="toolbar-left" style="display:flex; flex-direction:column; align-items:center;">
+                <!-- Cursor / Select -->
+                <button class="tool-btn active" data-tool="select" title="Select">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M7 2l12 11.2-5.8.5 3.3 7.3-2.2.9-3.2-7.4-4.4 4.3z" />
+                    </svg>
+                </button>
+
+                <!-- Sticky Notes -->
+                <button class="tool-btn" data-tool="sticky" title="Sticky Note">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke-linecap="round"
+                            stroke-linejoin="round" />
+                        <path d="M14 2v6h6" stroke-linecap="round" stroke-linejoin="round" />
+                        <rect x="3" y="10" width="10" height="10" rx="1" fill="none" stroke="currentColor" />
+                    </svg>
+                </button>
+
+                <!-- Shapes -->
+                <div style="position: relative;" id="shapeMenuContainer">
+                    <button class="tool-btn" data-tool="shape_menu" id="shapeMenuBtn" title="Shapes">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polygon points="12 3 20 10 4 10" />
+                            <rect x="4" y="12" width="7" height="7" />
+                            <circle cx="17" cy="15.5" r="3.5" />
+                        </svg>
+                    </button>
+                    <!-- Popup shapes menu -->
+                    <div id="shapesPopup"
+                        style="display: none; position: absolute; left: 55px; top: 0; background: white; border: 1px solid #e5e7eb; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); padding: 6px; flex-direction: column; gap: 4px; z-index: 50;">
+                        <button class="tool-btn shape-option-btn" data-shape="rect" title="Rectangle"><svg width="24"
+                                height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="4" y="4" width="16" height="16" rx="2" />
+                            </svg></button>
+                        <button class="tool-btn shape-option-btn" data-shape="circle" title="Circle"><svg width="24"
+                                height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="8" />
+                            </svg></button>
+                        <button class="tool-btn shape-option-btn" data-shape="triangle" title="Triangle"><svg width="24"
+                                height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polygon points="12 4 20 18 4 18" />
+                            </svg></button>
+                        <button class="tool-btn shape-option-btn" data-shape="line" title="Line"><svg width="24"
+                                height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="4" y1="20" x2="20" y2="4" />
+                            </svg></button>
+                    </div>
+                </div>
+
+                <!-- Pencil / Draw -->
+                <button class="tool-btn" data-tool="draw" title="Pencil">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M12 19l7-7 3 3-7 7-3-3z" />
+                        <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
+                        <path d="M2 2l7.586 7.586" />
+                        <circle cx="11" cy="11" r="2" />
+                    </svg>
+                </button>
+
+                <!-- Text -->
+                <button class="tool-btn" data-tool="text" title="Add Text">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M4 7V4h16v3" />
+                        <path d="M12 4v16" />
+                    </svg>
+                </button>
+
+                <!-- Separator -->
+                <div style="width: 20px; height: 1px; background:#e5e7eb; margin: 4px 0;"></div>
+
+                <!-- Eraser -->
+                <button class="tool-btn" data-tool="eraser" title="Eraser">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path
+                            d="M20 20H7L3 16C2.5 15.5 2.5 14.5 3 14L13 4C13.5 3.5 14.5 3.5 15 4L20 9C20.5 9.5 20.5 10.5 20 11L11 20H20V20Z" />
+                        <line x1="17" y1="14" x2="7" y2="24" />
+                    </svg>
+                </button>
+
+                <!-- Color Picker -->
+                <div style="padding: 4px 0; display: flex; justify-content: center; width: 100%;">
+                    <input type="color" id="boardColorPicker" value="#000000"
+                        style="width: 24px; height: 24px; border: none; padding: 0; background: none; cursor: pointer;"
+                        title="Select Color">
+                </div>
+
+                <!-- Separator -->
+                <div style="width: 20px; height: 1px; background:#e5e7eb; margin: 4px 0;"></div>
+
+                <!-- File Upload -->
+                <button class="tool-btn" data-tool="uploadImage" title="Upload Image/PDF">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                        <path d="M14 2v6h6" />
+                        <path d="M12 18v-6" />
+                        <path d="M9 15l3-3 3 3" />
+                    </svg>
+                </button>
+            </div>
+
+            <canvas id="whiteboardCanvas"></canvas>
+
+            <input type="file" id="boardImageUpload" accept="image/*" style="display:none;">
+
+            <!-- Notes Editor Floating Modal -->
+            <div class="floating-modal" id="notesModal"
+                style="display: none; width: 900px; height: 600px; top: 60px; left: 150px; flex-direction: column;">
+                <div class="modal-header" id="notesModalHeader"
+                    style="background:#f9fafb; border-bottom:1px solid #e5e7eb; padding: 12px 20px;">
+                    <div class="modal-title" id="currentNoteTitle" style="font-weight:600; color:#111827;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#6b7280" style="margin-right:8px;">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Untitled Note
+                    </div>
+                    <div class="modal-actions">
+                        <button id="saveNoteBtn"
+                            style="background:#4f46e5;color:#fff;border:none;padding:6px 16px;border-radius:6px;cursor:pointer;font-weight:500; font-size:14px; box-shadow: 0 2px 4px rgba(79,70,229,0.2);">Save
+                            Note</button>
+                        <svg class="close-icon" viewBox="0 0 24 24" fill="none" stroke="#ef4444" id="closeNotesModal"
+                            style="cursor:pointer; margin-left: 12px;">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </div>
+                </div>
+                <div class="modal-body" style="height: calc(100% - 56px); display: flex; padding:0; background: #fff;">
+
+                    <!-- Pane 1: Folders -->
+                    <div
+                        style="width: 200px; border-right: 1px solid #e5e7eb; display: flex; flex-direction: column; background: #fcfcfc;">
+                        <div
+                            style="padding: 12px 16px; font-weight: 700; font-size: 11px; letter-spacing:0.5px; color: #6b7280; display:flex; justify-content: space-between; align-items:center; text-transform: uppercase;">
+                            Folders
+                            <button id="addFolderBtnUI"
+                                style="background:none;border:none;color:#9ca3af;cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center;">+</button>
+                        </div>
+                        <div id="newFolderContainer" style="display:none; padding: 0 12px 10px;">
+                            <div style="display:flex; gap:4px;">
+                                <input type="text" id="newFolderInput" placeholder="Folder name..."
+                                    style="flex:1; font-size: 13px; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; min-width:0;">
+                                <button id="submitFolderBtn"
+                                    style="background:#4f46e5; color:#fff; border:none; border-radius:4px; padding:0 10px; cursor:pointer; font-size:12px; font-weight:600;">Add</button>
+                            </div>
+                        </div>
+                        <div id="foldersList" style="flex:1; overflow-y:auto; padding: 0 8px;">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+
+                    <!-- Pane 2: Notes -->
+                    <div
+                        style="width: 240px; border-right: 1px solid #e5e7eb; display: flex; flex-direction: column; background: #ffffff;">
+                        <div
+                            style="padding: 12px 16px; font-weight: 700; font-size: 11px; letter-spacing:0.5px; color: #6b7280; display:flex; justify-content: space-between; align-items:center; text-transform: uppercase;">
+                            Notes
+                            <button id="addNoteBtnUI"
+                                style="background:none;border:none;color:#9ca3af;cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center;">+</button>
+                        </div>
+                        <div id="newNoteContainer" style="display:none; padding: 0 12px 10px;">
+                            <div style="display:flex; gap:4px;">
+                                <input type="text" id="newNoteInput" placeholder="Note title..."
+                                    style="flex:1; font-size: 13px; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; min-width:0;">
+                                <button id="submitNoteBtn"
+                                    style="background:#4f46e5; color:#fff; border:none; border-radius:4px; padding:0 10px; cursor:pointer; font-size:12px; font-weight:600;">Add</button>
+                            </div>
+                        </div>
+                        <div id="notesList" style="flex:1; overflow-y:auto; padding: 0 8px;">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+
+                    <!-- Pane 3: Editor -->
+                    <div class="modal-editor"
+                        style="flex: 1; display: flex; flex-direction: column; overflow: hidden; background: #fff; position: relative;">
+                        <!-- Empty State Overlay -->
+                        <div id="editorEmptyState"
+                            style="position: absolute; top:0; left:0; right:0; bottom:0; background:#fff; z-index:10; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#9ca3af;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                                style="width:48px; height:48px; margin-bottom:16px; color:#d1d5db;">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                            <div style="font-size:16px; font-weight:500; color:#4b5563;">Select a note to start editing
+                            </div>
+                            <div style="font-size:13px; margin-top:4px;">Or click the + icon in the Notes panel to
+                                create a new one.</div>
+                        </div>
+                        <!-- Quill will attach here -->
+                        <div style="flex:1; display:flex; flex-direction:column; min-height:0;">
+                            <div id="quillEditor" style="flex: 1; overflow-y:auto; border:none; padding:16px;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Zoom Controls -->
+            <div class="zoom-controls">
+                <button id="zoomOut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path stroke-width="2" stroke-linecap="round"
+                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM7 10h6" />
+                    </svg></button>
+                <div class="zoom-level" id="zoomLevelText">100%</div>
+                <button id="zoomIn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path stroke-width="2" stroke-linecap="round"
+                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" />
+                    </svg></button>
+            </div>
+        </div>
+
+        <!-- History Sidebar -->
+        <div id="historySidebar">
+            <h3 style="font-weight:600; margin-bottom:20px; font-size:18px;">Meeting History & Summaries</h3>
+            <div id="historyList" style="overflow-y:auto; height: 100%;">
+                <p class="text-gray-500 text-sm">Loading histories...</p>
+            </div>
+        </div>
+
+        <!-- Right Sidebar - AI Summary -->
+        <aside class="right-sidebar">
+            <div class="rs-header">
+                <div class="rs-title">
+                    <svg class="sparkles-icon" viewBox="0 0 24 24" fill="none" stroke="#4f46e5">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                    </svg>
+                    AI Summary
+                </div>
+                <div class="badge-active" id="aiStatusBadge">READY</div>
+            </div>
+
+            <div class="rs-section">
+                <div class="rs-section-title">RECORDING UPLOAD</div>
+                <div class="upload-box" id="uploadBox" style="position: relative;">
+                    <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="#9ca3af">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                    <p><span class="link-text" id="uploadClick">Click to upload</span> MP3 audio</p>
+                    <input type="file" id="audioFileInput" accept="audio/*" style="display:none;">
+                </div>
+
+                <div class="privacy-note mt-3">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                    Use the Top-Right MIC button to Record. AI will transcribe audio, summarize, and auto-<br>delete
+                    original file for privacy.
+                </div>
+
+                <div class="progress-container" id="uploadProgress" style="display:none;">
+                    <div class="progress-text">
+                        <span id="uploadStatusLabel">PROCESSING...</span>
+                        <span id="uploadPercent">0%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="uploadFill" style="width: 0%;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="rs-section" id="aiResults" style="display:none;">
+                <div class="rs-section-title">KEY TAKEAWAYS</div>
+                <ul class="takeaways-list" id="takeawaysList">
+                    <!-- Dynamic -->
+                </ul>
+
+                <button class="synthesize-btn mt-3" style="width: 100%;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                    Saved to AI Brain!
+                </button>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Context Menu for Whiteboard -->
+    <ul id="canvasContextMenu"
+        style="display: none; position: absolute; background: white; border: 1px solid #e5e7eb; border-radius: 6px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 4px 0; z-index: 1000; list-style: none; margin: 0; min-width: 140px;">
+        <li id="menuCopy" style="padding: 8px 16px; cursor: pointer; font-size: 13px; color: #374151;">Copy</li>
+        <li id="menuPaste" style="padding: 8px 16px; cursor: pointer; font-size: 13px; color: #374151;">Paste</li>
+        <div style="height: 1px; background: #e5e7eb; margin: 4px 0;"></div>
+        <li id="menuFront" style="padding: 8px 16px; cursor: pointer; font-size: 13px; color: #374151;">Bring to Front
+        </li>
+        <li id="menuBack" style="padding: 8px 16px; cursor: pointer; font-size: 13px; color: #374151;">Send to Back</li>
+        <div style="height: 1px; background: #e5e7eb; margin: 4px 0;"></div>
+        <li id="menuDelete" style="padding: 8px 16px; cursor: pointer; font-size: 13px; color: #ef4444;">Delete</li>
+    </ul>
+
+    <!-- UI Confirmation Modal -->
+    <div id="confirmModal"
+        style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); z-index: 2000; align-items: center; justify-content: center;">
+        <div
+            style="background: white; border-radius: 8px; padding: 20px; width: 320px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);">
+            <h3 style="margin-top: 0; font-size: 16px; color: #111827; font-weight: 600;">Confirm Deletion</h3>
+            <p id="confirmMessage" style="font-size: 14px; color: #4b5563; margin: 12px 0 20px;">Are you sure?</p>
+            <div style="display: flex; justify-content: flex-end; gap: 8px;">
+                <button id="confirmCancelBtn"
+                    style="padding: 6px 12px; background: white; border: 1px solid #d1d5db; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 500;">Cancel</button>
+                <button id="confirmOkBtn"
+                    style="padding: 6px 12px; background: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 500;">Delete</button>
+            </div>
+        </div>
+    </div>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<!-- Fabric.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+<!-- Custom Scripts -->
+<script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+<script src="/static/meetings/js/meetings.js?v=3"></script>
+{% endblock %}

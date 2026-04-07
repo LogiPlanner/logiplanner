@@ -35,6 +35,7 @@ app.add_middleware(
 @app.on_event("startup")
 def create_tables():
     from app.models.user import Base as ModelBase
+    import app.models.meeting # Ensure meetings are tracked for create_all
     ModelBase.metadata.create_all(bind=engine)
     print("[OK] Database tables ensured")
 
@@ -77,6 +78,9 @@ app.include_router(calendar_router, prefix=settings.API_V1_STR + "/calendar", ta
 
 from app.api.v1.settings import router as settings_router
 app.include_router(settings_router, prefix=settings.API_V1_STR + "/settings", tags=["settings"])
+
+from app.api.v1.meetings import router as meetings_router
+app.include_router(meetings_router, prefix=settings.API_V1_STR + "/meetings", tags=["meetings"])
 
 # ──────────────────────────────────────────────
 # Health Check
@@ -141,6 +145,11 @@ async def studio_page(request: Request):
 @app.get("/memory")
 async def memory_page(request: Request):
     return templates.TemplateResponse("memory.html", {"request": request, "active_nav": "project_memory"})
+
+
+@app.get("/meetings")
+async def meetings_page(request: Request):
+    return templates.TemplateResponse("meetings/meetings.html", {"request": request, "active_nav": "meeting_notes"})
 
 
 @app.get("/settings")
