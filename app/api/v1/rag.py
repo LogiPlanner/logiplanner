@@ -514,7 +514,7 @@ async def recent_knowledge_chunks(
 ):
     """Get LLM-summarized recent knowledge chunks for a team's dashboard."""
     _verify_team_access(current_user, team_id, db)
-    summaries = rag_engine.summarize_recent_chunks(team_id, limit=limit)
+    summaries = rag_engine.summarize_recent_chunks(team_id, limit=limit, db=db)
     items = [RecentKnowledgeItem(**s) for s in summaries]
     return RecentKnowledgeResponse(items=items, total=len(items))
 

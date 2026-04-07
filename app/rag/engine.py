@@ -440,10 +440,13 @@ class RAGEngine:
         except Exception:
             return False
 
-    def get_recent_chunks(self, team_id: int, limit: int = 6) -> List[Dict[str, Any]]:
+    def get_recent_chunks(self, team_id: int, limit: int = 6, db=None) -> List[Dict[str, Any]]:
         """
-        Get the most recently uploaded knowledge chunks for a team,
-        sorted by upload timestamp descending.
+        Get the most recently uploaded knowledge chunks for a team.
+
+        When a db session is provided (fast path): queries the Document SQL table
+        for the N most recent ready documents, then fetches exactly one chunk per
+        document from ChromaDB using targeted document_id filters — no full scan.
 
         Returns list of dicts with keys: content, filename, doc_type,
         uploader_email, uploaded_at, chunk_index, page_number.
@@ -451,6 +454,69 @@ class RAGEngine:
         self._ensure_initialized()
         collection_name = self._get_collection_name(team_id)
 
+        if db is not None:
+            from app.models.user import Document
+            from sqlalchemy import desc
+
+            # Fast path: SQL gives us the N most recent docs with a single indexed query
+            recent_docs = (
+                db.query(Document)
+                .filter(Document.team_id == team_id, Document.status == "ready")
+                .order_by(desc(Document.created_at))
+                .limit(limit)
+                .all()
+            )
+            if not recent_docs:
+                return []
+
+            try:
+                collection = self._chroma_client.get_collection(collection_name)
+            except Exception:
+                return []
+
+            doc_ids = [doc.id for doc in recent_docs]
+
+            # Fetch first chunk (chunk_index=0) for each document in one call
+            try:
+                result = collection.get(
+                    where={
+                        "$and": [
+                            {"document_id": {"$in": doc_ids}},
+                            {"chunk_index": {"$eq": 0}},
+                        ]
+                    },
+                    include=["documents", "metadatas"],
+                )
+            except Exception:
+                # Fallback: drop chunk_index filter if ChromaDB version doesn't support $and
+                result = collection.get(
+                    where={"document_id": {"$in": doc_ids}},
+                    include=["documents", "metadatas"],
+                )
+
+            # Build lookup: document_id -> first chunk seen
+            chunk_by_doc_id: dict = {}
+            for text, meta in zip(result.get("documents", []), result.get("metadatas", [])):
+                did = meta.get("document_id")
+                if did not in chunk_by_doc_id:
+                    chunk_by_doc_id[did] = (text, meta)
+
+            # Reconstruct in SQL order (most recent first), preserving SQL as source of truth
+            items = []
+            for doc in recent_docs:
+                text, meta = chunk_by_doc_id.get(doc.id, ("", {}))
+                items.append({
+                    "content": text or "",
+                    "filename": doc.filename,
+                    "doc_type": doc.doc_type,
+                    "uploader_email": doc.uploader.email if doc.uploader else meta.get("uploader_email", ""),
+                    "uploaded_at": doc.created_at.isoformat() if doc.created_at else meta.get("uploaded_at", ""),
+                    "chunk_index": meta.get("chunk_index", 0),
+                    "page_number": meta.get("page_number", 0),
+                })
+            return items
+
+        # Legacy fallback (no db session): full collection scan
         try:
             collection = self._chroma_client.get_collection(collection_name)
             total = collection.count()
@@ -462,7 +528,7 @@ class RAGEngine:
             metas = all_data.get("metadatas", [])
 
             items = []
-            for i, (text, meta) in enumerate(zip(docs, metas)):
+            for text, meta in zip(docs, metas):
                 items.append({
                     "content": text or "",
                     "filename": meta.get("filename", "Unknown"),
@@ -473,7 +539,6 @@ class RAGEngine:
                     "page_number": meta.get("page_number", 0),
                 })
 
-            # Sort by uploaded_at descending (newest first)
             items.sort(key=lambda x: x["uploaded_at"], reverse=True)
             return items[:limit]
 
@@ -481,12 +546,12 @@ class RAGEngine:
             print(f"[RAG] Error fetching recent chunks: {e}")
             return []
 
-    def summarize_recent_chunks(self, team_id: int, limit: int = 6) -> List[Dict[str, Any]]:
+    def summarize_recent_chunks(self, team_id: int, limit: int = 6, db=None) -> List[Dict[str, Any]]:
         """
         Get recent chunks and use LLM to generate a short summary for each.
         Returns list of dicts with: summary, filename, doc_type, uploaded_at.
         """
-        chunks = self.get_recent_chunks(team_id, limit=limit)
+        chunks = self.get_recent_chunks(team_id, limit=limit, db=db)
         if not chunks:
             return []
 
