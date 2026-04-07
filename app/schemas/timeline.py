@@ -16,10 +16,10 @@ class TimelineEntryBase(BaseModel):
     source_reference: Optional[str] = None
     tags: Optional[str] = None
     collaborators: Optional[str] = None
-    impact_level: Optional[str] = None # Comma-separated or JSON string
+    impact_level: Optional[str] = None
 
 class TimelineEntryCreate(TimelineEntryBase):
-    project_id: int
+    team_id: int  # Was project_id — now scoped directly to team
 
 class TimelineEntryUpdate(BaseModel):
     entry_type: Optional[EntryTypeEnum] = None
@@ -32,7 +32,7 @@ class TimelineEntryUpdate(BaseModel):
 
 class TimelineEntryResponse(TimelineEntryBase):
     id: int
-    project_id: int
+    team_id: int  # Was project_id
     verified_by_id: int
     author_name: Optional[str] = None
     created_at: datetime
@@ -46,6 +46,6 @@ class MemoryAnalyticsResponse(BaseModel):
     milestones_count: int
     summaries_count: int
     uploads_count: int
-    focus_distribution: dict # e.g. {"Technical Architecture": 65, "UX & Product Design": 22}
+    focus_distribution: dict
     total_entries_last_7_days: int
     active_participants_count: int

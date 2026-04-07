@@ -7,7 +7,7 @@ import json
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
-from app.models.user import User, Project
+from app.models.user import User, Team, user_team
 from app.models.timeline import TimelineEntry
 from app.schemas.timeline import TimelineEntryCreate, TimelineEntryResponse, TimelineEntryUpdate, MemoryAnalyticsResponse
 
@@ -26,10 +26,28 @@ class AutoFillResponse(BaseModel):
 
 router = APIRouter()
 
+
+# ──────────────────────────────────────────────
+# HELPERS
+# ──────────────────────────────────────────────
+
+def _verify_team_member(user: User, team_id: int, db: Session) -> Team:
+    """Verify user is a member of the team. Returns the Team object."""
+    team = db.query(Team).filter(Team.id == team_id).first()
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+    membership = db.query(user_team).filter(
+        user_team.c.user_id == user.id,
+        user_team.c.team_id == team_id,
+    ).first()
+    if not membership:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    return team
+
+
 def _ingest_timeline_entry(team_id: int, entry: TimelineEntry, user_email: str):
     """Background task to safely ingest timeline entry into RAG."""
     try:
-        # Give the AI explicit context in the text payload so it understands *what* this is
         rich_content = (
             f"Project Timeline {entry.entry_type}:\n"
             f"Title: {entry.title}\n"
@@ -39,24 +57,27 @@ def _ingest_timeline_entry(team_id: int, entry: TimelineEntry, user_email: str):
             f"Collaborators: {entry.collaborators or 'None'}\n"
             f"Details: {entry.content}"
         )
-        
         doc = LCDocument(
             page_content=rich_content,
             metadata={
                 "team_id": team_id,
                 "document_id": 0,
                 "timeline_entry_id": entry.id,
-                "filename": f"Memory: {entry.title}", 
+                "filename": f"Memory: {entry.title}",
                 "uploader_email": user_email,
                 "doc_type": "text",
                 "source": entry.source_reference or "Project Timeline"
             }
         )
-        # RAG engine ingest chunks creates embeddings via OpenAI.
         rag_engine.ingest_chunks(team_id, [doc])
         print(f"[RAG Timeline] Successfully ingested timeline entry '{entry.title}'")
     except Exception as e:
         print(f"[RAG Timeline] Failed to ingest '{entry.title}': {e}")
+
+
+# ──────────────────────────────────────────────
+# CRUD ENDPOINTS
+# ──────────────────────────────────────────────
 
 @router.post("/", response_model=TimelineEntryResponse)
 def create_timeline_entry(
@@ -65,12 +86,11 @@ def create_timeline_entry(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Creates a new timeline entry.
-    Automatically assigns the 'verified_by_id' based on the logged-in user.
-    """
+    """Creates a new timeline entry scoped directly to a team."""
+    _verify_team_member(current_user, entry.team_id, db)
+
     db_entry = TimelineEntry(
-        project_id=entry.project_id,
+        team_id=entry.team_id,
         entry_type=entry.entry_type,
         title=entry.title,
         content=entry.content,
@@ -79,124 +99,93 @@ def create_timeline_entry(
         collaborators=entry.collaborators,
         impact_level=entry.impact_level,
         author_name=current_user.full_name or current_user.email.split("@")[0],
-        verified_by_id=current_user.id  # The crucial Human Verification layer!
+        verified_by_id=current_user.id
     )
     db.add(db_entry)
     db.commit()
     db.refresh(db_entry)
-    
-    # Send entry to RAG engine via background task
-    project = db.query(Project).filter(Project.id == entry.project_id).first()
-    if project:
-        background_tasks.add_task(
-            _ingest_timeline_entry,
-            team_id=project.team_id,
-            entry=db_entry,
-            user_email=current_user.email
-        )
-        
+
+    background_tasks.add_task(
+        _ingest_timeline_entry,
+        team_id=entry.team_id,
+        entry=db_entry,
+        user_email=current_user.email
+    )
     return db_entry
 
-@router.get("/project/{project_id}", response_model=List[TimelineEntryResponse])
-def get_project_timeline(
-    project_id: int,
+
+@router.get("/team/{team_id}", response_model=List[TimelineEntryResponse])
+def get_team_timeline(
+    team_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Fetches all timeline entries for a specific project, newest first.
-    """
+    """Fetches all timeline entries for a team, newest first."""
+    _verify_team_member(current_user, team_id, db)
     entries = db.query(TimelineEntry)\
-                .filter(TimelineEntry.project_id == project_id)\
+                .filter(TimelineEntry.team_id == team_id)\
                 .order_by(TimelineEntry.created_at.desc())\
                 .all()
     return entries
 
-@router.get("/project/{project_id}/users")
-def get_project_users(
-    project_id: int,
+
+@router.get("/team/{team_id}/users")
+def get_team_users(
+    team_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    project = db.query(Project).filter(Project.id == project_id).first()
-    if not project or current_user not in project.users:
-        raise HTTPException(status_code=403, detail="Not authorized")
-    return [{"id": u.id, "email": u.email, "full_name": u.full_name or u.email.split("@")[0]} for u in project.users]
+    """Returns all members of the team for @mentions."""
+    team = _verify_team_member(current_user, team_id, db)
+    return [{"id": u.id, "email": u.email, "full_name": u.full_name or u.email.split("@")[0]} for u in team.users]
 
-@router.post("/auto-fill", response_model=AutoFillResponse)
-async def auto_fill_from_document(
-    file: UploadFile = File(...),
+
+@router.get("/team/{team_id}/analytics", response_model=MemoryAnalyticsResponse)
+def get_team_analytics(
+    team_id: int,
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Extracts text from an uploaded document and magically auto-fills entry inputs
-    via an LLM. Does NOT ingest into RAG db (yet — that happens upon saving the form).
-    """
-    content = await file.read()
-    file_size = len(content)
-    
-    is_valid, error = validate_file(file.filename, file_size)
-    if not is_valid:
-        raise HTTPException(status_code=400, detail=error)
-        
-    safe_name = f"{uuid.uuid4().hex[:8]}_{file.filename}"
-    upload_dir = os.path.join("app", "static", "uploads", "temp")
-    os.makedirs(upload_dir, exist_ok=True)
-    file_path = os.path.join(upload_dir, safe_name)
-    
-    with open(file_path, "wb") as f:
-        f.write(content)
-        
-    try:
-        raw_docs = load_document(file_path, file.filename)
-        text_content = "\n".join([doc.page_content for doc in raw_docs])
-        if not text_content.strip():
-            raise HTTPException(
-                status_code=400, 
-                detail="No readable text found. If this is a scanned image or PDF, please upload a document with highlightable text, or try a standard .txt/.docx file."
-            )
-            
-        # Initialize an isolated Langchain Chat wrapper
-        llm = ChatOpenAI(
-            model=settings.RAG_CHAT_MODEL,
-            openai_api_key=settings.OPENAI_API_KEY,
-            temperature=0.1
-        )
-        
-        prompt = (
-            "You are an AI assistant. Analyze the following text and extract three things:\n"
-            "1. A concise 'title' (max 8 words).\n"
-            "2. A 'content' summary (2-3 sentences max) capturing the core outcome or meaning.\n"
-            "3. A 'tags' string of 1-4 comma-separated highly-relevant keywords.\n"
-            "Respond ONLY in valid JSON format: {\"title\": \"...\", \"content\": \"...\", \"tags\": \"...\"}\n\n"
-            f"TEXT TO ANALYZE:\n{text_content[:8000]}" # truncate for safety and speed
-        )
-        
-        system = SystemMessage(content="You are a JSON-only response bot.")
-        human = HumanMessage(content=prompt)
-        
-        res = llm.invoke([system, human])
-        raw_response = res.content.strip()
-        if raw_response.startswith('```json'):
-            raw_response = raw_response[7:-3].strip()
-        elif raw_response.startswith('```'):
-            raw_response = raw_response[3:-3].strip()
-            
-        parsed = json.loads(raw_response)
-        
-        return AutoFillResponse(
-            title=parsed.get("title", ""),
-            content=parsed.get("content", ""),
-            tags=parsed.get("tags", "")
-        )
-        
-    except HTTPException as he:
-        raise he
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"AI processing error: {str(e)}")
-    finally:
-        if os.path.exists(file_path):
-            os.remove(file_path)
+    """Returns analytics for a team's memory timeline."""
+    _verify_team_member(current_user, team_id, db)
+
+    entries = db.query(TimelineEntry).filter(TimelineEntry.team_id == team_id).all()
+
+    decisions = sum(1 for e in entries if e.entry_type == "decision")
+    milestones = sum(1 for e in entries if e.entry_type == "milestone")
+    summaries = sum(1 for e in entries if e.entry_type == "summary")
+    uploads = sum(1 for e in entries if e.entry_type == "upload")
+
+    focus = {}
+    for e in entries:
+        if e.tags:
+            for tag in e.tags.split(","):
+                tag = tag.strip()
+                if tag:
+                    focus[tag] = focus.get(tag, 0) + 1
+
+    if not focus:
+        focus = {"General Architecture": 100}
+    else:
+        total_tags = sum(focus.values())
+        focus = {k: int((v / total_tags) * 100) for k, v in focus.items()}
+
+    participants = set(e.author_name for e in entries if e.author_name)
+
+    from datetime import datetime, timedelta, timezone
+    week_ago = datetime.now(timezone.utc) - timedelta(days=7)
+    recent = sum(1 for e in entries if e.created_at and e.created_at >= week_ago)
+
+    return {
+        "decisions_count": decisions,
+        "milestones_count": milestones,
+        "summaries_count": summaries,
+        "uploads_count": uploads,
+        "focus_distribution": focus,
+        "total_entries_last_7_days": recent,
+        "active_participants_count": len(participants) if participants else 1
+    }
+
 
 @router.delete("/{entry_id}")
 def delete_timeline_entry(
@@ -208,16 +197,18 @@ def delete_timeline_entry(
     entry = db.query(TimelineEntry).filter(TimelineEntry.id == entry_id).first()
     if not entry:
         raise HTTPException(status_code=404, detail="Entry not found")
-        
-    project = db.query(Project).filter(Project.id == entry.project_id).first()
-    if not project or current_user not in project.users:
-        raise HTTPException(status_code=403, detail="Not authorized")
-        
+    _verify_team_member(current_user, entry.team_id, db)
+
     db.delete(entry)
     db.commit()
-    
-    background_tasks.add_task(rag_engine.delete_timeline_entry_chunks, team_id=project.team_id, timeline_entry_id=entry_id)
+
+    background_tasks.add_task(
+        rag_engine.delete_timeline_entry_chunks,
+        team_id=entry.team_id,
+        timeline_entry_id=entry_id
+    )
     return {"message": "Timeline entry deleted successfully"}
+
 
 @router.put("/{entry_id}", response_model=TimelineEntryResponse)
 def update_timeline_entry(
@@ -230,102 +221,109 @@ def update_timeline_entry(
     entry = db.query(TimelineEntry).filter(TimelineEntry.id == entry_id).first()
     if not entry:
         raise HTTPException(status_code=404, detail="Entry not found")
-        
-    project = db.query(Project).filter(Project.id == entry.project_id).first()
-    if not project or current_user not in project.users:
-        raise HTTPException(status_code=403, detail="Not authorized")
-        
+    _verify_team_member(current_user, entry.team_id, db)
+
     update_dict = update_data.model_dump(exclude_unset=True)
     for key, value in update_dict.items():
         setattr(entry, key, value)
-        
+
     db.commit()
     db.refresh(entry)
-    
-    # Re-ingest
-    background_tasks.add_task(rag_engine.delete_timeline_entry_chunks, team_id=project.team_id, timeline_entry_id=entry_id)
-    background_tasks.add_task(_ingest_timeline_entry, team_id=project.team_id, entry=entry, user_email=current_user.email)
-    
+
+    background_tasks.add_task(rag_engine.delete_timeline_entry_chunks, team_id=entry.team_id, timeline_entry_id=entry_id)
+    background_tasks.add_task(_ingest_timeline_entry, team_id=entry.team_id, entry=entry, user_email=current_user.email)
+
     return entry
 
-from datetime import datetime, timedelta
 
-@router.get("/project/{project_id}/analytics", response_model=MemoryAnalyticsResponse)
-def get_project_analytics(
-    project_id: int,
+# ──────────────────────────────────────────────
+# AUTO-FILL VIA AI
+# ──────────────────────────────────────────────
+
+@router.post("/auto-fill", response_model=AutoFillResponse)
+async def auto_fill_from_document(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user)
+):
+    """Extracts text from an uploaded document and auto-fills entry inputs via LLM."""
+    content = await file.read()
+    file_size = len(content)
+
+    is_valid, error = validate_file(file.filename, file_size)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=error)
+
+    safe_name = f"{uuid.uuid4().hex[:8]}_{file.filename}"
+    upload_dir = os.path.join("app", "static", "uploads", "temp")
+    os.makedirs(upload_dir, exist_ok=True)
+    file_path = os.path.join(upload_dir, safe_name)
+
+    with open(file_path, "wb") as f:
+        f.write(content)
+
+    try:
+        raw_docs = load_document(file_path, file.filename)
+        text_content = "\n".join([doc.page_content for doc in raw_docs])
+        if not text_content.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="No readable text found. Please upload a document with highlightable text, or try a .txt/.docx file."
+            )
+
+        llm = ChatOpenAI(
+            model=settings.RAG_CHAT_MODEL,
+            openai_api_key=settings.OPENAI_API_KEY,
+            temperature=0.1
+        )
+
+        prompt = (
+            "You are an AI assistant. Analyze the following text and extract three things:\n"
+            "1. A concise 'title' (max 8 words).\n"
+            "2. A 'content' summary (2-3 sentences max) capturing the core outcome or meaning.\n"
+            "3. A 'tags' string of 1-4 comma-separated highly-relevant keywords.\n"
+            "Respond ONLY in valid JSON format: {\"title\": \"...\", \"content\": \"...\", \"tags\": \"...\"}\n\n"
+            f"TEXT TO ANALYZE:\n{text_content[:8000]}"
+        )
+
+        system = SystemMessage(content="You are a JSON-only response bot.")
+        human = HumanMessage(content=prompt)
+
+        res = llm.invoke([system, human])
+        raw_response = res.content.strip()
+        if raw_response.startswith('```json'):
+            raw_response = raw_response[7:-3].strip()
+        elif raw_response.startswith('```'):
+            raw_response = raw_response[3:-3].strip()
+
+        parsed = json.loads(raw_response)
+
+        return AutoFillResponse(
+            title=parsed.get("title", ""),
+            content=parsed.get("content", ""),
+            tags=parsed.get("tags", "")
+        )
+
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"AI processing error: {str(e)}")
+    finally:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+
+
+# ──────────────────────────────────────────────
+# TEAMS LIST (used by memory.js to build the selector)
+# ──────────────────────────────────────────────
+
+class TeamResponse(BaseModel):
+    id: int           # team_id — the single source of truth
+    team_name: str
+
+@router.get("/teams", response_model=List[TeamResponse])
+def get_user_teams(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    project = db.query(Project).filter(Project.id == project_id).first()
-    if not project or current_user not in project.users:
-        raise HTTPException(status_code=403, detail="Not authorized")
-        
-    entries = db.query(TimelineEntry).filter(TimelineEntry.project_id == project_id).all()
-    
-    decisions = sum(1 for e in entries if e.entry_type == "decision")
-    milestones = sum(1 for e in entries if e.entry_type == "milestone")
-    summaries = sum(1 for e in entries if e.entry_type == "summary")
-    uploads = sum(1 for e in entries if e.entry_type == "upload")
-    
-    # Calculate focus distribution (mocked partially based on tags)
-    focus = {}
-    for e in entries:
-        if e.tags:
-            for tag in e.tags.split(","):
-                tag = tag.strip()
-                if tag:
-                    focus[tag] = focus.get(tag, 0) + 1
-    
-    if not focus:
-        focus = {"General Architecture": 100} # prevent empty
-    else:
-        total_tags = sum(focus.values())
-        focus = {k: int((v / total_tags) * 100) for k, v in focus.items()}
-    
-    # Get active participants
-    participants = set(e.author_name for e in entries if e.author_name)
-    
-    # Get entries from last 7 days
-    # Need timezone aware datetime if db uses timezone aware
-    from datetime import timezone
-    week_ago = datetime.now(timezone.utc) - timedelta(days=7)
-    recent = sum(1 for e in entries if e.created_at and e.created_at >= week_ago)
-    
-    return {
-        "decisions_count": decisions,
-        "milestones_count": milestones,
-        "summaries_count": summaries,
-        "uploads_count": uploads,
-        "focus_distribution": focus,
-        "total_entries_last_7_days": recent,
-        "active_participants_count": len(participants) if participants else 1 # default to 1
-    }
-
-from app.models.user import Project, Team, user_project
-from pydantic import BaseModel
-
-class ProjectResponse(BaseModel):
-    id: int
-    project_name: str
-    team_id: int
-
-@router.get("/projects", response_model=List[ProjectResponse])
-def get_user_projects(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """
-    Fetches projects for the current user. If none exist but the user has a team,
-    creates a default project so the timeline can be tested.
-    """
-    if not current_user.projects:
-        if current_user.teams:
-            default_team = current_user.teams[0]
-            default_project = Project(project_name=f"{default_team.team_name} Project", team_id=default_team.id)
-            default_project.users.append(current_user)
-            db.add(default_project)
-            db.commit()
-            db.refresh(default_project)
-            current_user.projects.append(default_project)
-            
-    return [{"id": p.id, "project_name": p.project_name, "team_id": p.team_id} for p in current_user.projects]
+    """Returns all teams the current user belongs to. Frontend uses this for project switching."""
+    return [{"id": t.id, "team_name": t.team_name} for t in current_user.teams]

@@ -1,0 +1,280 @@
+{% extends "base.html" %}
+
+{% block title %}Settings — LogiPlanner{% endblock %}
+{% block meta_description %}Manage your account, workspace, and team preferences.{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="/static/css/settings.css">
+{% endblock %}
+
+{% from "partials/navbar.html" import topbar %}
+
+{% block content %}
+<main class="stg-main">
+    {% call topbar() %}
+        <div class="topbar-left">
+            <div class="topbar__page-title">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                <span>Settings</span>
+            </div>
+        </div>
+    {% endcall %}
+
+    <div class="stg-body">
+        <!-- Settings Sidebar Nav -->
+        <nav class="stg-nav" id="settingsNav">
+            <div class="stg-nav__group">
+                <span class="stg-nav__label">Account</span>
+                <a href="#" class="stg-nav__link active" data-target="account">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                    Profile
+                </a>
+                <a href="#" class="stg-nav__link" data-target="notifications">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+                    Notifications
+                </a>
+            </div>
+            <div class="stg-nav__group">
+                <span class="stg-nav__label">Workspace</span>
+                <a href="#" class="stg-nav__link" data-target="members">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                    Members
+                </a>
+                <a href="#" class="stg-nav__link" data-target="workspace">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                    General
+                </a>
+            </div>
+        </nav>
+
+        <!-- Settings Content -->
+        <div class="stg-scroll">
+            <div class="stg-content">
+
+                <!-- ═══ ACCOUNT / PROFILE ═══ -->
+                <section class="stg-section active" id="section-account">
+                    <div class="stg-section__header">
+                        <h2 class="stg-section__title">Profile</h2>
+                        <p class="stg-section__desc">Your personal information and account details.</p>
+                    </div>
+
+                    <form class="stg-card" id="profileForm">
+                        <div class="stg-card__row stg-card__row--avatar">
+                            <div class="stg-avatar">
+                                <div class="stg-avatar__img" id="profileAvatarImg">
+                                    <span id="avatarInitial">U</span>
+                                </div>
+                            </div>
+                            <div class="stg-avatar__info">
+                                <span class="stg-avatar__name" id="avatarDisplayName">—</span>
+                                <span class="stg-avatar__role" id="avatarDisplayRole">Member</span>
+                            </div>
+                        </div>
+
+                        <div class="stg-card__row">
+                            <div class="stg-field">
+                                <label class="stg-field__label" for="profileName">Full name</label>
+                                <input type="text" id="profileName" class="stg-field__input" required autocomplete="name">
+                            </div>
+                        </div>
+
+                        <div class="stg-card__row">
+                            <div class="stg-field">
+                                <label class="stg-field__label" for="profileEmail">Email address</label>
+                                <input type="email" id="profileEmail" class="stg-field__input" required autocomplete="email">
+                            </div>
+                        </div>
+
+                        <div class="stg-card__row">
+                            <div class="stg-field">
+                                <label class="stg-field__label">Workspace role</label>
+                                <div class="stg-field__static" id="workspaceRoleDisplay">Viewer</div>
+                            </div>
+                        </div>
+
+                        <div class="stg-card__footer">
+                            <button type="submit" class="stg-btn stg-btn--primary" id="profileSaveBtn">Save changes</button>
+                        </div>
+                    </form>
+                </section>
+
+                <!-- ═══ NOTIFICATIONS ═══ -->
+                <section class="stg-section" id="section-notifications">
+                    <div class="stg-section__header">
+                        <h2 class="stg-section__title">Notifications</h2>
+                        <p class="stg-section__desc">Control how and when LogiPlanner alerts you.</p>
+                    </div>
+
+                    <div class="stg-card">
+                        <div class="stg-toggle-row">
+                            <div class="stg-toggle-row__text">
+                                <span class="stg-toggle-row__title">Email digest</span>
+                                <span class="stg-toggle-row__desc">Daily summary of project changes sent to your inbox.</span>
+                            </div>
+                            <button type="button" class="stg-toggle" id="toggleEmail" role="switch" aria-checked="false">
+                                <span class="stg-toggle__knob"></span>
+                            </button>
+                        </div>
+
+                        <div class="stg-toggle-row">
+                            <div class="stg-toggle-row__text">
+                                <span class="stg-toggle-row__title">Dashboard alerts</span>
+                                <span class="stg-toggle-row__desc">In-app notifications for task assignments and updates.</span>
+                            </div>
+                            <button type="button" class="stg-toggle" id="toggleDashboard" role="switch" aria-checked="false">
+                                <span class="stg-toggle__knob"></span>
+                            </button>
+                        </div>
+
+                        <div class="stg-toggle-row">
+                            <div class="stg-toggle-row__text">
+                                <span class="stg-toggle-row__title">Deadline reminders</span>
+                                <span class="stg-toggle-row__desc">Get notified 24 hours before a task is due.</span>
+                            </div>
+                            <button type="button" class="stg-toggle" id="toggleDeadline" role="switch" aria-checked="false">
+                                <span class="stg-toggle__knob"></span>
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ═══ MEMBERS ═══ -->
+                <section class="stg-section" id="section-members">
+                    <div class="stg-section__header">
+                        <div>
+                            <h2 class="stg-section__title">Team members</h2>
+                            <p class="stg-section__desc">People who have access to this workspace.</p>
+                        </div>
+                        <button type="button" class="stg-btn stg-btn--secondary" id="openInviteModal">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                            Invite
+                        </button>
+                    </div>
+
+                    <!-- Invite code banner -->
+                    <div class="stg-invite-banner">
+                        <div class="stg-invite-banner__text">
+                            <span class="stg-invite-banner__label">Invite code</span>
+                            <span class="stg-invite-banner__hint">Share this code so teammates can join directly.</span>
+                        </div>
+                        <div class="stg-invite-banner__actions">
+                            <code class="stg-invite-banner__code" id="projectSettingsInviteCode">--------</code>
+                            <button type="button" class="stg-btn stg-btn--ghost" id="copySettingsInviteCode" title="Copy invite code">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                                Copy
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="stg-card stg-card--table">
+                        <div class="stg-table__head">
+                            <span class="stg-table__col stg-table__col--user">Member</span>
+                            <span class="stg-table__col stg-table__col--role">Role</span>
+                            <span class="stg-table__col stg-table__col--action"></span>
+                        </div>
+                        <div id="teamMembersList">
+                            <!-- JS renders rows here -->
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ═══ WORKSPACE ═══ -->
+                <section class="stg-section" id="section-workspace">
+                    <div class="stg-section__header">
+                        <h2 class="stg-section__title">Workspace</h2>
+                        <p class="stg-section__desc">Manage workspace identity and AI preferences.</p>
+                    </div>
+
+                    <form class="stg-card" id="projectForm">
+                        <div class="stg-card__row">
+                            <div class="stg-field">
+                                <label class="stg-field__label" for="projectName">Workspace name</label>
+                                <input type="text" id="projectName" class="stg-field__input" required>
+                            </div>
+                        </div>
+
+                        <div class="stg-card__row">
+                            <div class="stg-field">
+                                <label class="stg-field__label" for="projectDesc">Description</label>
+                                <textarea id="projectDesc" class="stg-field__input stg-field__input--textarea" rows="4" placeholder="What is this workspace about?"></textarea>
+                            </div>
+                        </div>
+
+                        <div class="stg-card__footer">
+                            <button type="submit" class="stg-btn stg-btn--primary" id="projectSaveBtn">Save changes</button>
+                        </div>
+                    </form>
+
+                    <!-- AI Sensitivity -->
+                    <div class="stg-card">
+                        <div class="stg-card__row">
+                            <div class="stg-field">
+                                <div class="stg-field__label-row">
+                                    <label class="stg-field__label" for="sensitivitySlider">AI response style</label>
+                                    <span class="stg-field__value" id="sensitivityValue">84%</span>
+                                </div>
+                                <input type="range" id="sensitivitySlider" class="stg-range" min="0" max="100" value="84">
+                                <div class="stg-range__labels">
+                                    <span>Conservative</span>
+                                    <span>Creative</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+        </div>
+    </div>
+</main>
+
+<!-- Invite Modal -->
+<div class="stg-overlay" id="inviteModalOverlay">
+    <div class="stg-modal">
+        <div class="stg-modal__header">
+            <h3 class="stg-modal__title">Invite a team member</h3>
+            <button type="button" class="stg-modal__close" id="inviteCancel" aria-label="Close">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+        <form id="inviteForm">
+            <div class="stg-field" style="margin-bottom:16px;">
+                <label class="stg-field__label" for="inviteEmail">Email address</label>
+                <input type="email" id="inviteEmail" class="stg-field__input" required placeholder="name@company.com">
+            </div>
+            <div class="stg-field" style="margin-bottom:24px;">
+                <label class="stg-field__label" for="inviteRole">Role</label>
+                <select id="inviteRole" class="stg-field__input stg-field__input--select">
+                    <option value="owner">Owner — full access</option>
+                    <option value="editor">Editor — can modify tasks & docs</option>
+                    <option value="viewer" selected>Viewer — read-only</option>
+                </select>
+            </div>
+            <div class="stg-modal__actions">
+                <button type="button" class="stg-btn stg-btn--ghost" id="inviteCancelBtn">Cancel</button>
+                <button type="submit" class="stg-btn stg-btn--primary" id="inviteSubmitBtn">Send invite</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Remove Confirm Modal -->
+<div class="stg-overlay" id="removeModalOverlay">
+    <div class="stg-modal">
+        <div class="stg-modal__header">
+            <h3 class="stg-modal__title stg-modal__title--danger">Remove member</h3>
+            <button type="button" class="stg-modal__close" id="removeCloseBtn" aria-label="Close">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+        <p class="stg-modal__body">Are you sure you want to remove <strong id="removeMemberName">this member</strong>? They will lose all access to this workspace.</p>
+        <input type="hidden" id="removeMemberId">
+        <div class="stg-modal__actions">
+            <button type="button" class="stg-btn stg-btn--ghost" id="removeCancel">Cancel</button>
+            <button type="button" class="stg-btn stg-btn--danger" id="removeConfirmBtn">Remove</button>
+        </div>
+    </div>
+</div>
+
+<script src="/static/js/settings.js"></script>
+{% endblock %}

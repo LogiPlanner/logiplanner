@@ -66,47 +66,47 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let allEntries = [];
     let projectUsers = [];
-    let currentProjectId = null;
+    let currentTeamId = null;
     let currentFilter = 'all';
     let entryToDelete = null;
 
     // --- FETCH DATA ---
 
-    async function fetchProjects() {
+    async function fetchTeams() {
         try {
-            const res = await mFetch('/api/v1/timeline/projects', { headers });
+            const res = await mFetch('/api/v1/timeline/teams', { headers });
             if (res.ok) {
-                const projects = await res.json();
-                if (projects.length > 0) {
-                    currentProjectId = projects[0].id;
+                const teams = await res.json();
+                if (teams.length > 0) {
+                    const storedId = parseInt(localStorage.getItem('selected_team_id'));
+                    const matched = teams.find(t => t.id === storedId);
+                    const activeTeam = matched || teams[0];
+
+                    currentTeamId = activeTeam.id;
                     if (projectTitle) {
-                        projectTitle.textContent = projects[0].project_name || 'Project Memory';
+                        projectTitle.textContent = activeTeam.team_name;
                     }
-                    loadProjectData(currentProjectId);
+                    loadTeamData(currentTeamId);
                 } else {
-                    if (projectTitle) {
-                        projectTitle.textContent = 'Project Memory';
-                    }
+                    if (projectTitle) projectTitle.textContent = 'Project Memory';
                     timelineEmpty.style.display = 'block';
                 }
             }
         } catch(e) {
-            console.error('Failed to fetch projects', e);
-            if (projectTitle) {
-                projectTitle.textContent = 'Project Memory';
-            }
+            console.error('Failed to fetch teams', e);
+            if (projectTitle) projectTitle.textContent = 'Project Memory';
         }
     }
 
-    async function loadProjectData(projectId) {
-        fetchTimeline(projectId);
-        fetchAnalytics(projectId);
-        fetchProjectUsers(projectId);
+    async function loadTeamData(teamId) {
+        fetchTimeline(teamId);
+        fetchAnalytics(teamId);
+        fetchTeamUsers(teamId);
     }
     
-    async function fetchProjectUsers(projectId) {
+    async function fetchTeamUsers(teamId) {
         try {
-            const res = await fetch(`/api/v1/timeline/project/${projectId}/users`, { headers });
+            const res = await fetch(`/api/v1/timeline/team/${teamId}/users`, { headers });
             if (res.ok) {
                 projectUsers = await res.json();
             }
@@ -115,9 +115,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function fetchTimeline(projectId) {
+    async function fetchTimeline(teamId) {
         try {
-            const res = await mFetch(`/api/v1/timeline/project/${projectId}`, { headers });
+            const res = await mFetch(`/api/v1/timeline/team/${teamId}`, { headers });
+
             if (res.ok) {
                 const newData = await res.json();
                 if (allEntries.length > 0 && newData.length > allEntries.length) {
@@ -154,9 +155,9 @@ document.addEventListener('DOMContentLoaded', () => {
         notifList.insertAdjacentHTML('afterbegin', html);
     }
 
-    async function fetchAnalytics(projectId) {
+    async function fetchAnalytics(teamId) {
         try {
-            const res = await mFetch(`/api/v1/timeline/project/${projectId}/analytics`, { headers });
+            const res = await mFetch(`/api/v1/timeline/team/${teamId}/analytics`, { headers });
             if (res.ok) {
                 const data = await res.json();
                 statDecisions.textContent = data.decisions_count;
@@ -437,7 +438,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     confirmDeleteBtn.addEventListener('click', async () => {
-        if (!entryToDelete || !currentProjectId) return;
+        if (!entryToDelete || !currentTeamId) return;
         
         confirmDeleteBtn.textContent = "Deleting...";
         try {
@@ -446,7 +447,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers
             });
             if (res.ok) {
-                loadProjectData(currentProjectId);
+                loadTeamData(currentTeamId);
             } else {
                 showError("Failed to delete entry.");
             }
@@ -497,7 +498,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     entryForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        if (!currentProjectId) return alert('No project selected.');
+        if (!currentTeamId) return alert('No project selected.');
 
         const isEditing = !!editEntryId.value;
         const url = isEditing ? `/api/v1/timeline/${editEntryId.value}` : '/api/v1/timeline/';
@@ -514,7 +515,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         
         if (!isEditing) {
-            payload.project_id = currentProjectId;
+            payload.team_id = currentTeamId;
         }
 
         const originalText = saveEntryBtn.textContent;
@@ -532,7 +533,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 entryModal.classList.remove('active');
                 entryForm.reset();
                 editEntryId.value = "";
-                loadProjectData(currentProjectId);
+                loadTeamData(currentTeamId);
             } else {
                 const data = await res.json();
                 showError(data.detail || 'Error saving entry');
@@ -547,12 +548,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Init
-    fetchProjects();
+    fetchTeams();
 
-    // Simple Polling Simulator for Notifications
     setInterval(() => {
-        if(currentProjectId) {
-            fetchTimeline(currentProjectId); // silently updates and triggers dot
+        if(currentTeamId) {
+            fetchTimeline(currentTeamId); // silently updates and triggers dot
         }
     }, 15000);
 

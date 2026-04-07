@@ -73,6 +73,10 @@
         forceLogout();
     });
 
+    document.getElementById('navbarLogoutBtn')?.addEventListener('click', () => {
+        forceLogout();
+    });
+
     // ── Mobile Sidebar Toggle ──
     const toggle  = document.getElementById('mobileToggle');
     const sidebar = document.getElementById('mainSidebar');
@@ -127,6 +131,7 @@
         // Persist selection on change
         _ts.addEventListener('change', function () {
             localStorage.setItem('selected_team_id', _ts.value);
+            window.location.reload();
         });
 
         // Fallback loader — populate if page JS hasn't done it yet
@@ -134,10 +139,10 @@
             .then(function (r) { return r && r.ok ? r.json() : null; })
             .then(function (data) {
                 // Skip if page-specific JS already populated the select
-                if (_ts.options.length > 1 || (_ts.options[0] && _ts.options[0].textContent !== 'Loading teams...')) return;
+                if (_ts.options.length > 1 || (_ts.options[0] && !_ts.options[0].textContent.includes('Loading'))) return;
 
                 if (!data || !data.teams || data.teams.length === 0) {
-                    _ts.innerHTML = '<option>No teams yet</option>';
+                    _ts.innerHTML = '<option>No projects yet</option>';
                     return;
                 }
                 var saved = localStorage.getItem('selected_team_id');
