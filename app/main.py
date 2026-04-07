@@ -149,9 +149,8 @@ async def settings_page(request: Request):
 
 
 @app.get("/")
-async def root_redirect():
-    from fastapi.responses import RedirectResponse
-    return RedirectResponse(url="/login")
+async def home_page(request: Request):
+    return templates.TemplateResponse("home.html", {"request": request})
 
 @app.get("/coming-soon")
 async def coming_soon_page(request: Request):
