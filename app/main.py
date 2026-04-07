@@ -75,6 +75,8 @@ app.include_router(timeline_router, prefix=settings.API_V1_STR + "/timeline", ta
 from app.api.v1.calendar import router as calendar_router
 app.include_router(calendar_router, prefix=settings.API_V1_STR + "/calendar", tags=["calendar"])
 
+from app.api.v1.settings import router as settings_router
+app.include_router(settings_router, prefix=settings.API_V1_STR + "/settings", tags=["settings"])
 
 # ──────────────────────────────────────────────
 # Health Check
@@ -139,6 +141,11 @@ async def studio_page(request: Request):
 @app.get("/memory")
 async def memory_page(request: Request):
     return templates.TemplateResponse("memory.html", {"request": request, "active_nav": "project_memory"})
+
+
+@app.get("/settings")
+async def settings_page(request: Request):
+    return templates.TemplateResponse("settings.html", {"request": request, "active_nav": "settings"})
 
 
 @app.get("/")

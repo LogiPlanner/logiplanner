@@ -73,6 +73,10 @@
         forceLogout();
     });
 
+    document.getElementById('navbarLogoutBtn')?.addEventListener('click', () => {
+        forceLogout();
+    });
+
     // ── Mobile Sidebar Toggle ──
     const toggle  = document.getElementById('mobileToggle');
     const sidebar = document.getElementById('mainSidebar');
@@ -172,7 +176,7 @@
             .then(function (r) { return r && r.ok ? r.json() : null; })
             .then(function (data) {
                 // Skip if page-specific JS already populated the select
-                if (_ts.options.length > 1 || (_ts.options[0] && _ts.options[0].textContent !== 'Loading teams...')) return;
+                if (_ts.options.length > 1 || (_ts.options[0] && !_ts.options[0].textContent.includes('Loading'))) return;
 
                 if (!data || !data.teams || data.teams.length === 0) {
                     _ts.innerHTML = '<option>No teams yet</option>';

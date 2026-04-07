@@ -287,6 +287,9 @@ async def profile_status(current_user: User = Depends(get_current_user)):
         "full_name": current_user.full_name,
         "email": current_user.email,
         "job_title": current_user.job_title,
+        "notify_email": current_user.notify_email,
+        "notify_dashboard": current_user.notify_dashboard,
+        "notify_deadline": current_user.notify_deadline,
     }
 
 

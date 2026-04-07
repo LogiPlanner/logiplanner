@@ -13,7 +13,7 @@ class TimelineEntry(Base):
     __tablename__ = "timeline_entries"
 
     id = Column(Integer, primary_key=True, index=True)
-    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    team_id = Column(Integer, ForeignKey("teams.id"), nullable=False, index=True)
     
     entry_type = Column(Enum(EntryType), nullable=False)
     title = Column(String, nullable=False)
@@ -26,4 +26,4 @@ class TimelineEntry(Base):
     tags = Column(String, nullable=True)
     impact_level = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())

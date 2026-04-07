@@ -139,9 +139,7 @@ def _is_timeline_query(message: str) -> bool:
 
 
 def _build_live_timeline_summary(db: Session, team_id: int, max_items: int = 15) -> str:
-    """Build a rich card response from live TimelineEntry data for all projects in the team."""
-    projects = db.query(Project).filter(Project.team_id == team_id).all()
-
+    """Build a rich card response from live TimelineEntry data for a team."""
     card_payload: dict = {
         "type": "timeline",
         "heading": "Memory Timeline — Latest Entries",
@@ -149,27 +147,19 @@ def _build_live_timeline_summary(db: Session, team_id: int, max_items: int = 15)
         "items": [],
     }
 
-    if not projects:
-        return "__CARDS__:" + json.dumps(card_payload)
-
-    project_ids = [p.id for p in projects]
-    project_map = {p.id: p.project_name for p in projects}
-
     entries = (
         db.query(TimelineEntry)
-        .filter(TimelineEntry.project_id.in_(project_ids))
+        .filter(TimelineEntry.team_id == team_id)
         .order_by(TimelineEntry.created_at.desc())
         .limit(max_items)
         .all()
     )
 
     for e in entries:
-        proj_name = project_map.get(e.project_id, f"Project {e.project_id}")
         ts = e.created_at.strftime("%b %d, %Y") if e.created_at else "Unknown date"
         card_payload["items"].append({
             "entry_type": e.entry_type.value,
             "title": e.title,
-            "project": proj_name,
             "date": ts,
             "content": e.content[:180] + ("..." if len(e.content) > 180 else ""),
         })
