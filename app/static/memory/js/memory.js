@@ -76,15 +76,15 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const res = await mFetch('/api/v1/timeline/teams', { headers });
             if (res.ok) {
-                const teams = await res.json();
-                if (teams.length > 0) {
-                    const storedId = parseInt(localStorage.getItem('selected_team_id'));
-                    const matched = teams.find(t => t.id === storedId);
-                    const activeTeam = matched || teams[0];
-
-                    currentTeamId = activeTeam.id;
+                const projects = await res.json();
+                if (projects.length > 0) {
+                    // Pick the project matching the selected team, or fall back to first
+                    const savedTeam = localStorage.getItem('selected_team_id');
+                    const matched = savedTeam && projects.find(p => p.team_id === parseInt(savedTeam));
+                    const chosen = matched || projects[0];
+                    currentProjectId = chosen.id;
                     if (projectTitle) {
-                        projectTitle.textContent = activeTeam.team_name;
+                        projectTitle.textContent = chosen.project_name || 'Project Memory';
                     }
                     loadTeamData(currentTeamId);
                 } else {
@@ -548,7 +548,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Init
-    fetchTeams();
+    fetchProjects();
+
+    // React to sidebar team switch
+    const _teamSel = document.getElementById('teamSelect');
+    if (_teamSel) {
+        _teamSel.addEventListener('change', function () {
+            localStorage.setItem('selected_team_id', _teamSel.value);
+            fetchProjects();
+        });
+    }
 
     setInterval(() => {
         if(currentTeamId) {

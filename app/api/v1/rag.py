@@ -14,7 +14,7 @@ import uuid
 from typing import List, Optional
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, BackgroundTasks, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 
@@ -36,6 +36,8 @@ from app.schemas.rag import (
     ChatSessionResponse,
     KnowledgeBaseStats,
     DeleteResponse,
+    RecentKnowledgeItem,
+    RecentKnowledgeResponse,
 )
 from app.rag.engine import rag_engine
 from app.rag.processor import (
@@ -491,6 +493,20 @@ async def knowledge_base_stats(
     _verify_team_access(current_user, team_id, db)
     stats = rag_engine.get_stats(team_id)
     return KnowledgeBaseStats(**stats)
+
+
+@router.get("/recent-chunks/{team_id}", response_model=RecentKnowledgeResponse)
+async def recent_knowledge_chunks(
+    team_id: int,
+    limit: int = Query(6, ge=1, le=20),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get LLM-summarized recent knowledge chunks for a team's dashboard."""
+    _verify_team_access(current_user, team_id, db)
+    summaries = rag_engine.summarize_recent_chunks(team_id, limit=limit, db=db)
+    items = [RecentKnowledgeItem(**s) for s in summaries]
+    return RecentKnowledgeResponse(items=items, total=len(items))
 
 
 # ──────────────────────────────────────────────

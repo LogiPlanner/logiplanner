@@ -184,6 +184,9 @@
             });
         }
 
+        // Render sidebar team buttons
+        renderSidebarTeams();
+
         updateWelcomeBanner();
         initCalendarControls();
         initTaskModal();
@@ -192,16 +195,52 @@
         loadTeamData();
     }
 
+    // ── Sidebar Team Buttons ──
+    const _teamColors = ['#4f46e5','#7c3aed','#06d6a0','#f59e0b','#ef4444','#3b82f6','#ec4899','#14b8a6'];
+
+    function renderSidebarTeams() {
+        const list = document.getElementById('teamList');
+        if (!list || teams.length === 0) return;
+
+        list.innerHTML = '';
+        teams.forEach((t, i) => {
+            const initials = (t.name || 'T').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+            const color = _teamColors[i % _teamColors.length];
+            const btn = document.createElement('button');
+            btn.className = 'sidebar__team-btn' + (t.id === currentTeamId ? ' active' : '');
+            btn.dataset.teamId = t.id;
+            btn.innerHTML = '<span class="sidebar__team-icon" style="background:' + color + '">' + initials + '</span>'
+                + '<span class="sidebar__team-name">' + escHtml(t.name) + '</span>';
+            btn.addEventListener('click', () => {
+                if (t.id === currentTeamId) return;
+                currentTeamId = t.id;
+                localStorage.setItem('selected_team_id', currentTeamId);
+                const sel = document.getElementById('teamSelect');
+                if (sel) sel.value = currentTeamId;
+                list.querySelectorAll('.sidebar__team-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                loadTeamData();
+            });
+            list.appendChild(btn);
+        });
+    }
+
     function updateWelcomeBanner() {
         const team = teams.find(t => t.id === currentTeamId);
         const titleEl = document.getElementById('welcomeTitle');
         const labelEl = document.getElementById('teamLabel');
+        const dateEl = document.getElementById('heroDate');
 
         if (titleEl && userName) {
             titleEl.innerHTML = 'Welcome back, <em>' + escHtml(userName.split(' ')[0]) + '</em>';
         }
         if (labelEl && team) {
             labelEl.textContent = team.name;
+        }
+        if (dateEl) {
+            dateEl.textContent = new Date().toLocaleDateString('en-US', {
+                weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
+            });
         }
     }
 
@@ -219,8 +258,6 @@
         ]);
 
         teamMembers = members || [];
-
-        renderStats(stats);
 
         // Build activity map from docs + chats
         calActivityDays = {};
@@ -242,17 +279,260 @@
         }
 
         await loadCalendarTasks();
+        renderStats(stats, docs, members);
+        renderTodaysFocus();
         renderTeamInfo(roleData);
         renderGettingStarted(stats, docs);
         loadAISuggestions();
+        loadRecentKnowledge();
+        loadUpcomingEvents();
     }
 
-    // ── Stats ──
-    function renderStats(stats) {
-        const docCount = document.getElementById('statDocuments');
-        const chunkCount = document.getElementById('statChunks');
-        if (docCount) docCount.textContent = stats ? stats.document_count : 0;
-        if (chunkCount) chunkCount.textContent = stats ? stats.total_chunks.toLocaleString() : 0;
+    // ── Stats Strip ──
+    function renderStats(stats, docs, members) {
+        const docsEl = document.getElementById('statDocsValue');
+        const tasksEl = document.getElementById('statTasksValue');
+        const membersEl = document.getElementById('statMembersValue');
+        const brainEl = document.getElementById('statBrainValue');
+
+        const docCount = docs && docs.documents ? docs.documents.length : 0;
+        const activeTasks = calTasks.filter(t => !t.is_completed).length;
+        const memberCount = members ? members.length : 0;
+        const chunkCount = stats && stats.total_chunks ? stats.total_chunks : 0;
+
+        if (docsEl) docsEl.textContent = docCount;
+        if (tasksEl) tasksEl.textContent = activeTasks;
+        if (membersEl) membersEl.textContent = memberCount;
+        if (brainEl) brainEl.textContent = chunkCount;
+    }
+
+    // ── Today's Focus ──
+    function renderTodaysFocus() {
+        const loadingEl = document.getElementById('todayFocusLoading');
+        const emptyEl = document.getElementById('todayFocusEmpty');
+        const listEl = document.getElementById('todayFocusList');
+        const countEl = document.getElementById('todayFocusCount');
+
+        if (loadingEl) loadingEl.style.display = 'none';
+
+        const todayStr = dateKey(new Date());
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const tomorrowStr = dateKey(tomorrow);
+
+        // Tasks for today + tomorrow, incomplete first
+        const todayTasks = calTasks.filter(t => taskSpansDate(t, todayStr) || taskSpansDate(t, tomorrowStr));
+        todayTasks.sort((a, b) => {
+            if (a.is_completed !== b.is_completed) return a.is_completed ? 1 : -1;
+            return new Date(a.start_datetime) - new Date(b.start_datetime);
+        });
+
+        const incomplete = todayTasks.filter(t => !t.is_completed);
+        if (countEl) countEl.textContent = incomplete.length + ' task' + (incomplete.length !== 1 ? 's' : '');
+
+        if (todayTasks.length === 0) {
+            if (emptyEl) emptyEl.style.display = 'flex';
+            if (listEl) listEl.innerHTML = '';
+            return;
+        }
+
+        if (emptyEl) emptyEl.style.display = 'none';
+        if (!listEl) return;
+
+        listEl.innerHTML = todayTasks.map(task => {
+            const doneClass = task.is_completed ? ' focus-task--done' : '';
+            const colorBar = task.color_tag
+                ? '<div class="focus-task__color-bar" style="background:' + task.color_tag + '"></div>'
+                : '';
+            const timeStr = task.start_datetime ? formatTime(task.start_datetime) : '';
+            const dateLabel = task.start_datetime && task.start_datetime.slice(0, 10) === tomorrowStr ? 'Tomorrow' : 'Today';
+            const metaParts = [taskTypeIcon(task.task_type || 'regular') + ' ' + dateLabel];
+            if (timeStr) metaParts.push(timeStr);
+            if (task.location) metaParts.push('📍 ' + escHtml(task.location));
+
+            return '<div class="focus-task' + doneClass + '" data-date="' + task.start_datetime.slice(0, 10) + '">'
+                + colorBar
+                + '<input type="checkbox" class="focus-task__check" data-task-id="' + task.id + '" ' + (task.is_completed ? 'checked' : '') + '>'
+                + '<div class="focus-task__body">'
+                + '<div class="focus-task__title">' + escHtml(task.title) + '</div>'
+                + '<div class="focus-task__meta">' + metaParts.join(' · ') + '</div>'
+                + '</div>'
+                + '<span class="focus-task__priority" style="background:' + priorityColor(task.priority) + '20;color:' + priorityColor(task.priority) + '">'
+                + priorityLabel(task.priority) + '</span>'
+                + '</div>';
+        }).join('');
+
+        // Attach checkbox handlers
+        listEl.querySelectorAll('.focus-task__check').forEach(cb => {
+            cb.addEventListener('change', (e) => {
+                e.stopPropagation();
+                toggleTaskComplete(parseInt(cb.dataset.taskId), cb.checked);
+            });
+        });
+
+        // Click on task row opens day panel
+        listEl.querySelectorAll('.focus-task').forEach(el => {
+            el.addEventListener('click', (e) => {
+                if (e.target.classList.contains('focus-task__check')) return;
+                const taskDate = el.dataset.date;
+                if (taskDate) openDayPanel(taskDate);
+            });
+        });
+    }
+
+    // ── Recent Knowledge ──
+    async function loadRecentKnowledge() {
+        const loadingEl = document.getElementById('recentKnowledgeLoading');
+        const emptyEl = document.getElementById('recentKnowledgeEmpty');
+        const listEl = document.getElementById('recentKnowledgeList');
+        if (loadingEl) loadingEl.style.display = 'flex';
+        if (emptyEl) emptyEl.style.display = 'none';
+        if (listEl) listEl.innerHTML = '';
+
+        try {
+            var resp = await fetch('/api/v1/rag/recent-chunks/' + currentTeamId + '?limit=5', {
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            if (!resp.ok) throw new Error('Failed to fetch recent knowledge');
+            var data = await resp.json();
+
+            if (loadingEl) loadingEl.style.display = 'none';
+
+            if (!data.items || data.items.length === 0) {
+                if (emptyEl) emptyEl.style.display = 'flex';
+                return;
+            }
+            if (emptyEl) emptyEl.style.display = 'none';
+
+            if (listEl) {
+                listEl.innerHTML = data.items.map(function (item) {
+                    var icon = docTypeIcon(item.doc_type);
+                    var timeAgo = relativeTime(item.uploaded_at);
+                    return '<div class="knowledge-item">'
+                        + '<div class="knowledge-item__icon">' + icon + '</div>'
+                        + '<div class="knowledge-item__body">'
+                        + '<div class="knowledge-item__summary">' + escHtml(item.summary) + '</div>'
+                        + '<div class="knowledge-item__meta">'
+                        + '<span>' + escHtml(item.filename) + '</span>'
+                        + '<span>' + timeAgo + '</span>'
+                        + '</div>'
+                        + '</div>'
+                        + '</div>';
+                }).join('');
+            }
+        } catch (e) {
+            console.error('loadRecentKnowledge error:', e);
+            if (loadingEl) loadingEl.style.display = 'none';
+            if (emptyEl) emptyEl.style.display = 'flex';
+        }
+    }
+
+    function docTypeIcon(t) {
+        if (t === 'pdf') return '📕';
+        if (t === 'docx' || t === 'doc') return '📘';
+        if (t === 'txt' || t === 'text_input') return '📝';
+        if (t === 'md') return '📓';
+        return '📄';
+    }
+
+    function relativeTime(isoStr) {
+        if (!isoStr) return '';
+        var now = Date.now();
+        var then = new Date(isoStr).getTime();
+        var diffSec = Math.floor((now - then) / 1000);
+        if (diffSec < 60) return 'just now';
+        var diffMin = Math.floor(diffSec / 60);
+        if (diffMin < 60) return diffMin + 'm ago';
+        var diffHr = Math.floor(diffMin / 60);
+        if (diffHr < 24) return diffHr + 'h ago';
+        var diffDay = Math.floor(diffHr / 24);
+        if (diffDay < 7) return diffDay + 'd ago';
+        return new Date(isoStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+
+    // ── Upcoming Events ──
+    async function loadUpcomingEvents() {
+        var loadingEl = document.getElementById('upcomingEventsLoading');
+        var emptyEl = document.getElementById('upcomingEventsEmpty');
+        var listEl = document.getElementById('upcomingEventsList');
+
+        if (!currentTeamId) {
+            if (loadingEl) loadingEl.style.display = 'none';
+            if (emptyEl) emptyEl.style.display = 'flex';
+            return;
+        }
+
+        // Fetch tasks from today onward (next 14 days)
+        var today = new Date();
+        var futureDate = new Date();
+        futureDate.setDate(today.getDate() + 14);
+        var result = await api(
+            '/calendar/tasks/' + currentTeamId
+            + '?start_date=' + dateKey(today)
+            + '&end_date=' + dateKey(futureDate)
+        );
+
+        if (loadingEl) loadingEl.style.display = 'none';
+
+        var tasks = result && result.tasks ? result.tasks : [];
+        // Filter only future or today tasks, exclude completed
+        var now = new Date();
+        tasks = tasks.filter(function (t) {
+            return !t.is_completed && new Date(t.end_datetime) >= now;
+        });
+        // Sort by start_datetime ascending
+        tasks.sort(function (a, b) {
+            return new Date(a.start_datetime) - new Date(b.start_datetime);
+        });
+        // Limit to 5
+        tasks = tasks.slice(0, 5);
+
+        if (tasks.length === 0) {
+            if (emptyEl) emptyEl.style.display = 'flex';
+            if (listEl) listEl.innerHTML = '';
+            return;
+        }
+        if (emptyEl) emptyEl.style.display = 'none';
+
+        var todayKey = dateKey(today);
+        var tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        var tomorrowKey = dateKey(tomorrow);
+
+        if (listEl) {
+            listEl.innerHTML = tasks.map(function (t) {
+                var color = t.color_tag || '#6366f1';
+                var startDt = new Date(t.start_datetime);
+                var taskDateKey = t.start_datetime.slice(0, 10);
+                var badge = '';
+                if (taskDateKey === todayKey) {
+                    badge = '<span class="event-item__badge event-item__badge--today">Today</span>';
+                } else if (taskDateKey === tomorrowKey) {
+                    badge = '<span class="event-item__badge event-item__badge--tomorrow">Tomorrow</span>';
+                } else {
+                    badge = '<span class="event-item__badge event-item__badge--upcoming">'
+                        + startDt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + '</span>';
+                }
+                var timeStr = startDt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+                return '<div class="event-item event-item--clickable" data-task-date="' + taskDateKey + '">'
+                    + '<div class="event-item__color-bar" style="background:' + color + '"></div>'
+                    + '<div class="event-item__body">'
+                    + '<div class="event-item__title">' + escHtml(t.title) + '</div>'
+                    + '<div class="event-item__time">' + taskTypeIcon(t.task_type) + ' ' + timeStr
+                    + (t.location ? ' · ' + escHtml(t.location) : '') + '</div>'
+                    + '</div>'
+                    + badge
+                    + '</div>';
+            }).join('');
+
+            // Attach click handlers to open day panel
+            listEl.querySelectorAll('.event-item--clickable').forEach(function (el) {
+                el.addEventListener('click', function () {
+                    var taskDate = el.dataset.taskDate;
+                    if (taskDate) openDayPanel(taskDate);
+                });
+            });
+        }
     }
 
     // ══════════════════════════════════════════════
