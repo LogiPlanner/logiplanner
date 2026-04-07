@@ -233,9 +233,12 @@ document.addEventListener('DOMContentLoaded', () => {
             // Auto-refresh stale Drive docs
             checkAutoRefresh(allDocuments);
 
-            // Poll for processing docs
-            const processing = allDocuments.filter(d => d.status === 'pending' || d.status === 'processing');
-            if (processing.length > 0) {
+            // Poll for processing docs (including folder children)
+            const hasProcessing = allDocuments.some(d =>
+                d.status === 'pending' || d.status === 'processing' ||
+                (d.children || []).some(c => c.status === 'pending' || c.status === 'processing')
+            );
+            if (hasProcessing) {
                 setTimeout(() => { loadDocuments(); loadStats(); }, 3000);
             }
         } catch (e) {
@@ -249,6 +252,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function getDocSource(doc) {
+        if (doc.doc_type === 'folder') return 'drive';
         if (doc.source_url) {
             if (doc.source_url.includes('drive.google.com')) return 'drive';
             if (doc.source_url.includes('github.com')) return 'github';
@@ -324,7 +328,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const icons = {
             pdf: '📕', docx: '📘', txt: '📄', markdown: '📝',
-            text: '✏️', unknown: '📎'
+            text: '✏️', folder: '📁', unknown: '📎'
         };
 
         const statusIcons = {
@@ -334,6 +338,78 @@ document.addEventListener('DOMContentLoaded', () => {
         const canEdit = currentRole === 'owner' || currentRole === 'editor';
 
         docContainer.innerHTML = docs.map(doc => {
+            // ── Folder card: expandable container with children ──
+            if (doc.doc_type === 'folder') {
+                const children = doc.children || [];
+                const readyCount = children.filter(c => c.status === 'ready').length;
+                const totalCount = children.length;
+                const totalChunks = children.reduce((sum, c) => sum + (c.chunk_count || 0), 0);
+                const totalSize = children.reduce((sum, c) => sum + (c.file_size || 0), 0);
+                const date = doc.created_at ? formatDate(doc.created_at) : '';
+
+                const childCards = children.map(child => {
+                    const cIcon = icons[child.doc_type] || icons.unknown;
+                    const cStatusIcon = statusIcons[child.status] || '❓';
+                    const cSize = formatFileSize(child.file_size);
+                    return `
+                        <div class="folder-child" data-id="${child.id}" onclick="event.stopPropagation(); window._openDocDrawer(${child.id})">
+                            <span class="folder-child__icon">${cIcon}</span>
+                            <span class="folder-child__name" title="${escapeHtml(child.filename)}">${escapeHtml(child.filename)}</span>
+                            <span class="folder-child__status folder-child__status--${child.status}">${cStatusIcon}</span>
+                            <span class="folder-child__meta">${child.chunk_count} chunks · ${cSize}</span>
+                        </div>
+                    `;
+                }).join('');
+
+                return `
+                    <div class="doc-card doc-card--folder" data-id="${doc.id}">
+                        <div class="doc-card__accent doc-card__accent--folder"></div>
+                        ${canEdit ? `
+                            <div class="doc-card__actions">
+                                <button class="doc-card__action-btn doc-card__action-btn--refresh" onclick="event.stopPropagation(); window._refreshFolder(${doc.id})" title="Refresh all files in folder">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                                </button>
+                                <button class="doc-card__action-btn" onclick="event.stopPropagation(); window._confirmDelete(${doc.id}, '${escapeHtml(doc.filename)}')" title="Delete folder and all contents">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                </button>
+                            </div>
+                        ` : ''}
+                        <div class="doc-card__top" onclick="window._toggleFolder(${doc.id})" style="cursor:pointer;">
+                            <div class="doc-card__icon doc-card__icon--folder">📁</div>
+                            <div class="doc-card__name">
+                                <h4 title="${escapeHtml(doc.filename)}">${escapeHtml(doc.filename)}</h4>
+                                <div class="doc-card__type">${readyCount}/${totalCount} files ready</div>
+                            </div>
+                            <span class="folder-toggle" id="folderToggle-${doc.id}">▶</span>
+                        </div>
+                        <div class="doc-card__meta">
+                            <span class="doc-card__meta-item">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7v10c0 2 3.6 4 8 4s8-1.8 8-4V7"/></svg>
+                                ${totalChunks} chunks
+                            </span>
+                            <span class="doc-card__meta-item">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+                                ${formatFileSize(totalSize)}
+                            </span>
+                            ${date ? `
+                                <span class="doc-card__meta-item">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                    ${date}
+                                </span>
+                            ` : ''}
+                            <span class="doc-card__meta-item doc-card__meta-item--drive">
+                                <svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12"><path d="M7.71 3.5L1.15 15l3.43 5.97L11.14 9.47 7.71 3.5zm1.14 0l6.86 11.93H22.86L16 3.5H8.85zM16.57 16.5H3.43L0 22.5h24l-3.43-6H16.57z"/></svg>
+                                Drive Folder
+                            </span>
+                        </div>
+                        <div class="folder-children" id="folderChildren-${doc.id}" style="display:none;">
+                            ${childCards || '<div class="folder-children__empty">No files in this folder</div>'}
+                        </div>
+                    </div>
+                `;
+            }
+
+            // ── Regular document card ──
             const icon = icons[doc.doc_type] || icons.unknown;
             const statusIcon = statusIcons[doc.status] || '❓';
             const size = formatFileSize(doc.file_size);
@@ -395,6 +471,37 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
         }).join('');
     }
+
+    // ── Folder toggle expand/collapse ──
+    window._toggleFolder = function(folderId) {
+        const children = document.getElementById(`folderChildren-${folderId}`);
+        const toggle = document.getElementById(`folderToggle-${folderId}`);
+        if (!children) return;
+        const isOpen = children.style.display !== 'none';
+        children.style.display = isOpen ? 'none' : 'block';
+        if (toggle) toggle.textContent = isOpen ? '▶' : '▼';
+    };
+
+    // ── Folder-level refresh: refreshes all children ──
+    window._refreshFolder = async function(folderId) {
+        const doc = allDocuments.find(d => d.id === folderId);
+        if (!doc || !doc.children) return;
+        let refreshed = 0;
+        for (const child of doc.children) {
+            if (!child.source_url) continue;
+            try {
+                await sFetch(`${API}/rag/documents/${child.id}/refresh`, {
+                    method: 'POST',
+                    headers: jsonHeaders(),
+                });
+                refreshed++;
+            } catch (e) { /* continue */ }
+        }
+        if (refreshed > 0) {
+            showToast(`Refreshing ${refreshed} file(s) in folder`, 'success');
+            loadDocuments();
+        }
+    };
 
     // ─────────────────────────────────────────
     // SEARCH & FILTERS
@@ -617,7 +724,13 @@ document.addEventListener('DOMContentLoaded', () => {
     window._confirmDelete = function(docId, filename) {
         pendingDeleteId = docId;
         pendingDeleteName = filename;
-        deleteModalDesc.textContent = `This will permanently delete "${filename}" and remove all its chunks from the knowledge base.`;
+        const doc = allDocuments.find(d => d.id === docId);
+        if (doc && doc.doc_type === 'folder') {
+            const childCount = (doc.children || []).length;
+            deleteModalDesc.textContent = `This will permanently delete the folder "${filename}" and all ${childCount} file(s) inside it, removing all chunks from the knowledge base.`;
+        } else {
+            deleteModalDesc.textContent = `This will permanently delete "${filename}" and remove all its chunks from the knowledge base.`;
+        }
         deleteModal.classList.add('active');
     };
 
@@ -667,8 +780,37 @@ document.addEventListener('DOMContentLoaded', () => {
     // ─────────────────────────────────────────
     // DOCUMENT DETAIL DRAWER
     // ─────────────────────────────────────────
+    // ── Drawer: state ──
+    let drawerDocId = null;
+    let drawerPollTimer = null;
+
     window._openDocDrawer = function(docId) {
-        const doc = allDocuments.find(d => d.id === docId);
+        drawerDocId = docId;
+        _renderDrawer(docId);
+        docDrawer.classList.add('open');
+        docDrawerOverlay.classList.add('active');
+        // Start polling if processing
+        _startDrawerPoll(docId);
+    };
+
+    async function _fetchFreshDoc(docId) {
+        try {
+            const resp = await sFetch(`${API}/rag/documents/${docId}/detail`, { headers: jsonHeaders() });
+            return await resp.json();
+        } catch { return null; }
+    }
+
+    function _renderDrawer(docId) {
+        // Find doc from cache first
+        let doc = allDocuments.find(d => d.id === docId);
+        if (!doc) {
+            for (const d of allDocuments) {
+                if (d.children) {
+                    const child = d.children.find(c => c.id === docId);
+                    if (child) { doc = child; break; }
+                }
+            }
+        }
         if (!doc) return;
 
         drawerDocName.textContent = doc.filename;
@@ -680,17 +822,24 @@ document.addEventListener('DOMContentLoaded', () => {
             error: 'var(--color-error)',
         };
 
-        const maxChunks = Math.max(...allDocuments.map(d => d.chunk_count), 1);
-        const chunkPercent = Math.round((doc.chunk_count / maxChunks) * 100);
+        const isProcessing = doc.status === 'processing' || doc.status === 'pending';
+        const statusLabel = doc.status.charAt(0).toUpperCase() + doc.status.slice(1);
 
         drawerMeta.innerHTML = `
             <div class="drawer-field">
                 <span class="drawer-field__label">Status</span>
                 <span class="drawer-field__value" style="color: ${statusColors[doc.status] || 'inherit'}; font-weight: 600;">
-                    ${doc.status.charAt(0).toUpperCase() + doc.status.slice(1)}
+                    ${statusLabel}
+                    ${isProcessing ? '<span class="drawer-processing-dot"></span>' : ''}
                     ${doc.error_message ? `<br><span style="color: var(--color-error); font-size: 0.75rem; font-weight: 400;">${escapeHtml(doc.error_message)}</span>` : ''}
                 </span>
             </div>
+            ${doc.summary ? `
+                <div class="drawer-field">
+                    <span class="drawer-field__label">Summary</span>
+                    <span class="drawer-field__value drawer-field__value--summary">${escapeHtml(doc.summary)}</span>
+                </div>
+            ` : ''}
             <div class="drawer-field">
                 <span class="drawer-field__label">File Type</span>
                 <span class="drawer-field__value">${(doc.doc_type || 'unknown').toUpperCase()}</span>
@@ -702,9 +851,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="drawer-field">
                 <span class="drawer-field__label">Chunks Indexed</span>
                 <span class="drawer-field__value drawer-field__value--mono">${doc.chunk_count}</span>
-                <div class="chunk-bar">
-                    <div class="chunk-bar__fill" style="width: ${chunkPercent}%"></div>
-                </div>
+                ${isProcessing ? '<div class="drawer-progress-bar"><div class="drawer-progress-bar__indeterminate"></div></div>' : ''}
             </div>
             ${doc.uploader_email ? `
                 <div class="drawer-field">
@@ -740,15 +887,142 @@ document.addEventListener('DOMContentLoaded', () => {
                 <span class="drawer-field__label">Document ID</span>
                 <span class="drawer-field__value drawer-field__value--mono">#${doc.id}</span>
             </div>
-        `;
 
-        docDrawer.classList.add('open');
-        docDrawerOverlay.classList.add('active');
+            <!-- Content preview section -->
+            ${doc.status === 'ready' && doc.doc_type !== 'folder' ? `
+                <div class="drawer-section">
+                    <div class="drawer-section__header" onclick="window._toggleDrawerChunks(${doc.id})">
+                        <span class="drawer-field__label">Content Preview</span>
+                        <span class="drawer-section__toggle" id="drawerChunksToggle">▶</span>
+                    </div>
+                    <div class="drawer-chunks" id="drawerChunks" style="display:none;">
+                        <div class="drawer-chunks__loading">Loading...</div>
+                    </div>
+                </div>
+            ` : ''}
+
+            ${doc.doc_type === 'folder' && doc.children && doc.children.length ? `
+                <div class="drawer-section">
+                    <span class="drawer-field__label">Files in Folder (${doc.children.length})</span>
+                    <div class="drawer-folder-list">
+                        ${doc.children.map(c => `
+                            <div class="drawer-folder-item" onclick="window._openDocDrawer(${c.id})">
+                                <span class="drawer-folder-item__status drawer-folder-item__status--${c.status}">
+                                    ${{ready:'✅',processing:'⚙️',pending:'⏳',error:'❌'}[c.status] || '❓'}
+                                </span>
+                                <span class="drawer-folder-item__name">${escapeHtml(c.filename)}</span>
+                                <span class="drawer-folder-item__meta">${c.chunk_count} chunks</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            ` : ''}
+        `;
+    }
+
+    window._toggleDrawerChunks = async function(docId) {
+        const container = document.getElementById('drawerChunks');
+        const toggle = document.getElementById('drawerChunksToggle');
+        if (!container) return;
+        const isOpen = container.style.display !== 'none';
+        container.style.display = isOpen ? 'none' : 'block';
+        if (toggle) toggle.textContent = isOpen ? '▶' : '▼';
+        if (!isOpen && container.querySelector('.drawer-chunks__loading')) {
+            await _loadDrawerChunks(docId, container);
+        }
     };
+
+    async function _loadDrawerChunks(docId, container, offset = 0) {
+        try {
+            const resp = await sFetch(`${API}/rag/documents/${docId}/chunks?limit=10&offset=${offset}`, { headers: jsonHeaders() });
+            const data = await resp.json();
+            if (!data.chunks || !data.chunks.length) {
+                container.innerHTML = '<div class="drawer-chunks__empty">No chunks available</div>';
+                return;
+            }
+            let html = '';
+            data.chunks.forEach(ch => {
+                const preview = ch.text.length > 300 ? ch.text.substring(0, 300) + '…' : ch.text;
+                html += `<div class="drawer-chunk">
+                    <div class="drawer-chunk__header">Chunk #${ch.index + 1}</div>
+                    <div class="drawer-chunk__text">${escapeHtml(preview)}</div>
+                </div>`;
+            });
+            if (data.total > offset + data.chunks.length) {
+                const nextOffset = offset + data.chunks.length;
+                html += `<button class="drawer-chunks__more" onclick="window._loadMoreChunks(${docId}, ${nextOffset})">Load more (${data.total - nextOffset} remaining)</button>`;
+            }
+            if (offset === 0) {
+                container.innerHTML = html;
+            } else {
+                // Remove old "load more" button and append
+                const oldBtn = container.querySelector('.drawer-chunks__more');
+                if (oldBtn) oldBtn.remove();
+                container.insertAdjacentHTML('beforeend', html);
+            }
+        } catch {
+            container.innerHTML = '<div class="drawer-chunks__empty">Failed to load chunks</div>';
+        }
+    }
+
+    window._loadMoreChunks = function(docId, offset) {
+        const container = document.getElementById('drawerChunks');
+        if (container) _loadDrawerChunks(docId, container, offset);
+    };
+
+    function _startDrawerPoll(docId) {
+        _stopDrawerPoll();
+        // Look up the doc to check status
+        let doc = allDocuments.find(d => d.id === docId);
+        if (!doc) {
+            for (const d of allDocuments) {
+                if (d.children) {
+                    const child = d.children.find(c => c.id === docId);
+                    if (child) { doc = child; break; }
+                }
+            }
+        }
+        const isProcessing = doc && (doc.status === 'processing' || doc.status === 'pending');
+        if (!isProcessing) return;
+
+        drawerPollTimer = setInterval(async () => {
+            if (drawerDocId !== docId) { _stopDrawerPoll(); return; }
+            const fresh = await _fetchFreshDoc(docId);
+            if (!fresh) return;
+            // Update the cached data
+            _updateCachedDoc(docId, fresh);
+            _renderDrawer(docId);
+            // Stop polling once done
+            if (fresh.status !== 'processing' && fresh.status !== 'pending') {
+                _stopDrawerPoll();
+                loadDocuments(); // refresh the card grid too
+            }
+        }, 3000);
+    }
+
+    function _stopDrawerPoll() {
+        if (drawerPollTimer) { clearInterval(drawerPollTimer); drawerPollTimer = null; }
+    }
+
+    function _updateCachedDoc(docId, fresh) {
+        // Update in allDocuments (top-level or child)
+        const idx = allDocuments.findIndex(d => d.id === docId);
+        if (idx !== -1) {
+            Object.assign(allDocuments[idx], fresh);
+            return;
+        }
+        for (const d of allDocuments) {
+            if (!d.children) continue;
+            const ci = d.children.findIndex(c => c.id === docId);
+            if (ci !== -1) { Object.assign(d.children[ci], fresh); return; }
+        }
+    }
 
     function closeDrawer() {
         docDrawer.classList.remove('open');
         docDrawerOverlay.classList.remove('active');
+        _stopDrawerPoll();
+        drawerDocId = null;
     }
 
     drawerClose.addEventListener('click', closeDrawer);
@@ -877,18 +1151,24 @@ document.addEventListener('DOMContentLoaded', () => {
     // Auto-refresh stale Drive docs on load
     function checkAutoRefresh(docs) {
         const now = Date.now();
-        docs.forEach(doc => {
+        const checkDoc = (doc) => {
             if (!doc.source_url || !doc.refresh_interval_hours) return;
             if (doc.status === 'processing' || doc.status === 'pending') return;
+            if (doc.doc_type === 'folder') return; // folders don't have their own chunks
             const lastSync = doc.last_synced_at ? new Date(doc.last_synced_at).getTime() : 0;
             const intervalMs = doc.refresh_interval_hours * 3600000;
             if (now - lastSync > intervalMs) {
-                // Trigger background refresh silently
                 sFetch(`${API}/rag/documents/${doc.id}/refresh`, {
                     method: 'POST',
                     headers: jsonHeaders(),
                 }).catch(() => {});
             }
+        };
+
+        docs.forEach(doc => {
+            checkDoc(doc);
+            // Also check folder children
+            if (doc.children) doc.children.forEach(checkDoc);
         });
     }
 

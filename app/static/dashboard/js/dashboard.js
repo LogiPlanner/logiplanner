@@ -432,6 +432,7 @@
         if (t === 'docx' || t === 'doc') return '📘';
         if (t === 'txt' || t === 'text_input') return '📝';
         if (t === 'md') return '📓';
+        if (t === 'folder') return '📁';
         return '📄';
     }
 

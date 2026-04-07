@@ -46,6 +46,9 @@ class DocumentResponse(BaseModel):
     source_url: Optional[str] = None
     last_synced_at: Optional[datetime] = None
     refresh_interval_hours: Optional[int] = None
+    folder_id: Optional[int] = None
+    summary: Optional[str] = None
+    children: Optional[List["DocumentResponse"]] = None
 
     class Config:
         from_attributes = True

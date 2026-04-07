@@ -204,6 +204,33 @@ class RAGEngine:
 
         return 0
 
+    def get_document_chunks(self, team_id: int, document_id: int, limit: int = 20, offset: int = 0) -> dict:
+        """Retrieve stored chunks for a specific document from the vector store."""
+        self._ensure_initialized()
+        collection_name = self._get_collection_name(team_id)
+        try:
+            collection = self._chroma_client.get_collection(collection_name)
+            results = collection.get(
+                where={"document_id": document_id},
+                include=["documents", "metadatas"],
+            )
+            docs = results.get("documents", [])
+            metas = results.get("metadatas", [])
+            total = len(docs)
+            sliced_docs = docs[offset:offset + limit]
+            sliced_metas = metas[offset:offset + limit]
+            chunks = []
+            for i, (text, meta) in enumerate(zip(sliced_docs, sliced_metas)):
+                chunks.append({
+                    "index": offset + i,
+                    "text": text,
+                    "source": meta.get("source", ""),
+                })
+            return {"total": total, "chunks": chunks}
+        except Exception as e:
+            print(f"[RAG] Error getting document chunks: {e}")
+            return {"total": 0, "chunks": []}
+
     def delete_timeline_entry_chunks(self, team_id: int, timeline_entry_id: int) -> int:
         """
         Delete all chunks belonging to a specific timeline entry from the vector store.

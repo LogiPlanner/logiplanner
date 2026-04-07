@@ -906,7 +906,6 @@
     transition: all var(--transition);
     position: relative;
     overflow: hidden;
-    animation: fadeSlideUp 0.3s var(--ease-out);
 }
 
 .doc-card:hover {
@@ -928,7 +927,96 @@
 .doc-card__accent--txt { background: linear-gradient(90deg, #10b981, #34d399); }
 .doc-card__accent--markdown { background: linear-gradient(90deg, #8b5cf6, #a78bfa); }
 .doc-card__accent--text { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+.doc-card__accent--folder { background: linear-gradient(90deg, #4285f4, #34a853); }
 .doc-card__accent--unknown { background: linear-gradient(90deg, #9ca3af, #d1d5db); }
+
+/* ═══ FOLDER CARD ═══ */
+.doc-card--folder {
+    border: 1.5px solid rgba(66, 133, 244, 0.25);
+    background: linear-gradient(135deg, #f8faff 0%, #ffffff 100%);
+}
+
+.doc-card--folder:hover {
+    border-color: rgba(66, 133, 244, 0.45);
+    box-shadow: 0 4px 16px rgba(66, 133, 244, 0.12);
+}
+
+.doc-card__icon--folder {
+    font-size: 1.4rem;
+}
+
+.folder-toggle {
+    font-size: 0.75rem;
+    color: var(--color-text-secondary);
+    transition: transform 0.2s ease;
+    margin-left: auto;
+    padding: 4px 8px;
+    user-select: none;
+}
+
+.folder-children {
+    border-top: 1px solid var(--color-border);
+    padding: 8px 12px;
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 280px;
+    overflow-y: auto;
+}
+
+.folder-children::-webkit-scrollbar { width: 4px; }
+.folder-children::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 4px; }
+
+.folder-children__empty {
+    text-align: center;
+    color: var(--color-text-secondary);
+    font-size: 0.8rem;
+    padding: 12px 0;
+}
+
+.folder-child {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    background: var(--color-bg);
+    cursor: pointer;
+    transition: background 0.15s ease;
+    font-size: 0.82rem;
+}
+
+.folder-child:hover {
+    background: rgba(66, 133, 244, 0.06);
+}
+
+.folder-child__icon {
+    font-size: 0.9rem;
+    flex-shrink: 0;
+}
+
+.folder-child__name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--color-text);
+    font-weight: 500;
+}
+
+.folder-child__status {
+    font-size: 0.75rem;
+    flex-shrink: 0;
+}
+
+.folder-child__meta {
+    font-size: 0.7rem;
+    color: var(--color-text-secondary);
+    flex-shrink: 0;
+    white-space: nowrap;
+}
 
 .doc-card__top {
     display: flex;
@@ -1231,6 +1319,180 @@
 .drawer-field__value--mono {
     font-family: var(--font-mono);
     font-size: 0.8rem;
+}
+
+.drawer-field__value--summary {
+    font-style: italic;
+    color: var(--color-text-secondary);
+    line-height: 1.5;
+}
+
+/* Processing indicator dot */
+.drawer-processing-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--color-warning);
+    margin-left: 6px;
+    vertical-align: middle;
+    animation: drawerPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes drawerPulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.7); }
+}
+
+/* Indeterminate progress bar for processing docs */
+.drawer-progress-bar {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--color-page-bg);
+    overflow: hidden;
+    margin-top: 6px;
+}
+
+.drawer-progress-bar__indeterminate {
+    height: 100%;
+    width: 40%;
+    border-radius: 2px;
+    background: linear-gradient(90deg, var(--color-warning), #f59e0b);
+    animation: drawerProgress 1.4s ease-in-out infinite;
+}
+
+@keyframes drawerProgress {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(300%); }
+}
+
+/* ═══ DRAWER: CONTENT PREVIEW ═══ */
+.drawer-section {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--color-border);
+}
+
+.drawer-section__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    padding: 4px 0;
+}
+
+.drawer-section__toggle {
+    font-size: 0.7rem;
+    color: var(--color-text-secondary);
+    transition: transform 0.2s ease;
+}
+
+.drawer-chunks {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 8px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.drawer-chunks::-webkit-scrollbar { width: 4px; }
+.drawer-chunks::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 4px; }
+
+.drawer-chunks__loading,
+.drawer-chunks__empty {
+    text-align: center;
+    color: var(--color-text-muted);
+    font-size: 0.8rem;
+    padding: 16px 0;
+}
+
+.drawer-chunk {
+    background: var(--color-page-bg);
+    border-radius: 6px;
+    padding: 10px 12px;
+    border: 1px solid var(--color-border);
+}
+
+.drawer-chunk__header {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-primary);
+    margin-bottom: 4px;
+}
+
+.drawer-chunk__text {
+    font-size: 0.78rem;
+    line-height: 1.55;
+    color: var(--color-text-secondary);
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.drawer-chunks__more {
+    background: none;
+    border: 1px dashed var(--color-border);
+    border-radius: 6px;
+    padding: 8px;
+    font-size: 0.78rem;
+    color: var(--color-primary);
+    cursor: pointer;
+    text-align: center;
+    transition: background 0.15s ease;
+}
+
+.drawer-chunks__more:hover {
+    background: rgba(99, 102, 241, 0.06);
+}
+
+/* ═══ DRAWER: FOLDER FILES LIST ═══ */
+.drawer-folder-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 8px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.drawer-folder-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    background: var(--color-page-bg);
+    cursor: pointer;
+    transition: background 0.15s ease;
+    font-size: 0.8rem;
+}
+
+.drawer-folder-item:hover {
+    background: rgba(66, 133, 244, 0.06);
+}
+
+.drawer-folder-item__status {
+    flex-shrink: 0;
+    font-size: 0.75rem;
+}
+
+.drawer-folder-item__name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--color-text);
+    font-weight: 500;
+}
+
+.drawer-folder-item__meta {
+    flex-shrink: 0;
+    font-size: 0.7rem;
+    color: var(--color-text-muted);
+    font-family: var(--font-mono);
 }
 
 /* Chunk visualization bar */

@@ -223,6 +223,57 @@ def _build_live_task_summary(db: Session, team_id: int, current_user: User, max_
 # INGESTION ENDPOINTS
 # ──────────────────────────────────────────────
 
+def _generate_doc_summary(chunks, filename: str, max_chunks: int = 3) -> str:
+    """Generate a one-line summary from the first chunks of a document using the LLM."""
+    try:
+        texts = []
+        for i, chunk in enumerate(chunks[:max_chunks]):
+            snippet = (chunk.page_content or "").strip()
+            if len(snippet) > 600:
+                snippet = snippet[:600] + "..."
+            texts.append(snippet)
+
+        if not texts:
+            return f"Document: {filename}"
+
+        joined = "\n\n".join(texts)
+
+        from langchain_core.messages import SystemMessage, HumanMessage
+        messages = [
+            SystemMessage(content=(
+                "Summarize the following document excerpt in ONE concise sentence (max 30 words). "
+                "Focus on the key topic or purpose of the document. Return ONLY the summary sentence."
+            )),
+            HumanMessage(content=f"Document: {filename}\n\n{joined}"),
+        ]
+
+        response = rag_engine._invoke_llm_with_retry(messages)
+        return response.content.strip()[:300]
+    except Exception as e:
+        print(f"[RAG] Summary generation failed for {filename}: {e}")
+        return f"Document: {filename}"
+
+
+def _update_folder_summary(doc, db):
+    """Update the parent folder's summary to reflect its children's status."""
+    if not doc.folder_id:
+        return
+    try:
+        folder = db.query(Document).filter(Document.id == doc.folder_id).first()
+        if not folder:
+            return
+        children = db.query(Document).filter(Document.folder_id == folder.id).all()
+        ready_count = sum(1 for c in children if c.status == "ready")
+        total_count = len(children)
+        total_chunks = sum(c.chunk_count for c in children)
+
+        folder.chunk_count = total_chunks
+        folder.summary = f"{ready_count}/{total_count} files imported • {total_chunks} chunks total"
+        folder.filename = folder.filename  # keep name
+        db.commit()
+    except Exception as e:
+        print(f"[RAG] Error updating folder summary: {e}")
+
 def _process_and_ingest(
     doc_record_id: int,
     file_path: str,
@@ -258,9 +309,13 @@ def _process_and_ingest(
         # Ingest into ChromaDB
         chunk_count = rag_engine.ingest_chunks(team_id, chunks)
 
+        # Generate a summary from the first few chunks
+        summary = _generate_doc_summary(chunks, filename)
+
         # Update record
         doc.chunk_count = chunk_count
         doc.status = "ready"
+        doc.summary = summary
         doc.stored_path = None  # File no longer on disk
         db.commit()
 
@@ -400,8 +455,10 @@ async def ingest_text(
             uploader_email=current_user.email,
         )
         chunk_count = rag_engine.ingest_chunks(data.team_id, chunks)
+        summary = _generate_doc_summary(chunks, data.title)
         doc_record.chunk_count = chunk_count
         doc_record.status = "ready"
+        doc_record.summary = summary
         db.commit()
 
         return IngestResponse(
@@ -454,13 +511,20 @@ def _process_and_ingest_drive(
 
         chunk_count = rag_engine.ingest_chunks(team_id, chunks)
 
+        # Generate a summary from the first few chunks
+        summary = _generate_doc_summary(chunks, filename)
+
         doc.filename = filename
         doc.doc_type = doc_type
         doc.file_size = file_size
         doc.chunk_count = chunk_count
         doc.status = "ready"
+        doc.summary = summary
         doc.last_synced_at = datetime.now(timezone.utc)
         db.commit()
+
+        # Update parent folder status if applicable
+        _update_folder_summary(doc, db)
 
         print(f"[RAG] ✅ Drive doc '{filename}' → {chunk_count} chunks for team {team_id}")
 
@@ -496,7 +560,7 @@ async def ingest_drive_document(
     if data.refresh_interval_hours is not None and data.refresh_interval_hours < 1:
         raise HTTPException(status_code=400, detail="Refresh interval must be at least 1 hour.")
 
-    # ── Folder: list files and create a Document record per file ──
+    # ── Folder: create a parent folder document, then child docs for each file ──
     if url_type == "folder":
         try:
             folder_files = list_folder_files(file_id)
@@ -510,7 +574,23 @@ async def ingest_drive_document(
                        "Please share a smaller folder or individual files.",
             )
 
-        doc_responses = []
+        # Create parent folder document
+        folder_record = Document(
+            team_id=data.team_id,
+            uploader_id=current_user.id,
+            filename=f"Drive Folder ({file_id[:8]}...)",
+            stored_path=None,
+            doc_type="folder",
+            file_size=0,
+            status="ready",
+            source_url=data.drive_url,
+            drive_file_id=file_id,
+            refresh_interval_hours=data.refresh_interval_hours,
+        )
+        db.add(folder_record)
+        db.flush()
+
+        child_responses = []
         for fid, fname, _ in folder_files:
             file_url = f"https://drive.google.com/file/d/{fid}/view"
             doc_record = Document(
@@ -524,6 +604,7 @@ async def ingest_drive_document(
                 source_url=file_url,
                 drive_file_id=fid,
                 refresh_interval_hours=data.refresh_interval_hours,
+                folder_id=folder_record.id,
             )
             db.add(doc_record)
             db.flush()
@@ -536,7 +617,7 @@ async def ingest_drive_document(
                 uploader_email=current_user.email,
             )
 
-            doc_responses.append(DocumentResponse(
+            child_responses.append(DocumentResponse(
                 id=doc_record.id,
                 team_id=data.team_id,
                 filename=doc_record.filename,
@@ -546,13 +627,27 @@ async def ingest_drive_document(
                 status="pending",
                 uploader_email=current_user.email,
                 source_url=file_url,
+                folder_id=folder_record.id,
             ))
 
         db.commit()
 
+        folder_response = DocumentResponse(
+            id=folder_record.id,
+            team_id=data.team_id,
+            filename=folder_record.filename,
+            doc_type="folder",
+            file_size=0,
+            chunk_count=0,
+            status="ready",
+            uploader_email=current_user.email,
+            source_url=data.drive_url,
+            children=child_responses,
+        )
+
         return IngestResponse(
-            message=f"Google Drive folder queued — {len(doc_responses)} file(s) will be imported.",
-            documents=doc_responses,
+            message=f"Google Drive folder queued — {len(child_responses)} file(s) will be imported.",
+            documents=[folder_response],
             total_chunks=0,
         )
 
@@ -597,6 +692,59 @@ async def ingest_drive_document(
         )],
         total_chunks=0,
     )
+
+
+# ═══════════════════════════════════════════════════
+# SINGLE DOCUMENT DETAIL + CHUNKS PREVIEW
+# ═══════════════════════════════════════════════════
+
+@router.get("/documents/{doc_id}/detail", response_model=DocumentResponse)
+async def get_document_detail(
+    doc_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get fresh details for a single document (used by the drawer for live polling)."""
+    doc = db.query(Document).filter(Document.id == doc_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    _verify_team_access(current_user, doc.team_id, db)
+
+    return DocumentResponse(
+        id=doc.id,
+        team_id=doc.team_id,
+        filename=doc.filename,
+        doc_type=doc.doc_type,
+        file_size=doc.file_size,
+        chunk_count=doc.chunk_count,
+        status=doc.status,
+        error_message=doc.error_message,
+        uploader_email=doc.uploader.email if doc.uploader else None,
+        created_at=doc.created_at,
+        source_url=doc.source_url,
+        last_synced_at=doc.last_synced_at,
+        refresh_interval_hours=doc.refresh_interval_hours,
+        folder_id=doc.folder_id,
+        summary=doc.summary,
+    )
+
+
+@router.get("/documents/{doc_id}/chunks")
+async def get_document_chunks(
+    doc_id: int,
+    limit: int = 20,
+    offset: int = 0,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get indexed chunks for a document (content preview)."""
+    doc = db.query(Document).filter(Document.id == doc_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    _verify_team_access(current_user, doc.team_id, db)
+
+    result = rag_engine.get_document_chunks(doc.team_id, doc_id, limit=limit, offset=offset)
+    return result
 
 
 @router.post("/documents/{doc_id}/refresh", response_model=DocumentResponse)
@@ -685,10 +833,12 @@ async def ingest_url(
             uploader_email=current_user.email,
         )
         chunk_count = rag_engine.ingest_chunks(data.team_id, chunks)
+        summary = _generate_doc_summary(chunks, title)
         doc_record.filename = title
         doc_record.file_size = file_size
         doc_record.chunk_count = chunk_count
         doc_record.status = "ready"
+        doc_record.summary = summary
         db.commit()
 
         return IngestResponse(
@@ -728,13 +878,46 @@ async def list_documents(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """List all documents in a team's knowledge base. Any team member can view."""
+    """List all documents in a team's knowledge base. Folders include nested children."""
     _verify_team_access(current_user, team_id, db)
 
     docs = db.query(Document).filter(Document.team_id == team_id).order_by(Document.created_at.desc()).all()
 
+    # Build a lookup of folder_id → children
+    children_map: dict = {}
+    for doc in docs:
+        if doc.folder_id:
+            children_map.setdefault(doc.folder_id, []).append(doc)
+
     doc_responses = []
     for doc in docs:
+        # Skip child docs — they'll be nested inside their folder
+        if doc.folder_id is not None:
+            continue
+
+        children_list = None
+        if doc.doc_type == "folder":
+            children_list = [
+                DocumentResponse(
+                    id=child.id,
+                    team_id=child.team_id,
+                    filename=child.filename,
+                    doc_type=child.doc_type,
+                    file_size=child.file_size,
+                    chunk_count=child.chunk_count,
+                    status=child.status,
+                    error_message=child.error_message,
+                    uploader_email=child.uploader.email if child.uploader else None,
+                    created_at=child.created_at,
+                    source_url=child.source_url,
+                    last_synced_at=child.last_synced_at,
+                    refresh_interval_hours=child.refresh_interval_hours,
+                    folder_id=child.folder_id,
+                    summary=child.summary,
+                )
+                for child in children_map.get(doc.id, [])
+            ]
+
         doc_responses.append(DocumentResponse(
             id=doc.id,
             team_id=doc.team_id,
@@ -749,6 +932,9 @@ async def list_documents(
             source_url=doc.source_url,
             last_synced_at=doc.last_synced_at,
             refresh_interval_hours=doc.refresh_interval_hours,
+            folder_id=doc.folder_id,
+            summary=doc.summary,
+            children=children_list,
         ))
 
     return DocumentListResponse(documents=doc_responses, total=len(doc_responses))
@@ -760,7 +946,7 @@ async def delete_document(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Delete a document. Requires owner or editor role."""
+    """Delete a document (and all children if it's a folder). Requires owner or editor role."""
     doc = db.query(Document).filter(Document.id == doc_id).first()
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -768,7 +954,22 @@ async def delete_document(
     _verify_team_access(current_user, doc.team_id, db)
     _require_editor_or_owner(current_user, doc.team_id, db)
 
-    deleted = rag_engine.delete_document_chunks(doc.team_id, doc.id)
+    total_deleted = 0
+
+    # If this is a folder, cascade delete all children first
+    if doc.doc_type == "folder":
+        children = db.query(Document).filter(Document.folder_id == doc.id).all()
+        for child in children:
+            total_deleted += rag_engine.delete_document_chunks(child.team_id, child.id)
+            if child.stored_path and child.stored_path != "[text_input]" and os.path.exists(child.stored_path):
+                try:
+                    os.remove(child.stored_path)
+                except Exception as e:
+                    print(f"[RAG] Warning: Could not delete file {child.stored_path}: {e}")
+            db.delete(child)
+
+    # Delete the document's own chunks
+    total_deleted += rag_engine.delete_document_chunks(doc.team_id, doc.id)
 
     if doc.stored_path and doc.stored_path != "[text_input]" and os.path.exists(doc.stored_path):
         try:
@@ -780,8 +981,8 @@ async def delete_document(
     db.commit()
 
     return DeleteResponse(
-        message=f"Document '{doc.filename}' deleted successfully.",
-        deleted_count=deleted,
+        message=f"Document '{doc.filename}' and all contents deleted successfully.",
+        deleted_count=total_deleted,
     )
 
 
@@ -804,10 +1005,55 @@ async def recent_knowledge_chunks(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Get LLM-summarized recent knowledge chunks for a team's dashboard."""
+    """Get recent knowledge summaries from stored document summaries (fast, no LLM call)."""
     _verify_team_access(current_user, team_id, db)
-    summaries = rag_engine.summarize_recent_chunks(team_id, limit=limit, db=db)
-    items = [RecentKnowledgeItem(**s) for s in summaries]
+
+    recent_docs = (
+        db.query(Document)
+        .filter(
+            Document.team_id == team_id,
+            Document.status == "ready",
+            Document.doc_type != "folder",
+            Document.folder_id.is_(None),  # Only top-level docs (not folder children)
+        )
+        .order_by(Document.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+
+    items = []
+    for doc in recent_docs:
+        items.append(RecentKnowledgeItem(
+            summary=doc.summary or f"Document: {doc.filename}",
+            filename=doc.filename,
+            doc_type=doc.doc_type,
+            uploaded_at=doc.created_at.isoformat() if doc.created_at else "",
+        ))
+
+    # Also include summaries for folders (as a single entry per folder)
+    recent_folders = (
+        db.query(Document)
+        .filter(
+            Document.team_id == team_id,
+            Document.doc_type == "folder",
+        )
+        .order_by(Document.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+
+    for folder in recent_folders:
+        items.append(RecentKnowledgeItem(
+            summary=folder.summary or f"Folder: {folder.filename}",
+            filename=folder.filename,
+            doc_type="folder",
+            uploaded_at=folder.created_at.isoformat() if folder.created_at else "",
+        ))
+
+    # Sort by uploaded_at descending and trim to limit
+    items.sort(key=lambda x: x.uploaded_at, reverse=True)
+    items = items[:limit]
+
     return RecentKnowledgeResponse(items=items, total=len(items))
 
 
