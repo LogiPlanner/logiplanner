@@ -121,17 +121,34 @@
 
                 <!-- Welcome -->
                 <div class="chat-welcome" id="chatWelcome">
-                    <div class="chat-welcome__brain">🧠</div>
-                    <h2 class="chat-welcome__title">Welcome to your AI Brain</h2>
+                    <div class="chat-welcome__hero">
+                        <div class="chat-welcome__brain">🧠</div>
+                        <div class="chat-welcome__orb"></div>
+                        <div class="chat-welcome__orb"></div>
+                        <div class="chat-welcome__orb"></div>
+                    </div>
+                    <h2 class="chat-welcome__title">Welcome to your <span class="chat-welcome__title-highlight">AI Brain</span></h2>
                     <p class="chat-welcome__desc">
                         Ask anything about your project. I'll answer using your team's uploaded documents.
                         Your conversations are private — only you can see them.
                     </p>
                     <div class="chat-welcome__suggestions">
-                        <button class="chat-welcome__suggestion">Summarize our project</button>
-                        <button class="chat-welcome__suggestion">What decisions have been made?</button>
-                        <button class="chat-welcome__suggestion">What are the key milestones?</button>
-                        <button class="chat-welcome__suggestion">Who is responsible for what?</button>
+                        <button class="chat-welcome__suggestion">
+                            <span class="chat-welcome__suggestion-icon">📋</span>
+                            <span class="chat-welcome__suggestion-text">Summarize our project</span>
+                        </button>
+                        <button class="chat-welcome__suggestion">
+                            <span class="chat-welcome__suggestion-icon">💡</span>
+                            <span class="chat-welcome__suggestion-text">What decisions have been made?</span>
+                        </button>
+                        <button class="chat-welcome__suggestion">
+                            <span class="chat-welcome__suggestion-icon">🎯</span>
+                            <span class="chat-welcome__suggestion-text">What are the key milestones?</span>
+                        </button>
+                        <button class="chat-welcome__suggestion">
+                            <span class="chat-welcome__suggestion-icon">👥</span>
+                            <span class="chat-welcome__suggestion-text">Who is responsible for what?</span>
+                        </button>
                     </div>
                 </div>
 
@@ -154,7 +171,6 @@
                             <svg viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
                         </button>
                     </div>
-                    <div class="chat-input-hint">🔒 Your chat is private — only you can see this conversation.</div>
                 </div>
             </div>
         </div>

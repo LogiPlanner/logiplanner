@@ -609,7 +609,7 @@ document.addEventListener('DOMContentLoaded', () => {
             sourcesHtml = `
                 <div class="chat-msg__sources">
                     <div class="chat-msg__sources-title">Sources Referenced</div>
-                    ${sourceItems}
+                    <div class="chat-msg__source-list">${sourceItems}</div>
                 </div>
             `;
         }
@@ -622,13 +622,23 @@ document.addEventListener('DOMContentLoaded', () => {
             bodyHtml = formatMarkdown(content);
         }
 
-        msgDiv.innerHTML = `
-            ${avatar}
-            <div class="chat-msg__content">
-                ${bodyHtml}
-                ${sourcesHtml}
-            </div>
-        `;
+        if (role === 'assistant') {
+            msgDiv.innerHTML = `
+                <div class="chat-msg__content">
+                    <div class="chat-msg__content-inner">
+                        ${bodyHtml}
+                        ${sourcesHtml}
+                    </div>
+                </div>
+            `;
+        } else {
+            msgDiv.innerHTML = `
+                <div class="chat-msg__content">
+                    ${bodyHtml}
+                    ${sourcesHtml}
+                </div>
+            `;
+        }
 
         chatMessages.appendChild(msgDiv);
     }
@@ -672,86 +682,43 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderLiveCards(data) {
         if (!data) return '';
-        const typeIcons = { timeline: 'TIME', calendar: 'CAL', workspace: 'WS' };
-        const icon = typeIcons[data.type] || 'LIST';
+        const typeEmoji = { timeline: '🕐', calendar: '📅', workspace: '📁' };
+        const emoji = typeEmoji[data.type] || '📋';
         const items = data.items || [];
+        const cardType = data.type || 'workspace';
 
-        let html = `
-            <div class="live-cards">
-                <div class="live-cards__heading">
-                    <span>${icon}</span>
-                    <span>${escapeHtml(data.heading || '')}</span>
-                    <a href="${escapeHtml(data.url || '#')}" class="live-cards__view-all">View All -></a>
-                </div>
-        `;
-
+        let itemsHtml = '';
         if (items.length === 0) {
-            html += `<div class="live-cards__empty">Nothing to show right now.</div>`;
-        } else if (data.type === 'timeline') {
-            const typeMeta = {
-                decision:  { label: 'Decision',  cls: 'decision',  ico: 'DEC' },
-                milestone: { label: 'Milestone', cls: 'milestone', ico: 'MS' },
-                summary:   { label: 'Summary',   cls: 'summary',   ico: 'SUM' },
-                upload:    { label: 'Upload',    cls: 'upload',    ico: 'UP' },
-            };
-            items.forEach(item => {
-                const t = typeMeta[item.entry_type] || { label: item.entry_type, cls: 'default', ico: 'ITEM' };
-                html += `
-                    <div class="live-card live-card--${t.cls}">
-                        <div class="live-card__accent"></div>
-                        <div class="live-card__body">
-                            <div class="live-card__row-top">
-                                <span class="live-card__type-badge live-card__type-badge--${t.cls}">${t.ico} ${t.label}</span>
-                                <span class="live-card__meta-date">${escapeHtml(item.date || '')}</span>
-                            </div>
-                            <div class="live-card__title">${escapeHtml(item.title || '')}</div>
-                            <div class="live-card__project">Project: ${escapeHtml(item.project || '')}</div>
-                            ${item.content ? `<div class="live-card__desc">${escapeHtml(item.content)}</div>` : ''}
-                        </div>
-                        <a href="${escapeHtml(data.url || '/memory')}" class="live-card__open-btn">Open -></a>
-                    </div>
-                `;
-            });
-        } else if (data.type === 'calendar') {
-            items.forEach(item => {
-                const pCls = item.priority === 'high' ? 'high' : item.priority === 'low' ? 'low' : 'medium';
-                html += `
-                    <div class="live-card live-card--task">
-                        <div class="live-card__accent"></div>
-                        <div class="live-card__body">
-                            <div class="live-card__row-top">
-                                <span class="live-card__priority-badge live-card__priority-badge--${pCls}">${escapeHtml(item.priority || 'medium')}</span>
-                            </div>
-                            <div class="live-card__title">${escapeHtml(item.title || '')}</div>
-                            <div class="live-card__meta-date">${escapeHtml(item.start)} -> ${escapeHtml(item.end)}</div>
-                            ${item.location ? `<div class="live-card__project">Location: ${escapeHtml(item.location)}</div>` : ''}
-                        </div>
-                        <a href="${escapeHtml(data.url || '/dashboard')}" class="live-card__open-btn">Open -></a>
-                    </div>
-                `;
-            });
+            itemsHtml = '<div class="live-card__item"><span class="live-card__item-text" style="color:var(--color-text-muted)">Nothing to show right now.</span></div>';
         } else {
             items.forEach(item => {
-                html += `
-                    <div class="live-card live-card--task">
-                        <div class="live-card__accent"></div>
-                        <div class="live-card__body">
-                            <div class="live-card__row-top">
-                                ${item.badge ? `<span class="live-card__type-badge live-card__type-badge--summary">${escapeHtml(item.badge)}</span>` : ''}
-                                ${item.meta ? `<span class="live-card__meta-date">${escapeHtml(item.meta)}</span>` : ''}
-                            </div>
-                            <div class="live-card__title">${escapeHtml(item.title || '')}</div>
-                            ${item.secondary ? `<div class="live-card__project">${escapeHtml(item.secondary)}</div>` : ''}
-                            ${item.description ? `<div class="live-card__desc">${escapeHtml(item.description)}</div>` : ''}
-                        </div>
-                        <a href="${escapeHtml(item.href || data.url || '/dashboard')}" class="live-card__open-btn">${escapeHtml(item.cta || 'Open ->')}</a>
+                const title = item.title || item.name || '';
+                let meta = '';
+                if (data.type === 'timeline') meta = item.date || '';
+                else if (data.type === 'calendar') meta = item.start || '';
+                else meta = item.meta || '';
+                itemsHtml += `
+                    <div class="live-card__item">
+                        <span class="live-card__item-dot"></span>
+                        <span class="live-card__item-text">${escapeHtml(title)}</span>
+                        ${meta ? `<span class="live-card__item-meta">${escapeHtml(meta)}</span>` : ''}
                     </div>
                 `;
             });
         }
 
-        html += `</div>`;
-        return html;
+        return `
+            <div class="live-cards">
+                <div class="live-card live-card--${escapeHtml(cardType)}">
+                    <div class="live-card__header">
+                        <span class="live-card__icon">${emoji}</span>
+                        <span class="live-card__title">${escapeHtml(data.heading || cardType)}</span>
+                        <span class="live-card__badge">${items.length} items</span>
+                    </div>
+                    <div class="live-card__body">${itemsHtml}</div>
+                </div>
+            </div>
+        `;
     }
 
     function showTypingIndicator() {
@@ -759,11 +726,13 @@ document.addEventListener('DOMContentLoaded', () => {
         el.className = 'chat-typing';
         el.id = 'typingIndicator';
         el.innerHTML = `
-            <div class="chat-typing__avatar">AI</div>
-            <div class="chat-typing__dots">
-                <div class="chat-typing__dot"></div>
-                <div class="chat-typing__dot"></div>
-                <div class="chat-typing__dot"></div>
+            <div class="chat-typing__bubble">
+                <div class="chat-typing__inner">
+                    <div class="chat-typing__dots">
+                        <span></span><span></span><span></span>
+                    </div>
+                    <span class="chat-typing__label">Thinking…</span>
+                </div>
             </div>
         `;
         chatMessages.appendChild(el);
@@ -863,7 +832,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.querySelectorAll('.chat-welcome__suggestion').forEach(btn => {
         btn.addEventListener('click', () => {
-            runQuickPrompt(btn.textContent.trim());
+            const textEl = btn.querySelector('.chat-welcome__suggestion-text');
+            runQuickPrompt((textEl || btn).textContent.trim());
         });
     });
 
