@@ -25,6 +25,8 @@ from app.models.calendar_task import CalendarTask, task_tagged_users
 from app.models.timeline import TimelineEntry
 from app.schemas.rag import (
     IngestTextRequest,
+    IngestURLRequest,
+    DriveIngestRequest,
     IngestResponse,
     DocumentResponse,
     DocumentListResponse,
@@ -43,6 +45,10 @@ from app.rag.engine import rag_engine
 from app.rag.processor import (
     process_document,
     process_text,
+    process_drive_url,
+    process_url,
+    parse_drive_url,
+    list_folder_files,
     validate_file,
     get_doc_type,
 )
@@ -419,6 +425,299 @@ async def ingest_text(
         raise HTTPException(status_code=500, detail=f"Error ingesting text: {str(e)}")
 
 
+# ─── Background task for Drive ingestion ───
+
+def _process_and_ingest_drive(
+    doc_record_id: int,
+    source_url: str,
+    team_id: int,
+    uploader_email: str,
+):
+    """Background task: Download a Google Drive file and ingest into ChromaDB."""
+    from app.core.database import SessionLocal
+
+    db = SessionLocal()
+    try:
+        doc = db.query(Document).filter(Document.id == doc_record_id).first()
+        if not doc:
+            return
+
+        doc.status = "processing"
+        db.commit()
+
+        chunks, filename, doc_type, file_size = process_drive_url(
+            url=source_url,
+            team_id=team_id,
+            document_id=doc_record_id,
+            uploader_email=uploader_email,
+        )
+
+        chunk_count = rag_engine.ingest_chunks(team_id, chunks)
+
+        doc.filename = filename
+        doc.doc_type = doc_type
+        doc.file_size = file_size
+        doc.chunk_count = chunk_count
+        doc.status = "ready"
+        doc.last_synced_at = datetime.now(timezone.utc)
+        db.commit()
+
+        print(f"[RAG] ✅ Drive doc '{filename}' → {chunk_count} chunks for team {team_id}")
+
+    except Exception as e:
+        print(f"[RAG] ❌ Error processing Drive URL: {e}")
+        doc = db.query(Document).filter(Document.id == doc_record_id).first()
+        if doc:
+            doc.status = "error"
+            doc.error_message = str(e)[:500]
+            db.commit()
+    finally:
+        db.close()
+
+
+@router.post("/ingest-drive", response_model=IngestResponse)
+async def ingest_drive_document(
+    data: DriveIngestRequest,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Ingest a public Google Drive document or folder. Requires owner or editor role."""
+    team = _verify_team_access(current_user, data.team_id, db)
+    _require_editor_or_owner(current_user, data.team_id, db)
+
+    # Validate and parse the Drive URL
+    try:
+        file_id, url_type = parse_drive_url(data.drive_url)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    # Validate refresh interval
+    if data.refresh_interval_hours is not None and data.refresh_interval_hours < 1:
+        raise HTTPException(status_code=400, detail="Refresh interval must be at least 1 hour.")
+
+    # ── Folder: list files and create a Document record per file ──
+    if url_type == "folder":
+        try:
+            folder_files = list_folder_files(file_id)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+        if len(folder_files) > 50:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Folder contains {len(folder_files)} files. Maximum is 50. "
+                       "Please share a smaller folder or individual files.",
+            )
+
+        doc_responses = []
+        for fid, fname, _ in folder_files:
+            file_url = f"https://drive.google.com/file/d/{fid}/view"
+            doc_record = Document(
+                team_id=data.team_id,
+                uploader_id=current_user.id,
+                filename=f"Drive import ({fid[:8]}...)",
+                stored_path=None,
+                doc_type="text",
+                file_size=0,
+                status="pending",
+                source_url=file_url,
+                drive_file_id=fid,
+                refresh_interval_hours=data.refresh_interval_hours,
+            )
+            db.add(doc_record)
+            db.flush()
+
+            background_tasks.add_task(
+                _process_and_ingest_drive,
+                doc_record_id=doc_record.id,
+                source_url=file_url,
+                team_id=data.team_id,
+                uploader_email=current_user.email,
+            )
+
+            doc_responses.append(DocumentResponse(
+                id=doc_record.id,
+                team_id=data.team_id,
+                filename=doc_record.filename,
+                doc_type="text",
+                file_size=0,
+                chunk_count=0,
+                status="pending",
+                uploader_email=current_user.email,
+                source_url=file_url,
+            ))
+
+        db.commit()
+
+        return IngestResponse(
+            message=f"Google Drive folder queued — {len(doc_responses)} file(s) will be imported.",
+            documents=doc_responses,
+            total_chunks=0,
+        )
+
+    # ── Single file ──
+    doc_record = Document(
+        team_id=data.team_id,
+        uploader_id=current_user.id,
+        filename=f"Drive import ({file_id[:8]}...)",
+        stored_path=None,
+        doc_type="text",
+        file_size=0,
+        status="pending",
+        source_url=data.drive_url,
+        drive_file_id=file_id,
+        refresh_interval_hours=data.refresh_interval_hours,
+    )
+    db.add(doc_record)
+    db.flush()
+
+    background_tasks.add_task(
+        _process_and_ingest_drive,
+        doc_record_id=doc_record.id,
+        source_url=data.drive_url,
+        team_id=data.team_id,
+        uploader_email=current_user.email,
+    )
+
+    db.commit()
+
+    return IngestResponse(
+        message="Google Drive document queued for import.",
+        documents=[DocumentResponse(
+            id=doc_record.id,
+            team_id=data.team_id,
+            filename=doc_record.filename,
+            doc_type="text",
+            file_size=0,
+            chunk_count=0,
+            status="pending",
+            uploader_email=current_user.email,
+            source_url=data.drive_url,
+        )],
+        total_chunks=0,
+    )
+
+
+@router.post("/documents/{doc_id}/refresh", response_model=DocumentResponse)
+async def refresh_document(
+    doc_id: int,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Re-download and re-ingest a Drive-sourced document. Requires owner or editor."""
+    doc = db.query(Document).filter(Document.id == doc_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    _verify_team_access(current_user, doc.team_id, db)
+    _require_editor_or_owner(current_user, doc.team_id, db)
+
+    if not doc.source_url:
+        raise HTTPException(status_code=400, detail="This document has no source URL to refresh from.")
+
+    # Delete old chunks from ChromaDB
+    rag_engine.delete_document_chunks(doc.team_id, doc.id)
+
+    doc.status = "processing"
+    doc.error_message = None
+    doc.chunk_count = 0
+    db.commit()
+
+    background_tasks.add_task(
+        _process_and_ingest_drive,
+        doc_record_id=doc.id,
+        source_url=doc.source_url,
+        team_id=doc.team_id,
+        uploader_email=current_user.email,
+    )
+
+    return DocumentResponse(
+        id=doc.id,
+        team_id=doc.team_id,
+        filename=doc.filename,
+        doc_type=doc.doc_type,
+        file_size=doc.file_size,
+        chunk_count=0,
+        status="processing",
+        uploader_email=doc.uploader.email if doc.uploader else None,
+        created_at=doc.created_at,
+        source_url=doc.source_url,
+        last_synced_at=doc.last_synced_at,
+        refresh_interval_hours=doc.refresh_interval_hours,
+    )
+
+
+@router.post("/ingest-url", response_model=IngestResponse)
+async def ingest_url(
+    data: IngestURLRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Ingest content from a generic URL. Requires owner or editor role."""
+    team = _verify_team_access(current_user, data.team_id, db)
+    _require_editor_or_owner(current_user, data.team_id, db)
+
+    # Basic URL validation
+    url = data.url.strip()
+    if not url.startswith(("http://", "https://")):
+        raise HTTPException(status_code=400, detail="URL must start with http:// or https://")
+
+    doc_record = Document(
+        team_id=data.team_id,
+        uploader_id=current_user.id,
+        filename=url[:80],
+        stored_path=None,
+        doc_type="text",
+        file_size=0,
+        status="processing",
+        source_url=url,
+    )
+    db.add(doc_record)
+    db.flush()
+
+    try:
+        chunks, title, file_size = process_url(
+            url=url,
+            team_id=data.team_id,
+            document_id=doc_record.id,
+            uploader_email=current_user.email,
+        )
+        chunk_count = rag_engine.ingest_chunks(data.team_id, chunks)
+        doc_record.filename = title
+        doc_record.file_size = file_size
+        doc_record.chunk_count = chunk_count
+        doc_record.status = "ready"
+        db.commit()
+
+        return IngestResponse(
+            message=f"URL content '{title}' ingested successfully.",
+            documents=[DocumentResponse(
+                id=doc_record.id,
+                team_id=data.team_id,
+                filename=title,
+                doc_type="text",
+                file_size=file_size,
+                chunk_count=chunk_count,
+                status="ready",
+                uploader_email=current_user.email,
+                source_url=url,
+            )],
+            total_chunks=chunk_count,
+        )
+    except ValueError as e:
+        doc_record.status = "error"
+        doc_record.error_message = str(e)[:500]
+        db.commit()
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        doc_record.status = "error"
+        doc_record.error_message = str(e)[:500]
+        db.commit()
+        raise HTTPException(status_code=500, detail=f"Error ingesting URL: {str(e)}")
+
+
 # ──────────────────────────────────────────────
 # KNOWLEDGE BASE MANAGEMENT
 # ──────────────────────────────────────────────
@@ -447,6 +746,9 @@ async def list_documents(
             error_message=doc.error_message,
             uploader_email=doc.uploader.email if doc.uploader else None,
             created_at=doc.created_at,
+            source_url=doc.source_url,
+            last_synced_at=doc.last_synced_at,
+            refresh_interval_hours=doc.refresh_interval_hours,
         ))
 
     return DocumentListResponse(documents=doc_responses, total=len(doc_responses))

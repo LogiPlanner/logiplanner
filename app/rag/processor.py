@@ -8,9 +8,11 @@ Supported formats: PDF, DOCX, TXT, MD
 """
 
 import os
+import re
 from datetime import datetime, timezone
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 
+import httpx
 from langchain_community.document_loaders import (
     PyPDFLoader,
     TextLoader,
@@ -245,3 +247,324 @@ def process_text(
     )
 
     return enriched
+
+
+# ─── Google Drive URL Parsing & Download ───
+
+# Patterns to extract file IDs from various Google Drive/Docs URLs
+_DRIVE_PATTERNS = [
+    # Google Docs: /document/d/{ID}/...
+    re.compile(r"docs\.google\.com/document/d/([a-zA-Z0-9_-]+)"),
+    # Google Sheets: /spreadsheets/d/{ID}/...
+    re.compile(r"docs\.google\.com/spreadsheets/d/([a-zA-Z0-9_-]+)"),
+    # Google Slides: /presentation/d/{ID}/...
+    re.compile(r"docs\.google\.com/presentation/d/([a-zA-Z0-9_-]+)"),
+    # Google Drive file: /file/d/{ID}/...
+    re.compile(r"drive\.google\.com/file/d/([a-zA-Z0-9_-]+)"),
+    # Google Drive folder: /drive/folders/{ID}
+    re.compile(r"drive\.google\.com/drive/folders/([a-zA-Z0-9_-]+)"),
+    # Google Drive open: ?id={ID}
+    re.compile(r"drive\.google\.com/open\?id=([a-zA-Z0-9_-]+)"),
+    # Google Drive uc: ?id={ID}
+    re.compile(r"drive\.google\.com/uc\?.*?id=([a-zA-Z0-9_-]+)"),
+]
+
+
+def parse_drive_url(url: str) -> Tuple[str, str]:
+    """
+    Parse a Google Drive/Docs URL and return (file_id, url_type).
+
+    url_type is one of: 'document', 'spreadsheet', 'presentation', 'file'
+
+    Raises ValueError if the URL is not a recognized Google Drive URL.
+    """
+    url = url.strip()
+
+    # Determine the type from the URL
+    if "docs.google.com/document" in url:
+        url_type = "document"
+    elif "docs.google.com/spreadsheets" in url:
+        url_type = "spreadsheet"
+    elif "docs.google.com/presentation" in url:
+        url_type = "presentation"
+    elif "drive.google.com/drive/folders" in url:
+        url_type = "folder"
+    elif "drive.google.com" in url:
+        url_type = "file"
+    else:
+        raise ValueError(
+            "Not a recognized Google Drive URL. "
+            "Please use a link from drive.google.com or docs.google.com."
+        )
+
+    # Extract file ID
+    for pattern in _DRIVE_PATTERNS:
+        match = pattern.search(url)
+        if match:
+            return match.group(1), url_type
+
+    raise ValueError(
+        "Could not extract a file ID from this URL. "
+        "Please use a standard Google Drive share link."
+    )
+
+
+def list_folder_files(folder_id: str) -> List[Tuple[str, str, str]]:
+    """
+    List files in a public Google Drive folder.
+
+    Returns a list of (file_id, filename, mime_hint) tuples.
+    Uses the public folder HTML page to scrape file IDs.
+    """
+    folder_url = f"https://drive.google.com/drive/folders/{folder_id}"
+
+    try:
+        with httpx.Client(follow_redirects=True, timeout=30.0) as client:
+            resp = client.get(folder_url)
+    except httpx.RequestError as e:
+        raise ValueError(f"Failed to access Drive folder: {e}")
+
+    if resp.status_code in (401, 403):
+        raise ValueError(
+            "Access denied. Make sure the folder is shared publicly: "
+            "Folder → Share → General access → Anyone with the link."
+        )
+    if resp.status_code == 404:
+        raise ValueError("Folder not found. Check the link and try again.")
+    if resp.status_code != 200:
+        raise ValueError(f"Google Drive returned HTTP {resp.status_code}.")
+
+    html = resp.text
+
+    # Google Drive folder pages embed file IDs in various attributes.
+    # Look for /file/d/{ID} patterns and data-id attributes in the HTML.
+    file_ids_seen = set()
+    results = []
+
+    # Pattern 1: /file/d/{ID}/ links in the HTML
+    for m in re.finditer(r'/file/d/([a-zA-Z0-9_-]{10,})', html):
+        fid = m.group(1)
+        if fid not in file_ids_seen:
+            file_ids_seen.add(fid)
+            results.append((fid, f"file_{fid[:8]}", "file"))
+
+    # Pattern 2: data-id="{ID}" attributes (Google Drive uses these)
+    for m in re.finditer(r'data-id="([a-zA-Z0-9_-]{10,})"', html):
+        fid = m.group(1)
+        if fid not in file_ids_seen and fid != folder_id:
+            file_ids_seen.add(fid)
+            results.append((fid, f"file_{fid[:8]}", "file"))
+
+    if not results:
+        # If HTML scraping found nothing, the folder may be empty or
+        # Google served a JS-only page. Give a clear error.
+        if "sign in" in html[:3000].lower() or "accounts.google.com" in html[:3000]:
+            raise ValueError(
+                "This folder is not publicly shared. "
+                "Set sharing to 'Anyone with the link' in Google Drive."
+            )
+        raise ValueError(
+            "No files found in this folder. The folder may be empty, "
+            "or Google served a page we couldn't parse. "
+            "Try sharing individual file links instead."
+        )
+
+    return results
+
+
+def _build_download_url(file_id: str, url_type: str) -> str:
+    """Build the download/export URL based on the file type."""
+    if url_type == "document":
+        return f"https://docs.google.com/document/d/{file_id}/export?format=txt"
+    elif url_type == "spreadsheet":
+        return f"https://docs.google.com/spreadsheets/d/{file_id}/export?format=csv"
+    elif url_type == "presentation":
+        return f"https://docs.google.com/presentation/d/{file_id}/export/txt"
+    else:
+        # Regular Drive file — direct download
+        return f"https://drive.google.com/uc?export=download&id={file_id}"
+
+
+def process_drive_url(
+    url: str,
+    team_id: int,
+    document_id: int,
+    uploader_email: str,
+) -> Tuple[List[LCDocument], str, str, int]:
+    """
+    Download a public Google Drive document and process it into chunks.
+
+    Returns: (chunks, filename, doc_type, file_size_bytes)
+
+    Raises ValueError on download failure or private file.
+    """
+    file_id, url_type = parse_drive_url(url)
+    download_url = _build_download_url(file_id, url_type)
+
+    # For generic "file" type (e.g. files from folder scraping), the /uc endpoint
+    # returns 500 for Google Workspace files (Docs, Sheets, Slides).
+    # Build a list of URLs to try in order.
+    urls_to_try = [download_url]
+    if url_type == "file":
+        urls_to_try.extend([
+            f"https://docs.google.com/document/d/{file_id}/export?format=txt",
+            f"https://docs.google.com/spreadsheets/d/{file_id}/export?format=csv",
+            f"https://docs.google.com/presentation/d/{file_id}/export/txt",
+        ])
+
+    resp = None
+    used_url_type = url_type
+    try:
+        with httpx.Client(follow_redirects=True, timeout=60.0) as client:
+            for i, try_url in enumerate(urls_to_try):
+                resp = client.get(try_url)
+                if resp.status_code == 200:
+                    # Track which export format succeeded for naming
+                    if i == 1:
+                        used_url_type = "document"
+                    elif i == 2:
+                        used_url_type = "spreadsheet"
+                    elif i == 3:
+                        used_url_type = "presentation"
+                    break
+                # Only retry on 500 (server error) or 404 from export endpoints
+                if resp.status_code not in (500, 404) or i == len(urls_to_try) - 1:
+                    break
+    except httpx.TimeoutException:
+        raise ValueError("Download timed out. The file may be too large or the server is slow.")
+    except httpx.RequestError as e:
+        raise ValueError(f"Failed to connect to Google Drive: {e}")
+
+    if resp.status_code == 404:
+        raise ValueError(
+            "File not found. Make sure the Google Drive link is correct "
+            "and the file hasn't been deleted."
+        )
+    if resp.status_code in (401, 403):
+        raise ValueError(
+            "Access denied. Make sure the file is shared publicly: "
+            "File → Share → General access → Anyone with the link."
+        )
+    if resp.status_code != 200:
+        raise ValueError(f"Google Drive returned HTTP {resp.status_code}.")
+
+    content = resp.text
+    content_bytes = len(content.encode("utf-8"))
+
+    # Detect if Google sent an HTML "you need to sign in" page
+    if content_bytes > 0 and "<html" in content[:500].lower() and "sign in" in content[:2000].lower():
+        raise ValueError(
+            "This file is not publicly shared. "
+            "Please set sharing to 'Anyone with the link' in Google Drive."
+        )
+
+    if not content.strip():
+        raise ValueError("The document appears to be empty or could not be read.")
+
+    # Derive filename from Content-Disposition header or fallback
+    cd = resp.headers.get("content-disposition", "")
+    filename = None
+    if "filename" in cd:
+        parts = cd.split("filename=")
+        if len(parts) > 1:
+            filename = parts[1].strip().strip('"').strip("'")
+    if not filename:
+        type_names = {
+            "document": "Google Doc",
+            "spreadsheet": "Google Sheet",
+            "presentation": "Google Slides",
+            "file": "Drive File",
+        }
+        filename = f"{type_names.get(used_url_type, 'Drive File')}_{file_id[:8]}.txt"
+
+    # Determine doc_type
+    if used_url_type == "spreadsheet":
+        doc_type = "txt"  # CSV is plain text
+    else:
+        doc_type = "text"
+
+    # Build LangChain document and split into chunks
+    lc_doc = LCDocument(
+        page_content=content,
+        metadata={"source": url},
+    )
+
+    chunks = split_documents([lc_doc])
+    if not chunks:
+        raise ValueError("Document produced no chunks after splitting.")
+
+    enriched = enrich_metadata(
+        chunks=chunks,
+        team_id=team_id,
+        document_id=document_id,
+        filename=filename,
+        uploader_email=uploader_email,
+        doc_type=doc_type,
+    )
+
+    return enriched, filename, doc_type, content_bytes
+
+
+def process_url(
+    url: str,
+    team_id: int,
+    document_id: int,
+    uploader_email: str,
+) -> Tuple[List[LCDocument], str, int]:
+    """
+    Fetch a generic URL page and process its text content into chunks.
+
+    Returns: (chunks, title, file_size_bytes)
+
+    Raises ValueError on failure.
+    """
+    try:
+        with httpx.Client(follow_redirects=True, timeout=30.0) as client:
+            resp = client.get(url, headers={"User-Agent": "LogiPlanner/1.0"})
+    except httpx.TimeoutException:
+        raise ValueError("Request timed out when fetching the URL.")
+    except httpx.RequestError as e:
+        raise ValueError(f"Failed to fetch URL: {e}")
+
+    if resp.status_code != 200:
+        raise ValueError(f"URL returned HTTP {resp.status_code}.")
+
+    content = resp.text
+    if not content.strip():
+        raise ValueError("The URL returned no content.")
+
+    # Simple HTML text extraction — strip tags
+    if "<html" in content[:500].lower() or "<body" in content[:500].lower():
+        content = re.sub(r"<script[^>]*>.*?</script>", "", content, flags=re.DOTALL | re.IGNORECASE)
+        content = re.sub(r"<style[^>]*>.*?</style>", "", content, flags=re.DOTALL | re.IGNORECASE)
+        content = re.sub(r"<[^>]+>", " ", content)
+        content = re.sub(r"\s+", " ", content).strip()
+
+    if not content.strip():
+        raise ValueError("No readable text could be extracted from the URL.")
+
+    content_bytes = len(content.encode("utf-8"))
+
+    # Extract title from URL or page
+    title_match = re.search(r"<title[^>]*>(.*?)</title>", resp.text, re.IGNORECASE | re.DOTALL)
+    title = title_match.group(1).strip() if title_match else url.split("/")[-1][:60] or "Web Page"
+
+    lc_doc = LCDocument(
+        page_content=content,
+        metadata={"source": url},
+    )
+
+    chunks = split_documents([lc_doc])
+    if not chunks:
+        raise ValueError("Page produced no chunks after splitting.")
+
+    enriched = enrich_metadata(
+        chunks=chunks,
+        team_id=team_id,
+        document_id=document_id,
+        filename=title,
+        uploader_email=uploader_email,
+        doc_type="text",
+    )
+
+    return enriched, title, content_bytes

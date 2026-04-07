@@ -24,6 +24,13 @@ class IngestURLRequest(BaseModel):
     url: str
 
 
+class DriveIngestRequest(BaseModel):
+    """Request to ingest a public Google Drive document."""
+    team_id: int
+    drive_url: str
+    refresh_interval_hours: Optional[int] = None  # None = no auto-refresh
+
+
 class DocumentResponse(BaseModel):
     """Response model for a single document."""
     id: int
@@ -36,6 +43,9 @@ class DocumentResponse(BaseModel):
     error_message: Optional[str] = None
     uploader_email: Optional[str] = None
     created_at: Optional[datetime] = None
+    source_url: Optional[str] = None
+    last_synced_at: Optional[datetime] = None
+    refresh_interval_hours: Optional[int] = None
 
     class Config:
         from_attributes = True

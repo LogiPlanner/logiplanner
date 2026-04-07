@@ -126,6 +126,10 @@ class Document(Base):
     chunk_count = Column(Integer, default=0)               # Number of chunks in vector store
     status = Column(String, default="pending")             # pending/processing/ready/error
     error_message = Column(Text, nullable=True)            # Error details if status=error
+    source_url = Column(String, nullable=True)             # Original URL for Drive/URL sources
+    drive_file_id = Column(String, nullable=True)          # Extracted Google Drive file ID
+    last_synced_at = Column(DateTime(timezone=True), nullable=True)  # Last refresh timestamp
+    refresh_interval_hours = Column(Integer, nullable=True)  # Auto-refresh threshold (hours)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     team = relationship("Team", backref="documents")

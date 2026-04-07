@@ -31,6 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let viewMode = 'grid'; // 'grid' or 'list'
     let pendingDeleteId = null;
     let pendingDeleteName = '';
+    let activeSourceFilter = 'all';
 
     // ── DOM ──
     const studioMain = document.querySelector('.studio-main');
@@ -66,6 +67,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const docCountBadge = document.getElementById('docCountBadge');
     const viewGrid = document.getElementById('viewGrid');
     const viewList = document.getElementById('viewList');
+    const sourceFilterTabs = document.getElementById('sourceFilterTabs');
 
     // Delete modal
     const deleteModal = document.getElementById('deleteModal');
@@ -224,8 +226,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!res.ok) return;
             const data = await res.json();
             allDocuments = data.documents || [];
+            updateSourceTabCounts();
             renderDocuments();
             updateReadyCount();
+
+            // Auto-refresh stale Drive docs
+            checkAutoRefresh(allDocuments);
 
             // Poll for processing docs
             const processing = allDocuments.filter(d => d.status === 'pending' || d.status === 'processing');
@@ -242,11 +248,42 @@ document.addEventListener('DOMContentLoaded', () => {
         animateNumber(statReady, readyCount);
     }
 
+    function getDocSource(doc) {
+        if (doc.source_url) {
+            if (doc.source_url.includes('drive.google.com')) return 'drive';
+            if (doc.source_url.includes('github.com')) return 'github';
+            return 'url';
+        }
+        if (doc.doc_type === 'text') return 'text';
+        return 'files';
+    }
+
+    function updateSourceTabCounts() {
+        if (!sourceFilterTabs) return;
+        const counts = { all: allDocuments.length, files: 0, drive: 0, text: 0, url: 0, github: 0 };
+        allDocuments.forEach(d => {
+            const s = getDocSource(d);
+            if (counts[s] !== undefined) counts[s]++;
+            else counts[s] = 1;
+        });
+        Object.keys(counts).forEach(src => {
+            const el = document.getElementById(`srcCount-${src}`);
+            if (el) {
+                el.textContent = counts[src];
+                el.classList.toggle('source-tab__count--zero', counts[src] === 0);
+            }
+        });
+    }
+
     function getFilteredDocs() {
         let docs = [...allDocuments];
         const search = (docSearch.value || '').toLowerCase().trim();
         const typeFilter = filterType.value;
         const statusFilter = filterStatus.value;
+
+        if (activeSourceFilter !== 'all') {
+            docs = docs.filter(d => getDocSource(d) === activeSourceFilter);
+        }
 
         if (search) {
             docs = docs.filter(d =>
@@ -308,6 +345,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="doc-card__accent doc-card__accent--${doc.doc_type || 'unknown'}"></div>
                     ${canEdit ? `
                         <div class="doc-card__actions">
+                            ${doc.source_url ? `
+                                <button class="doc-card__action-btn doc-card__action-btn--refresh" onclick="event.stopPropagation(); window._refreshDoc(${doc.id})" title="Refresh from source">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                                </button>
+                            ` : ''}
                             <button class="doc-card__action-btn" onclick="event.stopPropagation(); window._confirmDelete(${doc.id}, '${escapeHtml(doc.filename)}')" title="Delete document">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                             </button>
@@ -340,6 +382,12 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span class="doc-card__meta-item">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                                 ${escapeHtml(uploader)}
+                            </span>
+                        ` : ''}
+                        ${doc.source_url ? `
+                            <span class="doc-card__meta-item doc-card__meta-item--drive">
+                                <svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12"><path d="M7.71 3.5L1.15 15l3.43 5.97L11.14 9.47 7.71 3.5zm1.14 0l6.86 11.93H22.86L16 3.5H8.85zM16.57 16.5H3.43L0 22.5h24l-3.43-6H16.57z"/></svg>
+                                Drive
                             </span>
                         ` : ''}
                     </div>
@@ -376,6 +424,18 @@ document.addEventListener('DOMContentLoaded', () => {
         viewList.classList.add('active');
         viewGrid.classList.remove('active');
     });
+
+    // Source filter tabs
+    if (sourceFilterTabs) {
+        sourceFilterTabs.addEventListener('click', (e) => {
+            const btn = e.target.closest('.source-tab');
+            if (!btn) return;
+            activeSourceFilter = btn.dataset.source || 'all';
+            sourceFilterTabs.querySelectorAll('.source-tab').forEach(t => t.classList.remove('source-tab--active'));
+            btn.classList.add('source-tab--active');
+            renderDocuments();
+        });
+    }
 
     // ─────────────────────────────────────────
     // FILE UPLOAD
@@ -658,6 +718,24 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span class="drawer-field__value">${new Date(doc.created_at).toLocaleString()}</span>
                 </div>
             ` : ''}
+            ${doc.source_url ? `
+                <div class="drawer-field">
+                    <span class="drawer-field__label">Source URL</span>
+                    <span class="drawer-field__value"><a href="${escapeHtml(doc.source_url)}" target="_blank" rel="noopener noreferrer" style="color:var(--color-primary);word-break:break-all;">${escapeHtml(doc.source_url)}</a></span>
+                </div>
+            ` : ''}
+            ${doc.last_synced_at ? `
+                <div class="drawer-field">
+                    <span class="drawer-field__label">Last Synced</span>
+                    <span class="drawer-field__value">${new Date(doc.last_synced_at).toLocaleString()}</span>
+                </div>
+            ` : ''}
+            ${doc.refresh_interval_hours ? `
+                <div class="drawer-field">
+                    <span class="drawer-field__label">Auto-refresh</span>
+                    <span class="drawer-field__value">Every ${doc.refresh_interval_hours}h</span>
+                </div>
+            ` : ''}
             <div class="drawer-field">
                 <span class="drawer-field__label">Document ID</span>
                 <span class="drawer-field__value drawer-field__value--mono">#${doc.id}</span>
@@ -702,6 +780,116 @@ document.addEventListener('DOMContentLoaded', () => {
         if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
         if (diff < 604800000) return `${Math.floor(diff / 86400000)}d ago`;
         return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+
+    // ─────────────────────────────────────────
+    // GOOGLE DRIVE INTEGRATION
+    // ─────────────────────────────────────────
+    window.openDriveModal = function() {
+        const modal = document.getElementById('driveModal');
+        if (!modal) return;
+        modal.classList.add('active');
+        setTimeout(() => {
+            const input = document.getElementById('driveUrlInput');
+            if (input) input.focus();
+        }, 60);
+    };
+
+    window.closeDriveModal = function() {
+        const modal = document.getElementById('driveModal');
+        if (!modal) return;
+        modal.classList.remove('active');
+        const status = document.getElementById('driveStatus');
+        if (status) { status.textContent = ''; status.className = 'drive-modal__status'; }
+    };
+
+    window.importDriveDoc = async function() {
+        const urlInput = document.getElementById('driveUrlInput');
+        const intervalSel = document.getElementById('driveRefreshInterval');
+        const statusEl = document.getElementById('driveStatus');
+        const url = urlInput.value.trim();
+
+        if (!url) { showToast('Please enter a Google Drive URL', 'error'); return; }
+        if (!currentTeamId) { showToast('Please select a team first', 'error'); return; }
+
+        const refreshHours = intervalSel.value ? parseInt(intervalSel.value, 10) : null;
+
+        const importBtn = document.getElementById('driveImportBtn');
+        statusEl.textContent = 'Importing…';
+        statusEl.className = 'drive-modal__status drive-modal__status--loading';
+        if (importBtn) { importBtn.disabled = true; }
+
+        try {
+            const res = await sFetch(`${API}/rag/ingest-drive`, {
+                method: 'POST',
+                headers: jsonHeaders(),
+                body: JSON.stringify({
+                    team_id: currentTeamId,
+                    drive_url: url,
+                    refresh_interval_hours: refreshHours,
+                }),
+            });
+
+            if (res.ok) {
+                closeDriveModal();
+                showToast('Drive import queued — processing in background', 'success');
+                urlInput.value = '';
+                loadDocuments();
+                loadStats();
+            } else {
+                const err = await res.json().catch(() => ({}));
+                statusEl.textContent = err.detail || 'Import failed';
+                statusEl.className = 'drive-modal__status drive-modal__status--error';
+                if (importBtn) importBtn.disabled = false;
+            }
+        } catch (e) {
+            statusEl.textContent = 'Import failed';
+            statusEl.className = 'drive-modal__status drive-modal__status--error';
+            if (importBtn) importBtn.disabled = false;
+        }
+    };
+
+    window._refreshDoc = async function(docId) {
+        if (!currentTeamId) return;
+        const btn = document.querySelector(`.doc-card[data-id="${docId}"] .doc-card__action-btn--refresh`);
+        if (btn) btn.classList.add('spin-active');
+
+        try {
+            const res = await sFetch(`${API}/rag/documents/${docId}/refresh`, {
+                method: 'POST',
+                headers: jsonHeaders(),
+            });
+
+            if (res.ok) {
+                showToast('Document refresh started', 'success');
+                loadDocuments();
+            } else {
+                const err = await res.json().catch(() => ({}));
+                showToast(err.detail || 'Refresh failed', 'error');
+            }
+        } catch (e) {
+            showToast('Refresh failed', 'error');
+        } finally {
+            if (btn) btn.classList.remove('spin-active');
+        }
+    };
+
+    // Auto-refresh stale Drive docs on load
+    function checkAutoRefresh(docs) {
+        const now = Date.now();
+        docs.forEach(doc => {
+            if (!doc.source_url || !doc.refresh_interval_hours) return;
+            if (doc.status === 'processing' || doc.status === 'pending') return;
+            const lastSync = doc.last_synced_at ? new Date(doc.last_synced_at).getTime() : 0;
+            const intervalMs = doc.refresh_interval_hours * 3600000;
+            if (now - lastSync > intervalMs) {
+                // Trigger background refresh silently
+                sFetch(`${API}/rag/documents/${doc.id}/refresh`, {
+                    method: 'POST',
+                    headers: jsonHeaders(),
+                }).catch(() => {});
+            }
+        });
     }
 
     // ─── Init ───
