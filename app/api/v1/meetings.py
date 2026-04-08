@@ -124,7 +124,7 @@ def get_notes(team_id: int, folder_id: int = None, trashed: bool = False, curren
     query = db.query(MeetingNote).filter(MeetingNote.team_id == team_id, MeetingNote.is_trashed == trashed)
     if folder_id is not None:
         if folder_id == 0:
-            query = query.filter(MeetingNote.folder_id == None)
+            query = query.filter(MeetingNote.folder_id.is_(None))
         else:
             query = query.filter(MeetingNote.folder_id == folder_id)
     return query.order_by(MeetingNote.updated_at.desc()).all()
