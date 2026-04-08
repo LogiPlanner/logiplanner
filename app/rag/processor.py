@@ -448,8 +448,23 @@ def process_drive_url(
     if resp.status_code != 200:
         raise ValueError(f"Google Drive returned HTTP {resp.status_code}.")
 
+    # ── Enforce 100 MB file size limit ──
+    MAX_DRIVE_BYTES = 100 * 1024 * 1024  # 100 MB
+    content_length = resp.headers.get("content-length")
+    if content_length and int(content_length) > MAX_DRIVE_BYTES:
+        raise ValueError(
+            f"File is too large ({int(content_length) // (1024*1024)} MB). "
+            "Maximum allowed size is 100 MB."
+        )
+
     content = resp.text
     content_bytes = len(content.encode("utf-8"))
+
+    if content_bytes > MAX_DRIVE_BYTES:
+        raise ValueError(
+            f"File content is too large ({content_bytes // (1024*1024)} MB). "
+            "Maximum allowed size is 100 MB."
+        )
 
     # Detect if Google sent an HTML "you need to sign in" page
     if content_bytes > 0 and "<html" in content[:500].lower() and "sign in" in content[:2000].lower():
@@ -464,10 +479,16 @@ def process_drive_url(
     # Derive filename from Content-Disposition header or fallback
     cd = resp.headers.get("content-disposition", "")
     filename = None
-    if "filename" in cd:
-        parts = cd.split("filename=")
-        if len(parts) > 1:
-            filename = parts[1].strip().strip('"').strip("'")
+    if cd:
+        # RFC 5987: prefer filename*=UTF-8''... over plain filename=
+        import urllib.parse as _urlparse
+        star_match = re.search(r"filename\*\s*=\s*(?:UTF-8|utf-8)''(.+?)(?:;|$)", cd)
+        if star_match:
+            filename = _urlparse.unquote(star_match.group(1).strip())
+        else:
+            plain_match = re.search(r'filename\s*=\s*"?([^";]+)"?', cd)
+            if plain_match:
+                filename = plain_match.group(1).strip()
     if not filename:
         type_names = {
             "document": "Google Doc",

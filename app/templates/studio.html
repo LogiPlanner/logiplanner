@@ -315,6 +315,12 @@
                     placeholder="https://docs.google.com/document/d/… or /drive/folders/…"
                     onkeydown="if(event.key==='Enter')importDriveDoc()" />
             </div>
+            <div class="drive-modal__field">
+                <label class="drive-modal__label" for="driveNameInput">Display name <span style="opacity:.5">(optional)</span></label>
+                <input type="text" id="driveNameInput" class="drive-modal__input"
+                    placeholder="e.g. Q2 Marketing Plan, Design Specs…"
+                    maxlength="200" />
+            </div>
             <div class="drive-modal__field drive-modal__field--inline">
                 <label class="drive-modal__label" for="driveRefreshInterval">Auto-refresh</label>
                 <select id="driveRefreshInterval" class="drive-modal__select">
@@ -326,7 +332,7 @@
                 </select>
             </div>
             <p class="drive-modal__hint">
-                Make sure sharing is set to <strong>Anyone with the link → Viewer</strong>
+                Make sure sharing is set to <strong>Anyone with the link → Viewer</strong>. Max file size: 100 MB.
             </p>
             <p class="drive-modal__status" id="driveStatus"></p>
         </div>

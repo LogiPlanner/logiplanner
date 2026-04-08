@@ -28,6 +28,7 @@ class DriveIngestRequest(BaseModel):
     """Request to ingest a public Google Drive document."""
     team_id: int
     drive_url: str
+    custom_name: Optional[str] = None     # User-provided display name
     refresh_interval_hours: Optional[int] = None  # None = no auto-refresh
 
 

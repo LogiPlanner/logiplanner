@@ -514,7 +514,14 @@ def _process_and_ingest_drive(
         # Generate a summary from the first few chunks
         summary = _generate_doc_summary(chunks, filename)
 
-        doc.filename = filename
+        # Keep user-provided custom name; only overwrite generic placeholder names
+        current_name = doc.filename or ""
+        is_placeholder = (
+            current_name.startswith("Drive import (")
+            or current_name.startswith("Drive Folder (")
+        )
+        if is_placeholder:
+            doc.filename = filename
         doc.doc_type = doc_type
         doc.file_size = file_size
         doc.chunk_count = chunk_count
@@ -530,6 +537,7 @@ def _process_and_ingest_drive(
 
     except Exception as e:
         print(f"[RAG] ❌ Error processing Drive URL: {e}")
+        db.rollback()
         doc = db.query(Document).filter(Document.id == doc_record_id).first()
         if doc:
             doc.status = "error"
@@ -560,6 +568,9 @@ async def ingest_drive_document(
     if data.refresh_interval_hours is not None and data.refresh_interval_hours < 1:
         raise HTTPException(status_code=400, detail="Refresh interval must be at least 1 hour.")
 
+    # Sanitize custom_name (strip to 200 chars, fallback to None)
+    custom_name = (data.custom_name or "").strip()[:200] or None
+
     # ── Folder: create a parent folder document, then child docs for each file ──
     if url_type == "folder":
         try:
@@ -575,10 +586,11 @@ async def ingest_drive_document(
             )
 
         # Create parent folder document
+        folder_display = custom_name or f"Drive Folder ({file_id[:8]}...)"
         folder_record = Document(
             team_id=data.team_id,
             uploader_id=current_user.id,
-            filename=f"Drive Folder ({file_id[:8]}...)",
+            filename=folder_display,
             stored_path=None,
             doc_type="folder",
             file_size=0,
@@ -652,10 +664,11 @@ async def ingest_drive_document(
         )
 
     # ── Single file ──
+    single_display = custom_name or f"Drive import ({file_id[:8]}...)"
     doc_record = Document(
         team_id=data.team_id,
         uploader_id=current_user.id,
-        filename=f"Drive import ({file_id[:8]}...)",
+        filename=single_display,
         stored_path=None,
         doc_type="text",
         file_size=0,

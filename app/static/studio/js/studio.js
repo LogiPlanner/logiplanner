@@ -1075,10 +1075,13 @@ document.addEventListener('DOMContentLoaded', () => {
         modal.classList.remove('active');
         const status = document.getElementById('driveStatus');
         if (status) { status.textContent = ''; status.className = 'drive-modal__status'; }
+        const nameInput = document.getElementById('driveNameInput');
+        if (nameInput) nameInput.value = '';
     };
 
     window.importDriveDoc = async function() {
         const urlInput = document.getElementById('driveUrlInput');
+        const nameInput = document.getElementById('driveNameInput');
         const intervalSel = document.getElementById('driveRefreshInterval');
         const statusEl = document.getElementById('driveStatus');
         const url = urlInput.value.trim();
@@ -1087,6 +1090,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!currentTeamId) { showToast('Please select a team first', 'error'); return; }
 
         const refreshHours = intervalSel.value ? parseInt(intervalSel.value, 10) : null;
+        const customName = nameInput ? nameInput.value.trim() || null : null;
 
         const importBtn = document.getElementById('driveImportBtn');
         statusEl.textContent = 'Importing…';
@@ -1100,6 +1104,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({
                     team_id: currentTeamId,
                     drive_url: url,
+                    custom_name: customName,
                     refresh_interval_hours: refreshHours,
                 }),
             });
@@ -1148,28 +1153,42 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // Auto-refresh stale Drive docs on load
+    // Auto-refresh stale Drive docs (runs once per page session, max 5 at a time)
+    let _autoRefreshDone = false;
     function checkAutoRefresh(docs) {
+        if (_autoRefreshDone) return;
+        _autoRefreshDone = true;
+
         const now = Date.now();
+        const stale = [];
+
         const checkDoc = (doc) => {
             if (!doc.source_url || !doc.refresh_interval_hours) return;
             if (doc.status === 'processing' || doc.status === 'pending') return;
-            if (doc.doc_type === 'folder') return; // folders don't have their own chunks
+            if (doc.doc_type === 'folder') return;
             const lastSync = doc.last_synced_at ? new Date(doc.last_synced_at).getTime() : 0;
             const intervalMs = doc.refresh_interval_hours * 3600000;
             if (now - lastSync > intervalMs) {
-                sFetch(`${API}/rag/documents/${doc.id}/refresh`, {
-                    method: 'POST',
-                    headers: jsonHeaders(),
-                }).catch(() => {});
+                stale.push(doc);
             }
         };
 
         docs.forEach(doc => {
             checkDoc(doc);
-            // Also check folder children
             if (doc.children) doc.children.forEach(checkDoc);
         });
+
+        // Only refresh up to 5 at a time to avoid hammering the server
+        stale.slice(0, 5).forEach(doc => {
+            sFetch(`${API}/rag/documents/${doc.id}/refresh`, {
+                method: 'POST',
+                headers: jsonHeaders(),
+            }).catch(() => {});
+        });
+
+        if (stale.length > 0) {
+            console.log(`[Auto-refresh] Queued ${Math.min(stale.length, 5)} of ${stale.length} stale Drive docs`);
+        }
     }
 
     // ─── Init ───
