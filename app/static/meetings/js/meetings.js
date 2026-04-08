@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const container = document.getElementById('toastContainer');
         const toast = document.createElement('div');
         toast.className = `toast ${type}`;
-        toast.innerHTML = message;
+        toast.textContent = message;
         container.appendChild(toast);
         
         // initial small delay to allow dom insertion then fade in
@@ -683,7 +683,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Helper: Ensure UUID
     function ensureObjectId(obj) {
-        if (!obj.id) obj.id = 'obj-' + Math.random().toString(36).substr(2, 9);
+        if (obj.id) return obj.id;
+
+        const cryptoObj = window.crypto || window.msCrypto;
+
+        if (cryptoObj && typeof cryptoObj.randomUUID === 'function') {
+            obj.id = 'obj-' + cryptoObj.randomUUID();
+            return obj.id;
+        }
+
+        if (cryptoObj && typeof cryptoObj.getRandomValues === 'function') {
+            const bytes = new Uint8Array(16);
+            cryptoObj.getRandomValues(bytes);
+
+            bytes[6] = (bytes[6] & 0x0f) | 0x40;
+            bytes[8] = (bytes[8] & 0x3f) | 0x80;
+
+            const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0'));
+            const uuid = [
+                hex.slice(0, 4).join(''),
+                hex.slice(4, 6).join(''),
+                hex.slice(6, 8).join(''),
+                hex.slice(8, 10).join(''),
+                hex.slice(10, 16).join('')
+            ].join('-');
+
+            obj.id = 'obj-' + uuid;
+            return obj.id;
+        }
+
+        obj.id = 'obj-' + Math.random().toString(36).substr(2, 9);
         return obj.id;
     }
 
@@ -852,8 +881,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style="pointer-events:none;">
                   <path d="M5.5 3.21V20.8L11.4 15.68H18.78L5.5 3.21Z" fill="#ef4444" stroke="white" stroke-width="2"/>
                 </svg>
-                <div class="remote-cursor-name">${name}</div>
             `;
+            const cursorName = document.createElement('div');
+            cursorName.className = 'remote-cursor-name';
+            cursorName.textContent = name;
+            cursor.appendChild(cursorName);
             document.getElementById('whiteboardContainer').appendChild(cursor);
             cursors[id] = cursor;
         }
@@ -905,34 +937,59 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(data => {
                 const list = document.getElementById('foldersList');
                 let allActive = currentFolderId === null ? 'background:#e0e7ff; color:#4f46e5; font-weight:600;' : 'color:#374151;';
-                list.innerHTML = `<div class="folder-item" style="padding: 8px 12px; margin-bottom: 4px; border-radius: 6px; cursor:pointer; font-size: 13px; ${allActive}" onclick="selectFolder(null)">All Notes</div>`;
+                list.replaceChildren();
+
+                const allNotesEl = document.createElement('div');
+                allNotesEl.className = 'folder-item';
+                allNotesEl.style.cssText = `padding: 8px 12px; margin-bottom: 4px; border-radius: 6px; cursor:pointer; font-size: 13px; ${allActive}`;
+                allNotesEl.textContent = 'All Notes';
+                allNotesEl.addEventListener('click', () => selectFolder(null));
+                list.appendChild(allNotesEl);
+
                 data.forEach(f => {
                     let isActive = currentFolderId === f.id ? 'background:#e0e7ff; color:#4f46e5; font-weight:600;' : 'color:#374151;';
-                    list.innerHTML += `
-                    <div class="folder-item" style="padding: 8px 12px; margin-bottom: 4px; border-radius: 6px; cursor:pointer; font-size: 13px; ${isActive} transition: background 0.2s; display: flex; justify-content: space-between; align-items: center;" onclick="selectFolder(${f.id})">
-                        <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;" title="${f.name}">${f.name}</span>
-                        <svg class="delete-folder-btn" data-id="${f.id}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px; height:14px; color:#ef4444; cursor:pointer; display:none; margin-left:8px;"><path d="M3 6h18M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"></path></svg>
-                    </div>`;
-                });
 
-                list.querySelectorAll('.folder-item').forEach(el => {
-                    const del = el.querySelector('.delete-folder-btn');
-                    if(del) {
-                        el.addEventListener('mouseenter', () => del.style.display = 'block');
-                        el.addEventListener('mouseleave', () => del.style.display = 'none');
-                        del.addEventListener('click', async (e) => {
-                            e.stopPropagation();
-                            const confirmed = await showConfirmDelete('Delete this folder and all its notes?');
-                            if(confirmed) {
-                                fetch(`/api/v1/meetings/folders/${teamId}/${del.dataset.id}`, {method: 'DELETE'})
-                                .then(() => {
-                                    if(currentFolderId == del.dataset.id) selectFolder(null);
-                                    else loadFolders();
-                                    showToast("Folder deleted", "success");
-                                });
-                            }
-                        });
-                    }
+                    const folderEl = document.createElement('div');
+                    folderEl.className = 'folder-item';
+                    folderEl.style.cssText = `padding: 8px 12px; margin-bottom: 4px; border-radius: 6px; cursor:pointer; font-size: 13px; ${isActive} transition: background 0.2s; display: flex; justify-content: space-between; align-items: center;`;
+                    folderEl.addEventListener('click', () => selectFolder(f.id));
+
+                    const nameEl = document.createElement('span');
+                    nameEl.style.cssText = 'white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;';
+                    nameEl.title = f.name;
+                    nameEl.textContent = f.name;
+
+                    const del = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                    del.setAttribute('class', 'delete-folder-btn');
+                    del.dataset.id = f.id;
+                    del.setAttribute('viewBox', '0 0 24 24');
+                    del.setAttribute('fill', 'none');
+                    del.setAttribute('stroke', 'currentColor');
+                    del.setAttribute('stroke-width', '2');
+                    del.setAttribute('style', 'width:14px; height:14px; color:#ef4444; cursor:pointer; display:none; margin-left:8px;');
+
+                    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    path.setAttribute('d', 'M3 6h18M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2');
+                    del.appendChild(path);
+
+                    folderEl.appendChild(nameEl);
+                    folderEl.appendChild(del);
+                    list.appendChild(folderEl);
+
+                    folderEl.addEventListener('mouseenter', () => del.style.display = 'block');
+                    folderEl.addEventListener('mouseleave', () => del.style.display = 'none');
+                    del.addEventListener('click', async (e) => {
+                        e.stopPropagation();
+                        const confirmed = await showConfirmDelete('Delete this folder and all its notes?');
+                        if(confirmed) {
+                            fetch(`/api/v1/meetings/folders/${teamId}/${del.dataset.id}`, {method: 'DELETE'})
+                            .then(() => {
+                                if(currentFolderId == del.dataset.id) selectFolder(null);
+                                else loadFolders();
+                                showToast("Folder deleted", "success");
+                            });
+                        }
+                    });
                 });
             }).catch(e => showToast("Error loading folders", "error"));
     }
@@ -961,12 +1018,29 @@ document.addEventListener('DOMContentLoaded', () => {
                     const el = document.createElement('div');
                     let isActiveStyle = currentNoteId === n.id ? 'background:#e0e7ff; color:#4f46e5; font-weight:600;' : 'color:#374151;';
                     el.style.cssText = `padding: 10px 12px; margin-bottom: 4px; border-radius: 6px; cursor:pointer; font-size: 13px; border: 1px solid ${currentNoteId === n.id ? '#c7d2fe' : 'transparent'}; ${isActiveStyle} transition: all 0.2s; display: flex; justify-content: space-between; align-items: center;`;
-                    el.innerHTML = `<span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;" title="${n.title}">${n.title}</span>
-                         <svg class="delete-note-btn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px; height:14px; color:#ef4444; cursor:pointer; display:none; margin-left:8px;"><path d="M3 6h18M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"></path></svg>`;
+
+                    const titleSpan = document.createElement('span');
+                    titleSpan.style.cssText = 'white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;';
+                    titleSpan.setAttribute('title', n.title || '');
+                    titleSpan.textContent = n.title || '';
+
+                    const del = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                    del.setAttribute('class', 'delete-note-btn');
+                    del.setAttribute('viewBox', '0 0 24 24');
+                    del.setAttribute('fill', 'none');
+                    del.setAttribute('stroke', 'currentColor');
+                    del.setAttribute('stroke-width', '2');
+                    del.setAttribute('style', 'width:14px; height:14px; color:#ef4444; cursor:pointer; display:none; margin-left:8px;');
+
+                    const delPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    delPath.setAttribute('d', 'M3 6h18M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2');
+                    del.appendChild(delPath);
+
+                    el.appendChild(titleSpan);
+                    el.appendChild(del);
                     el.onclick = () => selectNote(n);
                     
                     // Add simple hover effect via events since inline CSS has no hover
-                    const del = el.querySelector('.delete-note-btn');
                     el.onmouseenter = () => {
                         if (currentNoteId !== n.id) el.style.background = '#f3f4f6';
                         del.style.display = 'block';
