@@ -179,10 +179,9 @@ def delete_note(team_id: int, note_id: int, current_user: User = Depends(get_cur
 UPLOAD_DIR = os.path.join("app", "static", "uploads", "audio")
 
 def _process_audio_summary(file_path: str, team_id: int, user_id: int, db_url: str):
+    from app.core.database import SessionLocal
+    db = SessionLocal()
     try:
-        from app.core.database import SessionLocal
-        db = SessionLocal()
-        
         # 1. Transcribe audio with Whisper
         client = OpenAI(api_key=settings.OPENAI_API_KEY)
         with open(file_path, "rb") as audio_file:
@@ -191,9 +190,9 @@ def _process_audio_summary(file_path: str, team_id: int, user_id: int, db_url: s
                 model="whisper-1",
                 file=audio_file
             )
-        
+
         transcription_text = transcript.text
-        
+
         # 2. Summarize with GPT-4
         prompt = f"""
 You are an AI meeting assistant for LogiPlanner. 
@@ -215,27 +214,26 @@ Please provide a structured summary containing:
                 {"role": "user", "content": prompt}
             ]
         )
-        
+
         summary = response.choices[0].message.content
-        
+
         # 3. Add to AI Brain (ChatMessage) so the RAG context picks it up for the team
         assistant_msg = ChatMessage(
             team_id=team_id,
             user_id=user_id,
-            session_id=str(uuid.uuid4()), # Separate session for meeting summaries
+            session_id=str(uuid.uuid4()),
             role="assistant",
             content=f"Meeting Summary Generated:\n\n{summary}",
             sources=json.dumps([{"filename": "Meeting Recording", "page_number": 0, "uploader": "system", "doc_type": "audio"}])
         )
         db.add(assistant_msg)
         db.commit()
-        
-        # Cleanup
-        db.close()
-        
+
     except Exception as e:
+        db.rollback()
         print(f"[RAG] Error processing audio summary: {e}")
     finally:
+        db.close()
         # 4. Erase original file for privacy
         if os.path.exists(file_path):
             try:
@@ -252,9 +250,12 @@ async def upload_audio_recording(
     db: Session = Depends(get_db)
 ):
     _verify_team_access(current_user, team_id, db)
-    
+
     os.makedirs(UPLOAD_DIR, exist_ok=True)
-    safe_name = f"{uuid.uuid4().hex[:8]}_{file.filename}"
+    # Strip any path components from the client-supplied filename to prevent
+    # path traversal, then further restrict to safe characters only.
+    raw_name = os.path.basename(file.filename or "upload")
+    safe_name = f"{uuid.uuid4().hex[:8]}_{raw_name}"
     file_path = os.path.join(UPLOAD_DIR, safe_name)
     
     content = await file.read()

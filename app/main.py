@@ -30,16 +30,15 @@ app.add_middleware(
 
 
 # ──────────────────────────────────────────────
-# Create tables on startup (development only)
+# Startup
 # ──────────────────────────────────────────────
 @app.on_event("startup")
-def create_tables():
+def on_startup():
     from app.models.user import Base as ModelBase
-    import app.models.meeting # Ensure meetings are tracked for create_all
+    import app.models.meeting
     ModelBase.metadata.create_all(bind=engine)
-    print("[OK] Database tables ensured")
 
-    # Clean up any documents left stuck in pending/processing from a previous crash
+    # Reset any documents that were stuck mid-processing when the server last crashed.
     from app.core.database import SessionLocal
     from app.models.user import Document
     db = SessionLocal()
