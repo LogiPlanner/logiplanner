@@ -1,4 +1,4 @@
-"""empty message
+"""merge googledrive and meeting_notes branches
 
 Revision ID: 46d473c26188
 Revises: d1a2b3c4d5e6, dacfc08e3ec5
