@@ -30,15 +30,15 @@ app.add_middleware(
 
 
 # ──────────────────────────────────────────────
-# Create tables on startup (development only)
+# Startup
 # ──────────────────────────────────────────────
 @app.on_event("startup")
-def create_tables():
+def on_startup():
     from app.models.user import Base as ModelBase
+    import app.models.meeting
     ModelBase.metadata.create_all(bind=engine)
-    print("[OK] Database tables ensured")
 
-    # Clean up any documents left stuck in pending/processing from a previous crash
+    # Reset any documents that were stuck mid-processing when the server last crashed.
     from app.core.database import SessionLocal
     from app.models.user import Document
     db = SessionLocal()
@@ -77,6 +77,9 @@ app.include_router(calendar_router, prefix=settings.API_V1_STR + "/calendar", ta
 
 from app.api.v1.settings import router as settings_router
 app.include_router(settings_router, prefix=settings.API_V1_STR + "/settings", tags=["settings"])
+
+from app.api.v1.meetings import router as meetings_router
+app.include_router(meetings_router, prefix=settings.API_V1_STR + "/meetings", tags=["meetings"])
 
 # ──────────────────────────────────────────────
 # Health Check
@@ -141,6 +144,11 @@ async def studio_page(request: Request):
 @app.get("/memory")
 async def memory_page(request: Request):
     return templates.TemplateResponse("memory.html", {"request": request, "active_nav": "project_memory"})
+
+
+@app.get("/meetings")
+async def meetings_page(request: Request):
+    return templates.TemplateResponse("meetings/meetings.html", {"request": request, "active_nav": "meeting_notes"})
 
 
 @app.get("/settings")
