@@ -91,10 +91,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (projectTitle) projectTitle.textContent = 'Project Memory';
                     timelineEmpty.style.display = 'block';
                 }
+            } else {
+                // Non-2xx (401, 403, 500, etc.) — don't leave the page frozen
+                console.warn('Failed to load teams, status:', res.status);
+                if (projectTitle) projectTitle.textContent = 'Project Memory';
+                if (timelineEmpty) timelineEmpty.style.display = 'block';
             }
         } catch(e) {
             console.error('Failed to fetch teams', e);
             if (projectTitle) projectTitle.textContent = 'Project Memory';
+            if (timelineEmpty) timelineEmpty.style.display = 'block';
         }
     }
 
