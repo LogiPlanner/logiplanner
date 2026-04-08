@@ -78,23 +78,29 @@ document.addEventListener('DOMContentLoaded', () => {
             if (res.ok) {
                 const teams = await res.json();
                 if (teams.length > 0) {
-                    const storedId = parseInt(localStorage.getItem('selected_team_id'));
-                    const matched = teams.find(t => t.id === storedId);
-                    const activeTeam = matched || teams[0];
-
-                    currentTeamId = activeTeam.id;
+                    // Pick the team matching localStorage, or fall back to first
+                    const savedTeam = localStorage.getItem('selected_team_id');
+                    const matched = savedTeam && teams.find(t => t.id === parseInt(savedTeam));
+                    const chosen = matched || teams[0];
+                    currentTeamId = chosen.id;
                     if (projectTitle) {
-                        projectTitle.textContent = activeTeam.team_name;
+                        projectTitle.textContent = chosen.team_name || 'Project Memory';
                     }
-                    loadTeamData(currentTeamId);
+                    loadTeamData(chosen.id);
                 } else {
                     if (projectTitle) projectTitle.textContent = 'Project Memory';
                     timelineEmpty.style.display = 'block';
                 }
+            } else {
+                // Non-2xx (401, 403, 500, etc.) — don't leave the page frozen
+                console.warn('Failed to load teams, status:', res.status);
+                if (projectTitle) projectTitle.textContent = 'Project Memory';
+                if (timelineEmpty) timelineEmpty.style.display = 'block';
             }
         } catch(e) {
             console.error('Failed to fetch teams', e);
             if (projectTitle) projectTitle.textContent = 'Project Memory';
+            if (timelineEmpty) timelineEmpty.style.display = 'block';
         }
     }
 
@@ -549,6 +555,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Init
     fetchTeams();
+
+    // React to sidebar team switch
+    const _teamSel = document.getElementById('teamSelect');
+    if (_teamSel) {
+        _teamSel.addEventListener('change', function () {
+            localStorage.setItem('selected_team_id', _teamSel.value);
+            fetchTeams();
+        });
+    }
 
     setInterval(() => {
         if(currentTeamId) {

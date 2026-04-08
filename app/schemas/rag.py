@@ -126,3 +126,17 @@ class DeleteResponse(BaseModel):
     """Response for delete operations."""
     message: str
     deleted_count: int = 0
+
+
+class RecentKnowledgeItem(BaseModel):
+    """A summarized recent knowledge chunk."""
+    summary: str
+    filename: str
+    doc_type: str = "unknown"
+    uploaded_at: str = ""
+
+
+class RecentKnowledgeResponse(BaseModel):
+    """Response for recent knowledge summaries."""
+    items: List[RecentKnowledgeItem]
+    total: int
