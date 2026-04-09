@@ -204,6 +204,83 @@ class RAGEngine:
 
         return 0
 
+    def _get_chunk_sort_index(self, metadata: Optional[Dict[str, Any]]) -> int:
+        """Normalize chunk_index metadata into a stable integer sort key."""
+        if not metadata:
+            return 0
+
+        value = metadata.get("chunk_index", 0)
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return 0
+
+    def get_document_chunks(self, team_id: int, document_id: int, limit: int = 20, offset: int = 0) -> dict:
+        """Retrieve stored chunks for a specific document from the vector store."""
+        self._ensure_initialized()
+        collection_name = self._get_collection_name(team_id)
+
+        safe_limit = max(limit, 0)
+        safe_offset = max(offset, 0)
+
+        try:
+            collection = self._chroma_client.get_collection(collection_name)
+
+            # First fetch only IDs + metadata so we can compute total count and
+            # establish a stable ordering from stored chunk_index metadata.
+            metadata_results = collection.get(
+                where={"document_id": document_id},
+                include=["metadatas"],
+            )
+
+            all_ids = metadata_results.get("ids", []) or []
+            all_metas = metadata_results.get("metadatas", []) or []
+            total = len(all_ids)
+
+            if total == 0 or safe_limit == 0 or safe_offset >= total:
+                return {"total": total, "chunks": []}
+
+            ordered_rows = sorted(
+                zip(all_ids, all_metas),
+                key=lambda item: self._get_chunk_sort_index(item[1]),
+            )
+            paged_rows = ordered_rows[safe_offset:safe_offset + safe_limit]
+            paged_ids = [chunk_id for chunk_id, _ in paged_rows]
+
+            if not paged_ids:
+                return {"total": total, "chunks": []}
+
+            # Fetch only the requested page of chunk documents.
+            page_results = collection.get(
+                ids=paged_ids,
+                include=["documents", "metadatas"],
+            )
+
+            result_by_id = {}
+            for chunk_id, text, meta in zip(
+                page_results.get("ids", []) or [],
+                page_results.get("documents", []) or [],
+                page_results.get("metadatas", []) or [],
+            ):
+                result_by_id[chunk_id] = {
+                    "text": text,
+                    "meta": meta or {},
+                }
+
+            chunks = []
+            for position, (chunk_id, fallback_meta) in enumerate(paged_rows):
+                entry = result_by_id.get(chunk_id, {"text": "", "meta": fallback_meta or {}})
+                meta = entry["meta"] or fallback_meta or {}
+                chunks.append({
+                    "index": self._get_chunk_sort_index(meta),
+                    "text": entry["text"],
+                    "source": meta.get("source", ""),
+                })
+            return {"total": total, "chunks": chunks}
+        except Exception as e:
+            print(f"[RAG] Error getting document chunks: {e}")
+            return {"total": 0, "chunks": []}
+
     def delete_timeline_entry_chunks(self, team_id: int, timeline_entry_id: int) -> int:
         """
         Delete all chunks belonging to a specific timeline entry from the vector store.

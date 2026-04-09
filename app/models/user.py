@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, Text, Table
-from sqlalchemy.orm import relationship, declarative_base
+from sqlalchemy.orm import relationship, declarative_base, backref
 from sqlalchemy.sql import func
 import uuid
 from datetime import datetime
@@ -121,15 +121,27 @@ class Document(Base):
     uploader_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     filename = Column(String, nullable=False)             # Original filename
     stored_path = Column(String, nullable=True)            # Path on disk (null after processing)
-    doc_type = Column(String, nullable=False)              # pdf/docx/txt/markdown/text
+    doc_type = Column(String, nullable=False)              # pdf/docx/txt/markdown/text/folder
     file_size = Column(Integer, default=0)                 # Size in bytes
     chunk_count = Column(Integer, default=0)               # Number of chunks in vector store
     status = Column(String, default="pending")             # pending/processing/ready/error
     error_message = Column(Text, nullable=True)            # Error details if status=error
+    source_url = Column(String, nullable=True)             # Original URL for Drive/URL sources
+    drive_file_id = Column(String, nullable=True)          # Extracted Google Drive file ID
+    last_synced_at = Column(DateTime(timezone=True), nullable=True)  # Last refresh timestamp
+    refresh_interval_hours = Column(Integer, nullable=True)  # Auto-refresh threshold (hours)
+    folder_id = Column(Integer, ForeignKey("documents.id"), nullable=True)  # Parent folder document
+    summary = Column(Text, nullable=True)                  # LLM-generated summary of document content
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     team = relationship("Team", backref="documents")
     uploader = relationship("User", backref="uploaded_documents")
+    children = relationship(
+        "Document",
+        backref=backref("folder", remote_side="Document.id"),
+        cascade="all, delete-orphan",
+        foreign_keys=[folder_id],
+    )
 
     def __repr__(self):
         return f"<Document {self.filename} ({self.status})>"

@@ -163,15 +163,16 @@
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
                         Integrations
                     </h3>
-                    <span class="integrations-card__badge">Coming Soon</span>
+                    <span class="integrations-card__badge integrations-card__badge--live">Beta</span>
                 </div>
                 <div class="integrations-list">
-                    <div class="integration-row" id="sourceGoogleDrive">
+                    <button type="button" class="integration-row integration-row--clickable" id="sourceGoogleDrive" onclick="openDriveModal()">
                         <div class="integration-row__icon integration-row__icon--drive">
                             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7.71 3.5L1.15 15l3.43 5.97L11.14 9.47 7.71 3.5zm1.14 0l6.86 11.93H22.86L16 3.5H8.85zM16.57 16.5H3.43L0 22.5h24l-3.43-6H16.57z"/></svg>
                         </div>
                         <span class="integration-row__name">Google Drive</span>
-                    </div>
+                        <svg class="integration-row__chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                    </button>
                     <div class="integration-row">
                         <div class="integration-row__icon integration-row__icon--github">
                             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
@@ -213,6 +214,33 @@
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
                     </button>
                 </div>
+            </div>
+
+            <!-- Source Filter Tabs -->
+            <div class="source-filter-tabs" id="sourceFilterTabs">
+                <button class="source-tab source-tab--active" data-source="all">
+                    All <span class="source-tab__count" id="srcCount-all">0</span>
+                </button>
+                <button class="source-tab" data-source="files">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                    Files <span class="source-tab__count" id="srcCount-files">0</span>
+                </button>
+                <button class="source-tab source-tab--drive" data-source="drive">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7.71 3.5L1.15 15l3.43 5.97L11.14 9.47 7.71 3.5zm1.14 0l6.86 11.93H22.86L16 3.5H8.85zM16.57 16.5H3.43L0 22.5h24l-3.43-6H16.57z"/></svg>
+                    Drive <span class="source-tab__count" id="srcCount-drive">0</span>
+                </button>
+                <button class="source-tab" data-source="text">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                    Text <span class="source-tab__count" id="srcCount-text">0</span>
+                </button>
+                <button class="source-tab" data-source="url">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                    URL <span class="source-tab__count" id="srcCount-url">0</span>
+                </button>
+                <button class="source-tab source-tab--github" data-source="github">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                    GitHub <span class="source-tab__count" id="srcCount-github">0</span>
+                </button>
             </div>
 
             <!-- Compact Toolbar -->
@@ -264,6 +292,59 @@
 
     </div><!-- /studio-scroll -->
 </main>
+
+<!-- ═══ GOOGLE DRIVE IMPORT MODAL ═══ -->
+<div class="modal-overlay" id="driveModal" onclick="if(event.target===this)closeDriveModal()">
+    <div class="drive-modal">
+        <div class="drive-modal__header">
+            <div class="drive-modal__header-icon">
+                <svg viewBox="0 0 24 24" fill="currentColor" width="26" height="26"><path d="M7.71 3.5L1.15 15l3.43 5.97L11.14 9.47 7.71 3.5zm1.14 0l6.86 11.93H22.86L16 3.5H8.85zM16.57 16.5H3.43L0 22.5h24l-3.43-6H16.57z"/></svg>
+            </div>
+            <div class="drive-modal__header-text">
+                <h3 class="drive-modal__title">Import from Google Drive</h3>
+                <p class="drive-modal__subtitle">Files, Docs, Sheets, Slides, or folders</p>
+            </div>
+            <button class="drive-modal__close" onclick="closeDriveModal()" aria-label="Close">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+        <div class="drive-modal__body">
+            <div class="drive-modal__field">
+                <label class="drive-modal__label" for="driveUrlInput">Google Drive URL</label>
+                <input type="url" id="driveUrlInput" class="drive-modal__input"
+                    placeholder="https://docs.google.com/document/d/… or /drive/folders/…"
+                    onkeydown="if(event.key==='Enter')importDriveDoc()" />
+            </div>
+            <div class="drive-modal__field">
+                <label class="drive-modal__label" for="driveNameInput">Display name <span style="opacity:.5">(optional)</span></label>
+                <input type="text" id="driveNameInput" class="drive-modal__input"
+                    placeholder="e.g. Q2 Marketing Plan, Design Specs…"
+                    maxlength="200" />
+            </div>
+            <div class="drive-modal__field drive-modal__field--inline">
+                <label class="drive-modal__label" for="driveRefreshInterval">Auto-refresh</label>
+                <select id="driveRefreshInterval" class="drive-modal__select">
+                    <option value="">Off</option>
+                    <option value="1">Every hour</option>
+                    <option value="6">Every 6 hours</option>
+                    <option value="24" selected>Every 24 hours</option>
+                    <option value="168">Weekly</option>
+                </select>
+            </div>
+            <p class="drive-modal__hint">
+                Make sure sharing is set to <strong>Anyone with the link → Viewer</strong>. Max file size: 100 MB.
+            </p>
+            <p class="drive-modal__status" id="driveStatus"></p>
+        </div>
+        <div class="drive-modal__footer">
+            <button class="drive-modal__btn drive-modal__btn--cancel" onclick="closeDriveModal()">Cancel</button>
+            <button class="drive-modal__btn drive-modal__btn--import" id="driveImportBtn" onclick="importDriveDoc()">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/></svg>
+                Import from Drive
+            </button>
+        </div>
+    </div>
+</div>
 
 <!-- ═══ DELETE CONFIRM MODAL ═══ -->
 <div class="modal-overlay" id="deleteModal">
