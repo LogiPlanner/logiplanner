@@ -12,7 +12,7 @@ import os
 
 from app.core.dependencies import get_current_user
 from app.core.database import get_db
-from app.models.user import User, Team, Role, UserRole
+from app.models.user import User, Team, Role, UserRole, Document
 from app.schemas.onboarding import (
     CreateTeamStep1,
     CreateTeamStep2,
@@ -22,6 +22,8 @@ from app.schemas.onboarding import (
     JoinTeamUserDetails,
     TeamPreviewResponse,
     OnboardingBriefResponse,
+    SetupProjectRequest,
+    SetupProjectResponse,
 )
 
 router = APIRouter()
@@ -246,6 +248,229 @@ async def send_invites(
     return {
         "message": f"Invited {len(data.invites)} member(s).",
         "invited_count": len(data.invites),
+    }
+
+
+# ──────────────────────────────────────────────
+# DEFERRED SETUP — Called from Dashboard Welcome Screen
+# ──────────────────────────────────────────────
+
+@router.post("/setup-project", response_model=SetupProjectResponse)
+async def setup_project(
+    data: SetupProjectRequest,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    All-in-one project setup. Called after onboarding wizard completes.
+    Creates the team, updates user profile, processes uploads/links via RAG,
+    and records invites — all atomically.
+    """
+    from app.rag.engine import rag_engine
+    from app.rag.processor import (
+        process_document, validate_file, get_doc_type,
+        process_drive_url, process_github_repo, process_github_url,
+        process_text,
+    )
+
+    RAG_UPLOAD_DIR = os.path.join("app", "static", "uploads", "rag")
+
+    # ── 1. Create Team ──
+    existing = db.query(Team).filter(Team.team_name == data.team_name).first()
+    if existing:
+        raise HTTPException(
+            status_code=400,
+            detail="A project with this name already exists. Please choose a different name.",
+        )
+
+    team = Team(team_name=data.team_name, description=data.description)
+    db.add(team)
+    db.flush()
+
+    team.users.append(current_user)
+    owner_role = _get_or_create_role(db, "owner")
+    user_role = UserRole(user_id=current_user.id, role_id=owner_role.id, team_id=team.id)
+    db.add(user_role)
+
+    # ── 2. Update Owner Profile (only missing fields) ──
+    user = db.query(User).filter(User.id == current_user.id).first()
+    user.job_title = data.job_title
+    if data.role_preference:
+        user.role_preference = data.role_preference
+
+    # ── 3. Link uploaded files + queue RAG processing ──
+    for stored_name in data.uploaded_files:
+        file_path = os.path.join(RAG_UPLOAD_DIR, stored_name)
+        if not os.path.isfile(file_path):
+            print(f"[SETUP] Warning: uploaded file not found: {stored_name}")
+            continue
+
+        original_name = stored_name[9:]  # strip UUID prefix "xxxxxxxx_"
+        file_size = os.path.getsize(file_path)
+
+        is_valid, _ = validate_file(original_name, file_size)
+        if not is_valid:
+            print(f"[SETUP] Skipping invalid file: {original_name}")
+            continue
+
+        doc_type = get_doc_type(original_name)
+        doc_record = Document(
+            team_id=team.id,
+            uploader_id=current_user.id,
+            filename=original_name,
+            stored_path=file_path,
+            doc_type=doc_type,
+            file_size=file_size,
+            status="pending",
+        )
+        db.add(doc_record)
+        db.flush()
+
+        def _bg_process_file(doc_id, fp, fn, tid, email):
+            from app.core.database import SessionLocal
+            _db = SessionLocal()
+            try:
+                _doc = _db.query(Document).filter(Document.id == doc_id).first()
+                if _doc:
+                    _doc.status = "processing"
+                    _db.commit()
+                    chunks = process_document(fp, fn, tid, doc_id, email)
+                    chunk_count = rag_engine.ingest_chunks(tid, chunks)
+                    _doc.chunk_count = chunk_count
+                    _doc.status = "ready"
+                    _db.commit()
+                    print(f"[SETUP/RAG] {fn} -> {chunk_count} chunks")
+            except Exception as e:
+                print(f"[SETUP/RAG] Error processing {fn}: {e}")
+                _doc = _db.query(Document).filter(Document.id == doc_id).first()
+                if _doc:
+                    _doc.status = "error"
+                    _doc.error_message = str(e)[:500]
+                    _db.commit()
+            finally:
+                _db.close()
+
+        background_tasks.add_task(
+            _bg_process_file, doc_record.id, file_path, original_name, team.id, current_user.email
+        )
+
+    # ── 4. Process Links (Google Drive + GitHub) via RAG in background ──
+    for link in data.links:
+        doc_record = Document(
+            team_id=team.id,
+            uploader_id=current_user.id,
+            filename=link.label or link.url[:80],
+            stored_path="",
+            doc_type="link",
+            file_size=0,
+            status="pending",
+        )
+        db.add(doc_record)
+        db.flush()
+
+        def _bg_process_link(doc_id, link_url, link_type, tid, email):
+            from app.core.database import SessionLocal
+            _db = SessionLocal()
+            try:
+                _doc = _db.query(Document).filter(Document.id == doc_id).first()
+                if not _doc:
+                    return
+                _doc.status = "processing"
+                _db.commit()
+
+                chunks = []
+                if link_type == "google_drive":
+                    chunks, filename, d_type, size = process_drive_url(link_url, tid, doc_id, email)
+                    _doc.filename = filename
+                    _doc.doc_type = d_type
+                    _doc.file_size = size
+                elif link_type == "github":
+                    if "/blob/" in link_url or "raw.githubusercontent.com" in link_url:
+                        chunks, filename, size = process_github_url(link_url, tid, doc_id, email)
+                    else:
+                        chunks, filename, size = process_github_repo(link_url, tid, doc_id, email)
+                    _doc.filename = filename
+                    _doc.file_size = size
+
+                if chunks:
+                    chunk_count = rag_engine.ingest_chunks(tid, chunks)
+                    _doc.chunk_count = chunk_count
+                    _doc.status = "ready"
+                    _db.commit()
+                    print(f"[SETUP/LINK] {link_url} -> {chunk_count} chunks")
+                else:
+                    _doc.status = "error"
+                    _doc.error_message = "No content extracted from link"
+                    _db.commit()
+            except Exception as e:
+                print(f"[SETUP/LINK] Error: {link_url}: {e}")
+                _doc = _db.query(Document).filter(Document.id == doc_id).first()
+                if _doc:
+                    _doc.status = "error"
+                    _doc.error_message = str(e)[:500]
+                    _db.commit()
+            finally:
+                _db.close()
+
+        background_tasks.add_task(
+            _bg_process_link, doc_record.id, link.url, link.source_type, team.id, current_user.email
+        )
+
+    # ── 5. Process Additional Context Notes via RAG ──
+    if data.notes and data.notes.strip():
+        notes_doc = Document(
+            team_id=team.id,
+            uploader_id=current_user.id,
+            filename="Onboarding Context Notes",
+            stored_path="",
+            doc_type="text",
+            file_size=len(data.notes.encode("utf-8")),
+            status="pending",
+        )
+        db.add(notes_doc)
+        db.flush()
+
+        def _bg_process_notes(doc_id, notes_text, tid, email):
+            from app.core.database import SessionLocal
+            _db = SessionLocal()
+            try:
+                _doc = _db.query(Document).filter(Document.id == doc_id).first()
+                if _doc:
+                    _doc.status = "processing"
+                    _db.commit()
+                    chunks = process_text(notes_text, "Onboarding Context Notes", tid, doc_id, email)
+                    chunk_count = rag_engine.ingest_chunks(tid, chunks)
+                    _doc.chunk_count = chunk_count
+                    _doc.status = "ready"
+                    _db.commit()
+                    print(f"[SETUP/NOTES] Context notes -> {chunk_count} chunks")
+            except Exception as e:
+                print(f"[SETUP/NOTES] Error: {e}")
+                _doc = _db.query(Document).filter(Document.id == doc_id).first()
+                if _doc:
+                    _doc.status = "error"
+                    _doc.error_message = str(e)[:500]
+                    _db.commit()
+            finally:
+                _db.close()
+
+        background_tasks.add_task(
+            _bg_process_notes, notes_doc.id, data.notes, team.id, current_user.email
+        )
+
+    # ── 6. Record Invites ──
+    for invite in data.invites:
+        print(f"[SETUP/INVITE] {invite.email} as {invite.role} — invited by {current_user.email}")
+
+    db.commit()
+    db.refresh(team)
+
+    return {
+        "message": f"Project '{team.team_name}' created successfully!",
+        "team_id": team.id,
+        "team_name": team.team_name,
+        "invite_code": team.invite_code,
     }
 
 
