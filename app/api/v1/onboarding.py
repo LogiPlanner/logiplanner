@@ -48,6 +48,17 @@ def _get_or_create_role(db: Session, role_name: str) -> Role:
 # CREATE TEAM FLOW
 # ──────────────────────────────────────────────
 
+@router.get("/check-team-name")
+async def check_team_name(
+    name: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Check if a team/project name is already taken."""
+    existing = db.query(Team).filter(Team.team_name == name).first()
+    return {"available": existing is None}
+
+
 @router.post("/create-team-full", response_model=CreateTeamResponse)
 async def create_team_full(
     step1: CreateTeamStep1,
@@ -295,6 +306,8 @@ async def setup_project(
 
     # ── 2. Update Owner Profile (only missing fields) ──
     user = db.query(User).filter(User.id == current_user.id).first()
+    if data.full_name and not user.full_name:
+        user.full_name = data.full_name
     user.job_title = data.job_title
     if data.role_preference:
         user.role_preference = data.role_preference

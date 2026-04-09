@@ -96,6 +96,7 @@ class SetupProjectRequest(BaseModel):
     team_name: str
     description: Optional[str] = None
     # Step 2 (owner details — job_title is always editable, full_name only if missing)
+    full_name: Optional[str] = None
     job_title: str
     role_preference: Optional[str] = None
     project_stage: Optional[str] = None

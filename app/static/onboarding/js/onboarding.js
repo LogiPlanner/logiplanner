@@ -162,21 +162,40 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (nameField) nameField.style.display = 'none';
     }
 
-    // Step 1 form — just collect data, NO API call
+    // Step 1 form — validate name availability, then advance
     const step1Form = document.getElementById('createStep1Form');
     if (step1Form) {
-        step1Form.addEventListener('submit', (e) => {
+        step1Form.addEventListener('submit', async (e) => {
             e.preventDefault();
             const msg = document.getElementById('createStep1Msg');
+            const btn = document.getElementById('createStep1Btn');
             const teamName = document.getElementById('c_teamName').value.trim();
 
             if (!teamName) {
-                window.AuthUI.setMessage(msg, 'error', 'Team name is required.');
+                window.AuthUI.setMessage(msg, 'error', 'Project name is required.');
                 return;
             }
 
             window.AuthUI.setMessage(msg, '', '');
-            showStep('step-create-2');
+            if (btn) window.AuthUI.setButtonLoading(btn, true, 'Continue', 'Checking...');
+
+            try {
+                const result = await authGet(
+                    '/api/v1/onboarding/check-team-name?name=' + encodeURIComponent(teamName)
+                );
+                if (!result) return;
+
+                if (!result.response.ok || result.data.available === false) {
+                    window.AuthUI.setMessage(msg, 'error', 'A project with this name already exists. Please choose a different name.');
+                    return;
+                }
+
+                showStep('step-create-2');
+            } catch (err) {
+                window.AuthUI.setMessage(msg, 'error', 'Network error. Please try again.');
+            } finally {
+                if (btn) window.AuthUI.setButtonLoading(btn, false, 'Continue', 'Checking...');
+            }
         });
     }
 
@@ -438,7 +457,7 @@ async function saveIngestion() {
 
             const uploadData = await uploadRes.json();
             // Store the server-side filenames for linking later
-            uploadedFileNames = (uploadData.stored || []).map(f => f.stored_as);
+            uploadedFileNames = (uploadData.files || []).map(f => f.stored_as);
         }
 
         showStep('step-create-4');
@@ -516,10 +535,15 @@ async function sendInvitesAndFinish() {
         }
     });
 
+    // Collect full_name only if the field is visible (not already set on profile)
+    const fullNameInput = document.getElementById('c_fullName');
+    const fullName = fullNameInput ? fullNameInput.value.trim() || null : null;
+
     // Build the full setup payload
     const setupData = {
         team_name: teamName,
         description: teamDesc || null,
+        full_name: fullName,
         job_title: jobTitle,
         role_preference: rolePref,
         project_stage: projectStage,
