@@ -274,7 +274,7 @@ def parse_drive_url(url: str) -> Tuple[str, str]:
     """
     Parse a Google Drive/Docs URL and return (file_id, url_type).
 
-    url_type is one of: 'document', 'spreadsheet', 'presentation', 'file'
+    url_type is one of: 'document', 'spreadsheet', 'presentation', 'file', 'folder'
 
     Raises ValueError if the URL is not a recognized Google Drive URL.
     """
