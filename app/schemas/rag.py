@@ -32,6 +32,13 @@ class DriveIngestRequest(BaseModel):
     refresh_interval_hours: Optional[int] = None  # None = no auto-refresh
 
 
+class GitHubIngestRequest(BaseModel):
+    """Request to ingest a public GitHub file into the knowledge base."""
+    team_id: int
+    github_url: str
+    custom_name: Optional[str] = None     # User-provided display name
+
+
 class DocumentResponse(BaseModel):
     """Response model for a single document."""
     id: int
