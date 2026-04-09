@@ -95,14 +95,23 @@ app/rag/                           ← RAG SYSTEM (THE BRAINS)
 └── prompts.py                     # AI system prompts and templates
 
 app/api/v1/rag.py                  ← API ROUTES
-                                   # POST /rag/ingest       (upload files)
-                                   # POST /rag/ingest-text  (ingest raw text)
-                                   # GET  /rag/documents/   (list docs)
-                                   # DELETE /rag/documents/  (delete doc)
-                                   # GET  /rag/stats/       (knowledge base stats)
-                                   # POST /rag/chat         (ask AI Brain)
-                                   # GET  /rag/chat/history (chat history)
-                                   # DELETE /rag/chat/history (clear history)
+                                   # POST /rag/ingest            (upload files)
+                                   # POST /rag/ingest-text       (ingest raw text)
+                                   # POST /rag/ingest-url        (ingest any public URL)
+                                   # POST /rag/ingest-drive      (ingest Google Drive URL)
+                                   # POST /rag/ingest-github     (ingest GitHub file/repo)
+                                   # GET  /rag/documents/{team_id}      (list docs)
+                                   # GET  /rag/documents/{doc_id}/detail
+                                   # GET  /rag/documents/{doc_id}/chunks
+                                   # POST /rag/documents/{doc_id}/refresh (re-sync Drive doc)
+                                   # DELETE /rag/documents/{doc_id}
+                                   # GET  /rag/stats/{team_id}  (knowledge base stats)
+                                   # GET  /rag/recent-chunks/{team_id}
+                                   # GET  /rag/my-role/{team_id}
+                                   # POST /rag/chat              (AI Brain chat)
+                                   # GET  /rag/chat/history/{team_id}
+                                   # GET  /rag/chat/sessions/{team_id}
+                                   # DELETE /rag/chat/history/{team_id}
 
 app/schemas/rag.py                 ← PYDANTIC SCHEMAS
                                    # Request/response models for all RAG endpoints
@@ -133,8 +142,22 @@ This is the **core orchestration layer**. It's a singleton class (`rag_engine`) 
 | `ingest_chunks(team_id, chunks)` | Stores pre-processed chunks in the team's ChromaDB collection |
 | `delete_document_chunks(team_id, doc_id)` | Removes all chunks for a deleted document |
 | `search(team_id, query, k, filters)` | Similarity search with optional metadata filtering |
-| `chat(team_id, query, history, filters)` | Full RAG pipeline: search → context → GPT-4o → response with sources |
+| `chat(team_id, query, history, filters, live_context)` | Full RAG pipeline: search → context + live DB snapshot → GPT-4o → response with sources |
 | `get_stats(team_id)` | Returns document count, chunk count, type breakdown |
+
+**`chat()` signature:**
+```python
+def chat(
+    self,
+    team_id: int,
+    query: str,
+    chat_history: Optional[List[Dict[str, str]]] = None,
+    filters: Optional[Dict[str, Any]] = None,
+    live_context: Optional[str] = None,   # NEW: pre-built DB snapshot from API layer
+) -> Dict[str, Any]:
+```
+
+The `live_context` parameter receives a pre-assembled plain-text or `__CARDS__:` JSON string built by `rag.py` from live DB queries (calendar tasks, timeline entries). It is injected into the system prompt alongside ChromaDB retrieval context, so the LLM sees both the document knowledge base and the live workspace state.
 
 **Key design decisions:**
 - **Lazy initialization** — The engine doesn't connect to OpenAI or ChromaDB until you actually call a method. This prevents import-time errors.
@@ -181,41 +204,56 @@ Contains all the text templates the AI uses:
 
 ### 4.4 · `app/api/v1/rag.py` — API Routes
 
-All 8 endpoints for the AI Brain feature:
+All 18 endpoints for the AI Brain feature:
 
 | Endpoint | Method | Purpose |
 |---|---|---|
-| `/api/v1/rag/ingest` | POST | Upload files (multipart form). Background processes them. |
+| `/api/v1/rag/ingest` | POST | Upload files (multipart). Background processes them. |
 | `/api/v1/rag/ingest-text` | POST | Ingest raw text/notes directly |
+| `/api/v1/rag/ingest-url` | POST | Ingest any public URL |
+| `/api/v1/rag/ingest-drive` | POST | Ingest a Google Drive file/folder |
+| `/api/v1/rag/ingest-github` | POST | Ingest a GitHub file or repo (uses `GitPython`, `GITHUB_TOKEN`) |
 | `/api/v1/rag/documents/{team_id}` | GET | List all documents in team's knowledge base |
+| `/api/v1/rag/documents/{doc_id}/detail` | GET | Get a single document's details |
+| `/api/v1/rag/documents/{doc_id}/chunks` | GET | View stored chunks for a document |
+| `/api/v1/rag/documents/{doc_id}/refresh` | POST | Re-sync a Google Drive document |
 | `/api/v1/rag/documents/{doc_id}` | DELETE | Delete a document + its chunks |
 | `/api/v1/rag/stats/{team_id}` | GET | Get knowledge base statistics |
-| `/api/v1/rag/chat` | POST | Send a question, get AI response with sources |
-| `/api/v1/rag/chat/history/{team_id}` | GET | Get chat history |
+| `/api/v1/rag/recent-chunks/{team_id}` | GET | List recently added knowledge items |
+| `/api/v1/rag/my-role/{team_id}` | GET | Get current user's role for this team |
+| `/api/v1/rag/chat` | POST | AI Brain chat (RAG + live context) |
+| `/api/v1/rag/chat/history/{team_id}` | GET | Get chat message history |
+| `/api/v1/rag/chat/sessions/{team_id}` | GET | List all chat sessions |
 | `/api/v1/rag/chat/history/{team_id}` | DELETE | Clear chat history |
 
-**Security:** Every endpoint requires authentication (JWT token) and verifies the user is a member of the specified team.
+**Security:** Every endpoint requires authentication (JWT) and `_verify_team_access()` to confirm the user is a team member. Write operations (ingest, delete) additionally require `_require_editor_or_owner()` — `viewer` role users cannot modify the knowledge base.
+
+**Intent classification (short-circuit):** Before calling the RAG engine, `rag.py` classifies the query:
+- `_is_task_query(message)` → calls `_build_live_task_summary()` → returns `__CARDS__:` JSON directly, **no LLM call**
+- `_is_timeline_query(message)` → calls `_build_live_timeline_summary()` → returns `__CARDS__:` JSON directly, **no LLM call**
+- Otherwise → passes `live_context` string into `rag_engine.chat()` for full RAG pipeline
 
 **Background processing:** File ingestion uses FastAPI's `BackgroundTasks` so the API responds immediately while documents are processed asynchronously. The frontend polls for status updates.
 
 ### 4.5 · Database Models
 
-*
-Two new tables added to `app/models/user.py`:
+Tables now defined across multiple model files (all share the same `Base`):
 
-**`documents` table — tracks every uploaded file:**
+**`documents` table — tracks every uploaded/ingested source:**
 ```
-id | team_id | uploader_id | filename | stored_path | doc_type | file_size | chunk_count | status | error_message | created_at
+id | team_id | uploader_id | filename | stored_path (nullable)
+   | doc_type | file_size | chunk_count | status | error_message
+   | source_url | drive_file_id | last_synced_at | refresh_interval_hours
+   | folder_id (self-ref FK for folder hierarchy) | summary (LLM-generated)
+   | created_at
 ```
-
-Statuses: `pending` → `processing` → `ready` (or `error`)
+Statuses: `pending` → `processing` → `ready` (or `error`). `stored_path` is nullable — files are deleted from disk after processing; only ChromaDB vectors persist.
 
 **`chat_messages` table — stores conversation history:**
 ```
-id | team_id | user_id | role | content | sources | created_at
+id | team_id | user_id | session_id | role | content | sources | created_at
 ```
-
-Role: `"user"` or `"assistant"`. Sources is a JSON array of source references.
+`role`: `"user"` or `"assistant"`. `sources`: JSON array of source references. `session_id`: groups messages into named sessions for per-session history views.
 
 ---
 
@@ -272,7 +310,7 @@ The AI Brain page (`/ai-brain`) has three panels:
 
 ## 7 · How Documents Flow Through the System
 
-### Path 1: Via AI Brain Page
+### Path 1: Via AI Brain Page (file upload)
 1. User drags files onto the upload zone
 2. JavaScript sends `POST /api/v1/rag/ingest` with `team_id` + files
 3. Backend saves files temporarily to `app/static/uploads/rag/`
@@ -280,6 +318,7 @@ The AI Brain page (`/ai-brain`) has three panels:
 5. Background task kicks off:
    - Status → `processing`
    - `processor.py` loads → splits → enriches the document
+   - LLM generates a one-sentence `summary` for the document
    - `engine.py` embeds and stores chunks in ChromaDB
    - Status → `ready` (or `error`)
    - **File is deleted from disk** (we only keep embeddings in ChromaDB)
@@ -289,10 +328,20 @@ The AI Brain page (`/ai-brain`) has three panels:
 > **Note:** Uploaded files are ephemeral — they are deleted from disk immediately
 > after processing (success or failure). Only the embeddings in ChromaDB persist.
 
-### Path 2: Via Team Creation (Onboarding Step 3)
-1. Same file upload (the onboarding page now sends `team_id` with uploads)
+### Path 2: Via URL / Google Drive / GitHub Ingestion
+1. User submits a URL via `POST /api/v1/rag/ingest-url`, `/ingest-drive`, or `/ingest-github`
+2. Source URL is stored in `document.source_url` (and `drive_file_id` for Drive docs)
+3. Content is fetched, chunked, and embedded as normal
+4. Drive documents track `last_synced_at` and can be re-synced via `/documents/{doc_id}/refresh`
+5. GitHub ingestion clones/reads the repo using `GitPython` (optional `GITHUB_TOKEN` for private repos)
+
+### Path 3: Via Team Creation (Onboarding Step 3)
+1. Same file upload (the onboarding page sends `team_id` with uploads)
 2. Files go through the same RAG pipeline automatically
 3. Documents appear in the AI Brain when the user visits it later
+
+### Startup Recovery
+On every server start, `app/main.py`'s startup event scans for documents stuck in `pending` or `processing` (from a crash) and marks them as `error` so users can see they failed and retry.
 
 ---
 
@@ -303,14 +352,18 @@ The AI Brain page (`/ai-brain`) has three panels:
    ```json
    { "team_id": 1, "message": "What decisions were made in sprint 3?" }
    ```
-3. Backend:
-   a. Loads last 20 chat messages from DB (for context)
-   b. Calls `rag_engine.search()` — finds top 5 most similar chunks
-   c. Assembles context with source info
-   d. Builds message chain: System Prompt + History + Context + Question
-   e. Calls GPT-4o
-   f. Saves both user message and AI response to `chat_messages` table
-4. Response includes:
+3. API layer runs **intent classification** first:
+   - If it matches task/calendar keywords → queries DB directly, returns `__CARDS__:` JSON (no LLM)
+   - If it matches timeline/memory keywords → queries DB directly, returns `__CARDS__:` JSON (no LLM)
+   - Otherwise → continues to full RAG pipeline
+4. Full RAG pipeline (when no short-circuit):
+   - Loads last 20 chat messages from DB (for conversation context)
+   - Calls `rag_engine.search()` — finds top 5 most similar chunks
+   - Assembles `live_context` string (tasks + timeline DB snapshot)
+   - Builds message chain: System Prompt + Live Context + KB Context + History + Question
+   - Calls GPT-4o
+   - Saves both user message and AI response to `chat_messages` table with `session_id`
+5. Response includes:
    ```json
    {
      "response": "In sprint 3, the team decided to...",
@@ -320,32 +373,96 @@ The AI Brain page (`/ai-brain`) has three panels:
      "chunk_count": 5
    }
    ```
-5. Frontend renders the message with source citations
+   OR for short-circuited intent responses:
+   ```
+   __CARDS__: [{"type": "calendar", "heading": "Your Tasks", "items": [...]}]
+   ```
+6. Frontend (`ai-brain.js`) detects the `__CARDS__:` prefix and renders structured card UI instead of plain text
 
 ---
 
-## 9 · Environment Variables (New)
+## 8.1 · The `__CARDS__` Response Format
 
-Added to `.env`:
+When the AI Brain returns structured workspace data, it prefixes the response with `__CARDS__:` followed by a JSON array. The frontend (`ai-brain.js`) detects this prefix, parses the JSON, and renders interactive card UI instead of plain text.
+
+Three card types are supported:
+
+### `calendar` card
+```json
+{
+  "type": "calendar",
+  "heading": "Your Tasks This Week",
+  "url": "/dashboard",
+  "items": [
+    {
+      "title": "Sprint Planning",
+      "priority": "high",
+      "start": "2026-04-11T10:00:00",
+      "end": "2026-04-11T11:00:00",
+      "location": "Conference Room B"
+    }
+  ]
+}
+```
+
+### `timeline` card
+```json
+{
+  "type": "timeline",
+  "heading": "Recent Decisions",
+  "url": "/memory",
+  "items": [
+    {
+      "entry_type": "decision",
+      "title": "Chose PostgreSQL over MongoDB",
+      "project": "Platform v2",
+      "date": "2026-04-01",
+      "content": "Team voted unanimously for relational DB..."
+    }
+  ]
+}
+```
+
+### `workspace` card
+```json
+{
+  "type": "workspace",
+  "heading": "Project Overview",
+  "url": "/dashboard",
+  "items": [
+    {
+      "badge": "Milestone",
+      "title": "Beta Launch",
+      "meta": "Due April 30",
+      "secondary": "High impact",
+      "description": "Public beta with 50 pilot users",
+      "cta": "View on Timeline",
+      "href": "/memory"
+    }
+  ]
+}
+```
+
+The card response must be **immediately followed by valid JSON** — no markdown code fences. Responses starting with `__CARDS__:` are never saved as plain-text chat messages; the frontend renders and discards the JSON after display.
+
+---
+
+## 9 · Environment Variables
 
 | Variable | Purpose |
 |---|---|
-| `OPENAI_API_KEY` | Required. Your OpenAI API key for embeddings + chat |
-
-Added to `app/core/config.py` (with defaults):
-
-| Setting | Default | Purpose |
-|---|---|---|
-| `RAG_CHUNK_SIZE` | 800 | Characters per chunk |
-| `RAG_CHUNK_OVERLAP` | 200 | Overlap between chunks |
-| `RAG_EMBEDDING_MODEL` | text-embedding-3-small | OpenAI embedding model |
-| `RAG_CHAT_MODEL` | gpt-4o | OpenAI chat model |
-| `RAG_TOP_K` | 5 | Number of chunks to retrieve |
-| `CHROMA_PERSIST_DIR` | ./chroma_data | Where ChromaDB stores vectors |
+| `OPENAI_API_KEY` | Required. OpenAI API key for embeddings, GPT-4o chat, and Whisper audio transcription |
+| `GITHUB_TOKEN` | Optional. GitHub PAT for ingesting private repositories |
+| `RAG_CHUNK_SIZE` | Characters per chunk (default: 800) |
+| `RAG_CHUNK_OVERLAP` | Overlap between chunks in chars (default: 200) |
+| `RAG_EMBEDDING_MODEL` | OpenAI embedding model (default: `text-embedding-3-small`) |
+| `RAG_CHAT_MODEL` | OpenAI chat model (default: `gpt-4o`) |
+| `RAG_TOP_K` | Number of chunks to retrieve per query (default: 5) |
+| `CHROMA_PERSIST_DIR` | Where ChromaDB stores vectors (default: `./chroma_data`) |
 
 ---
 
-## 10 · New Python Dependencies
+## 10 · Python Dependencies
 
 | Package | Why |
 |---|---|
@@ -354,23 +471,25 @@ Added to `app/core/config.py` (with defaults):
 | `langchain-chroma` | ChromaDB integration for LangChain |
 | `langchain-community` | Community document loaders (PDF, DOCX, etc.) |
 | `chromadb` | Vector database for storing embeddings |
-| `openai` | OpenAI Python SDK |
+| `openai` | OpenAI Python SDK (also used for Whisper transcription) |
 | `pypdf` | PDF text extraction |
 | `python-docx` | DOCX file reading |
 | `docx2txt` | Alternative DOCX loader |
 | `tiktoken` | Token counting for OpenAI models |
+| `GitPython` | Clone / read GitHub repos for RAG ingestion |
 
 ---
 
 ## 11 · Extending the System (Future Ideas)
 
 - **Agentic workflows** — Use LangGraph for multi-step reasoning
-- **Auto-ingestion** — Connect Google Drive, Miro, GitHub for auto-sync
+- **Jira / Slack integration** — Ingest issues/comments, post AI summaries to Slack
 - **Re-ranking** — Add a Cross-Encoder re-ranker for better precision
 - **Hybrid search** — Combine vector similarity with BM25 keyword search
-- **Streaming responses** — Stream GPT-4o responses token-by-token
+- **Streaming responses** — Stream GPT-4o responses token-by-token to the frontend
 - **Multi-modal** — Process images with GPT-4o Vision
+- **Auto-sync scheduling** — Cron-based re-sync for Google Drive docs based on `refresh_interval_hours`
 
 ---
 
-*Last updated: 2026-03-28*
+*Last updated: 2026-04-10*
