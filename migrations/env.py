@@ -10,11 +10,18 @@ from alembic import context
 
 sys.path.insert(0, str(Path(__file__).parents[1]))   
 
-from app.models.user import Base  
+from app.models.user import Base
+import app.models.meeting
+import app.models.timeline
+import app.models.calendar_task
 
 config = context.config
 
 fileConfig(config.config_file_name)
+
+# Override sqlalchemy.url from .env so alembic.ini never needs manual edits.
+from app.core.config import settings
+config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
 
 # add your model's MetaData object here
 target_metadata = Base.metadata
