@@ -44,7 +44,8 @@ class Settings(BaseSettings):
     RAG_TOP_K: int = 5
     CHROMA_PERSIST_DIR: str = "./chroma_data"
 
-    @model_validator(mode="after")
+    # GitHub Integration
+    GITHUB_TOKEN: Optional[str] = None  # Personal access token for higher API rate limits
     def validate_secret_key(self):
         if not self.DEBUG and self.SECRET_KEY == _DEV_SECRET_KEY:
             raise ValueError("SECRET_KEY must be set explicitly when DEBUG is false")

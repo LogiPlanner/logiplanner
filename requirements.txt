@@ -27,5 +27,5 @@ python-docx
 docx2txt
 tiktoken
 
-# GitHub repo cloning
+# Git integration
 GitPython
