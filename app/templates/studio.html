@@ -173,12 +173,13 @@
                         <span class="integration-row__name">Google Drive</span>
                         <svg class="integration-row__chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                     </button>
-                    <div class="integration-row">
+                    <button type="button" class="integration-row integration-row--clickable" id="sourceGitHub" onclick="openGithubModal()">
                         <div class="integration-row__icon integration-row__icon--github">
                             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
                         </div>
                         <span class="integration-row__name">GitHub</span>
-                    </div>
+                        <svg class="integration-row__chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                    </button>
                     <div class="integration-row">
                         <div class="integration-row__icon integration-row__icon--notion">
                             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4.459 4.208c.746.606 1.026.56 2.428.466l13.215-.793c.28 0 .047-.28-.046-.326L17.86 1.968c-.42-.326-.98-.7-2.055-.607L2.543 2.573c-.466.046-.56.28-.374.466l2.29 1.169zm.793 3.172v13.947c0 .746.373 1.027 1.214.98l14.523-.84c.84-.046.933-.56.933-1.167V6.354c0-.606-.233-.933-.746-.886l-15.177.886c-.56.047-.747.327-.747.886v.14zm14.337.42c.094.42 0 .84-.42.886l-.7.14v10.264c-.607.327-1.167.514-1.634.514-.746 0-.933-.234-1.493-.933l-4.572-7.186v6.953l1.446.327s0 .84-1.167.84l-3.22.187c-.093-.187 0-.653.327-.746l.84-.233V9.854L7.822 9.76c-.094-.42.14-1.026.793-1.073l3.453-.233 4.759 7.279V9.107l-1.213-.14c-.094-.514.28-.886.746-.933l3.22-.234h.009zM1.936 1.035l13.871-1.026c1.68-.14 2.1.093 2.8.607l3.86 2.706c.653.467.84.747.84 1.4v16.013c0 1.167-.42 1.867-1.867 1.96L5.23 23.76c-1.074.047-1.587-.093-2.147-.746L.84 20.122C.233 19.376 0 18.816 0 18.163V3.088c0-.84.42-1.96 1.936-2.053z"/></svg>
@@ -341,6 +342,53 @@
             <button class="drive-modal__btn drive-modal__btn--import" id="driveImportBtn" onclick="importDriveDoc()">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/></svg>
                 Import from Drive
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ GITHUB IMPORT MODAL ═══ -->
+<div class="modal-overlay" id="githubModal" onclick="if(event.target===this)closeGithubModal()">
+    <div class="drive-modal">
+        <div class="drive-modal__header">
+            <div class="drive-modal__header-icon">
+                <svg viewBox="0 0 24 24" fill="currentColor" width="26" height="26"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+            </div>
+            <div class="drive-modal__header-text">
+                <h3 class="drive-modal__title">Import from GitHub</h3>
+                <p class="drive-modal__subtitle">Public GitHub repositories and files</p>
+            </div>
+            <button class="drive-modal__close" onclick="closeGithubModal()" aria-label="Close">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+        <div class="drive-modal__body">
+            <div class="drive-modal__field">
+                <label class="drive-modal__label" for="githubUrlInput">GitHub repository or file URL</label>
+                <input type="url" id="githubUrlInput" class="drive-modal__input"
+                    placeholder="https://github.com/<owner>/<repo> or /blob/<branch>/path/to/file"
+                    onkeydown="if(event.key==='Enter')importGithubDoc()" />
+            </div>
+            <div class="drive-modal__field">
+                <label class="drive-modal__label" for="githubNameInput">Display name <span style="opacity:.5">(optional)</span></label>
+                <input type="text" id="githubNameInput" class="drive-modal__input"
+                    placeholder="e.g. API contract, CLI helper script…"
+                    maxlength="200" />
+            </div>
+            <p class="drive-modal__hint">
+                Import entire repositories or individual files. Examples:
+                <br>• Repository: <code>https://github.com/owner/repo</code>
+                <br>• File: <code>https://github.com/owner/repo/blob/main/path/to/file.py</code>
+                <br>• Raw file: <code>https://raw.githubusercontent.com/owner/repo/main/path/to/file.py</code>
+                <br>Private repos are not supported yet. Only text files (.py, .md, .txt, .json, .yaml) are processed.
+            </p>
+            <p class="drive-modal__status" id="githubStatus"></p>
+        </div>
+        <div class="drive-modal__footer">
+            <button class="drive-modal__btn drive-modal__btn--cancel" onclick="closeGithubModal()">Cancel</button>
+            <button class="drive-modal__btn drive-modal__btn--import" id="githubImportBtn" onclick="importGithubDoc()">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/></svg>
+                Import from GitHub
             </button>
         </div>
     </div>

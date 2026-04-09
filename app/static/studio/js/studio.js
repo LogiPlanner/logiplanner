@@ -1079,6 +1079,17 @@ document.addEventListener('DOMContentLoaded', () => {
         if (nameInput) nameInput.value = '';
     };
 
+    function validateGithubUrl(url) {
+        const value = (url || '').trim();
+        if (!value) return 'Please enter a GitHub URL.';
+        if (!/^https?:\/\//i.test(value)) return 'GitHub URL must start with http:// or https://.';
+        if (!value.includes('github.com/') && !value.includes('raw.githubusercontent.com/')) {
+            return 'Use a GitHub repository or file URL.';
+        }
+        // Allow both repo URLs (github.com/user/repo) and file URLs (/blob/ or raw.githubusercontent.com)
+        return null;
+    }
+
     window.importDriveDoc = async function() {
         const urlInput = document.getElementById('driveUrlInput');
         const nameInput = document.getElementById('driveNameInput');
@@ -1112,6 +1123,76 @@ document.addEventListener('DOMContentLoaded', () => {
             if (res.ok) {
                 closeDriveModal();
                 showToast('Drive import queued — processing in background', 'success');
+                urlInput.value = '';
+                loadDocuments();
+                loadStats();
+            } else {
+                const err = await res.json().catch(() => ({}));
+                statusEl.textContent = err.detail || 'Import failed';
+                statusEl.className = 'drive-modal__status drive-modal__status--error';
+                if (importBtn) importBtn.disabled = false;
+            }
+        } catch (e) {
+            statusEl.textContent = 'Import failed';
+            statusEl.className = 'drive-modal__status drive-modal__status--error';
+            if (importBtn) importBtn.disabled = false;
+        }
+    };
+
+    window.openGithubModal = function() {
+        const modal = document.getElementById('githubModal');
+        if (!modal) return;
+        modal.classList.add('active');
+        setTimeout(() => {
+            const input = document.getElementById('githubUrlInput');
+            if (input) input.focus();
+        }, 60);
+    };
+
+    window.closeGithubModal = function() {
+        const modal = document.getElementById('githubModal');
+        if (!modal) return;
+        modal.classList.remove('active');
+        const status = document.getElementById('githubStatus');
+        if (status) { status.textContent = ''; status.className = 'drive-modal__status'; }
+        const nameInput = document.getElementById('githubNameInput');
+        if (nameInput) nameInput.value = '';
+    };
+
+    window.importGithubDoc = async function() {
+        const urlInput = document.getElementById('githubUrlInput');
+        const nameInput = document.getElementById('githubNameInput');
+        const statusEl = document.getElementById('githubStatus');
+        const url = urlInput.value.trim();
+
+        const clientError = validateGithubUrl(url);
+        if (clientError) {
+            statusEl.textContent = clientError;
+            statusEl.className = 'drive-modal__status drive-modal__status--error';
+            return;
+        }
+        if (!currentTeamId) { showToast('Please select a team first', 'error'); return; }
+
+        const customName = nameInput ? nameInput.value.trim() || null : null;
+        const importBtn = document.getElementById('githubImportBtn');
+        statusEl.textContent = 'Importing…';
+        statusEl.className = 'drive-modal__status drive-modal__status--loading';
+        if (importBtn) { importBtn.disabled = true; }
+
+        try {
+            const res = await sFetch(`${API}/rag/ingest-github`, {
+                method: 'POST',
+                headers: jsonHeaders(),
+                body: JSON.stringify({
+                    team_id: currentTeamId,
+                    github_url: url,
+                    custom_name: customName,
+                }),
+            });
+
+            if (res.ok) {
+                closeGithubModal();
+                showToast('GitHub file imported successfully', 'success');
                 urlInput.value = '';
                 loadDocuments();
                 loadStats();

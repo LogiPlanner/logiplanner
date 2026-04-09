@@ -1,12 +1,3 @@
-"""
-Document Processor
-==================
-Handles loading, splitting, and metadata enrichment of documents
-before they are embedded and stored in the vector database.
-
-Supported formats: PDF, DOCX, TXT, MD
-"""
-
 import os
 import re
 from datetime import datetime, timezone
@@ -34,6 +25,12 @@ SUPPORTED_EXTENSIONS = {
 
 # Maximum file size: 20MB
 MAX_FILE_SIZE = 20 * 1024 * 1024
+
+# GitHub repo processing constants
+MAX_REPO_FILES = 100  # Limit total files to prevent huge repos
+MAX_FILE_SIZE_REPO = 200_000  # ~200KB per file
+ALLOWED_EXTENSIONS = {".py", ".md", ".txt", ".json", ".yaml", ".yml"}
+IGNORE_DIRS = {".git", "__pycache__", "node_modules", "venv", ".env", "dist", "build"}
 
 
 def get_doc_type(filename: str) -> Optional[str]:
@@ -589,3 +586,222 @@ def process_url(
     )
 
     return enriched, title, content_bytes
+
+
+def normalize_github_url(url: str) -> tuple[str, str]:
+    """Convert a GitHub file page URL into a raw content URL and return a filename."""
+    github_url = url.strip()
+    if not github_url.startswith(("http://", "https://")):
+        raise ValueError("GitHub URL must start with http:// or https://")
+
+    if github_url.startswith("https://github.com/") or github_url.startswith("http://github.com/"):
+        if "/blob/" not in github_url:
+            raise ValueError(
+                "GitHub URL must point to a file page, e.g. "
+                "https://github.com/<owner>/<repo>/blob/<branch>/path/to/file"
+            )
+        raw_path = github_url.split("github.com/", 1)[1].replace("/blob/", "/")
+        raw_url = "https://raw.githubusercontent.com/" + raw_path
+        filename = os.path.basename(raw_url.split("?", 1)[0])
+        if not filename:
+            raise ValueError("GitHub file URL must include a filename.")
+        return raw_url, filename
+
+    if github_url.startswith("https://raw.githubusercontent.com/") or github_url.startswith("http://raw.githubusercontent.com/"):
+        filename = os.path.basename(github_url.split("?", 1)[0])
+        if not filename:
+            raise ValueError("GitHub raw URL must include a filename.")
+        return github_url, filename
+
+    raise ValueError(
+        "Only public GitHub file URLs are supported. Use a GitHub file page ending with /blob/<branch>/<file> "
+        "or a raw.githubusercontent.com URL."
+    )
+
+
+def process_github_url(
+    github_url: str,
+    team_id: int,
+    document_id: int,
+    uploader_email: str,
+) -> Tuple[List[LCDocument], str, int]:
+    """Fetch GitHub file content and process it into document chunks."""
+    raw_url, filename = normalize_github_url(github_url)
+
+    try:
+        with httpx.Client(follow_redirects=True, timeout=30.0) as client:
+            resp = client.get(raw_url, headers={"User-Agent": "LogiPlanner/1.0"})
+    except httpx.TimeoutException:
+        raise ValueError("Request timed out when fetching the GitHub file.")
+    except httpx.RequestError as e:
+        raise ValueError(f"Failed to fetch GitHub file: {e}")
+
+    if resp.status_code != 200:
+        raise ValueError(f"GitHub file request returned HTTP {resp.status_code}.")
+
+    content = resp.text
+    if not content.strip():
+        raise ValueError("GitHub file contains no readable content.")
+
+    content_bytes = len(content.encode("utf-8"))
+    doc_type = get_doc_type(filename) or "text"
+
+    lc_doc = LCDocument(
+        page_content=content,
+        metadata={"source": github_url},
+    )
+
+    chunks = split_documents([lc_doc])
+    if not chunks:
+        raise ValueError("GitHub file produced no chunks after splitting.")
+
+    enriched = enrich_metadata(
+        chunks=chunks,
+        team_id=team_id,
+        document_id=document_id,
+        filename=filename,
+        uploader_email=uploader_email,
+        doc_type=doc_type,
+    )
+
+    return enriched, filename, content_bytes
+
+
+def _parse_github_owner_repo(repo_url: str) -> tuple[str, str]:
+    """Extract (owner, repo) from a github.com URL."""
+    repo_url = repo_url.rstrip("/")
+    without_scheme = repo_url.split("github.com/", 1)
+    if len(without_scheme) < 2:
+        raise ValueError("URL must be a GitHub repository URL (https://github.com/owner/repo)")
+    parts = without_scheme[1].split("/")
+    if len(parts) < 2 or not parts[0] or not parts[1]:
+        raise ValueError("URL must be a GitHub repository URL (https://github.com/owner/repo)")
+    return parts[0], parts[1]
+
+
+def fetch_github_repo_files(repo_url: str) -> tuple[List[Dict[str, Any]], str]:
+    """Fetch repository files via the GitHub REST API using httpx.
+
+    Returns a list of dicts with keys ``path``, ``content``, ``size`` and the
+    default branch name of the repository.
+    """
+    owner, repo = _parse_github_owner_repo(repo_url)
+
+    api_headers = {
+        "User-Agent": "LogiPlanner/1.0",
+        "Accept": "application/vnd.github+json",
+    }
+    if settings.GITHUB_TOKEN:
+        api_headers["Authorization"] = f"Bearer {settings.GITHUB_TOKEN}"
+
+    with httpx.Client(follow_redirects=True, timeout=30.0) as client:
+        # 1. Resolve the default branch
+        repo_resp = client.get(
+            f"https://api.github.com/repos/{owner}/{repo}",
+            headers=api_headers,
+        )
+        if repo_resp.status_code == 404:
+            raise ValueError(f"Repository not found: {repo_url}")
+        if repo_resp.status_code != 200:
+            raise ValueError(
+                f"GitHub API returned HTTP {repo_resp.status_code} for repository info."
+            )
+        default_branch = repo_resp.json().get("default_branch", "main")
+
+        # 2. Fetch the full recursive file tree
+        tree_resp = client.get(
+            f"https://api.github.com/repos/{owner}/{repo}/git/trees/{default_branch}?recursive=1",
+            headers=api_headers,
+        )
+        if tree_resp.status_code != 200:
+            raise ValueError(
+                f"Failed to fetch repository tree: HTTP {tree_resp.status_code}."
+            )
+
+        tree_items = tree_resp.json().get("tree", [])
+
+        # 3. Filter to allowed blobs
+        candidate_items = [
+            item for item in tree_items
+            if item.get("type") == "blob"
+            and os.path.splitext(item["path"])[1].lower() in ALLOWED_EXTENSIONS
+            and not any(part in IGNORE_DIRS for part in item["path"].split("/"))
+            and item.get("size", 0) <= MAX_FILE_SIZE_REPO
+        ][:MAX_REPO_FILES]
+
+        if not candidate_items:
+            raise ValueError(
+                "No readable files found in the repository matching the allowed extensions."
+            )
+
+        # 4. Download each file via raw.githubusercontent.com
+        collected: List[Dict[str, Any]] = []
+        for item in candidate_items:
+            raw_url = (
+                f"https://raw.githubusercontent.com/{owner}/{repo}"
+                f"/{default_branch}/{item['path']}"
+            )
+            try:
+                content_resp = client.get(
+                    raw_url,
+                    headers={"User-Agent": "LogiPlanner/1.0"},
+                )
+                if content_resp.status_code != 200:
+                    continue
+                content = content_resp.text
+                if content.strip():
+                    collected.append({
+                        "path": item["path"],
+                        "content": content,
+                        "size": item.get("size", len(content.encode("utf-8"))),
+                    })
+            except (httpx.TimeoutException, httpx.RequestError):
+                continue
+
+    return collected, default_branch
+
+
+def process_github_repo(
+    repo_url: str,
+    team_id: int,
+    document_id: int,
+    uploader_email: str,
+) -> Tuple[List[LCDocument], str, int]:
+    """Fetch a public GitHub repo via the REST API and process all valid files into chunks."""
+    # Extract repo name for the document title
+    repo_url = repo_url.rstrip("/")
+    repo_name = repo_url.split("/")[-1]
+    if repo_name.endswith(".git"):
+        repo_name = repo_name[:-4]
+
+    files, default_branch = fetch_github_repo_files(repo_url)
+
+    if not files:
+        raise ValueError("No readable files found in the repository")
+
+    all_chunks: List[LCDocument] = []
+    total_size = 0
+
+    for file_info in files:
+        lc_doc = LCDocument(
+            page_content=file_info["content"],
+            metadata={"source": f"{repo_url}/blob/{default_branch}/{file_info['path']}"},
+        )
+
+        chunks = split_documents([lc_doc])
+        if chunks:
+            enriched = enrich_metadata(
+                chunks=chunks,
+                team_id=team_id,
+                document_id=document_id,
+                filename=file_info["path"],
+                uploader_email=uploader_email,
+                doc_type=get_doc_type(file_info["path"]) or "text",
+            )
+            all_chunks.extend(enriched)
+            total_size += file_info["size"]
+
+    if not all_chunks:
+        raise ValueError("Repository files produced no chunks after splitting")
+
+    return all_chunks, f"{repo_name} (repo)", total_size
