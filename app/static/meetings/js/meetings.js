@@ -616,7 +616,13 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }).catch(e => console.error("Could not load user name for cursors"));
 
-    let wsUrl = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/api/v1/meetings/ws/' + teamId;
+    const wsToken = localStorage.getItem('access_token') || '';
+    if (!wsToken) {
+        showToast("Session expired. Please log in again.", "error");
+        setTimeout(() => { window.location.href = '/login'; }, 1500);
+        return;
+    }
+    let wsUrl = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/api/v1/meetings/ws/' + teamId + '?token=' + encodeURIComponent(wsToken);
     let ws = new WebSocket(wsUrl);
     let ignoreNextChange = false;
 
