@@ -667,127 +667,141 @@ def process_github_url(
     return enriched, filename, content_bytes
 
 
-def clone_github_repo(repo_url: str) -> str:
-    """Clone a GitHub repository to a temporary directory."""
-    import tempfile
-    from git import Repo
-
-    # Normalize repo URL (remove trailing slash, ensure https)
-    repo_url = repo_url.rstrip('/')
-    if not repo_url.startswith(('http://', 'https://')):
-        repo_url = 'https://' + repo_url
-
-    # Extract owner/repo for validation
-    if 'github.com/' not in repo_url:
-        raise ValueError("URL must be a GitHub repository URL")
-
-    try:
-        temp_dir = tempfile.mkdtemp()
-        Repo.clone_from(repo_url, temp_dir, depth=1)  # Shallow clone for speed
-        return temp_dir
-    except Exception as e:
-        raise ValueError(f"Failed to clone repository: {str(e)}")
+def _parse_github_owner_repo(repo_url: str) -> tuple[str, str]:
+    """Extract (owner, repo) from a github.com URL."""
+    repo_url = repo_url.rstrip("/")
+    without_scheme = repo_url.split("github.com/", 1)
+    if len(without_scheme) < 2:
+        raise ValueError("URL must be a GitHub repository URL (https://github.com/owner/repo)")
+    parts = without_scheme[1].split("/")
+    if len(parts) < 2 or not parts[0] or not parts[1]:
+        raise ValueError("URL must be a GitHub repository URL (https://github.com/owner/repo)")
+    return parts[0], parts[1]
 
 
-def read_repo_files(repo_path: str) -> List[Dict[str, Any]]:
-    """Read and filter files from a cloned repository."""
-    collected = []
-    file_count = 0
+def fetch_github_repo_files(repo_url: str) -> tuple[List[Dict[str, Any]], str]:
+    """Fetch repository files via the GitHub REST API using httpx.
 
-    for root, dirs, files in os.walk(repo_path):
-        # Skip ignored directories
-        dirs[:] = [d for d in dirs if d not in IGNORE_DIRS]
+    Returns a list of dicts with keys ``path``, ``content``, ``size`` and the
+    default branch name of the repository.
+    """
+    owner, repo = _parse_github_owner_repo(repo_url)
 
-        for file in files:
-            if file_count >= MAX_REPO_FILES:
-                break
+    api_headers = {
+        "User-Agent": "LogiPlanner/1.0",
+        "Accept": "application/vnd.github+json",
+    }
+    if settings.GITHUB_TOKEN:
+        api_headers["Authorization"] = f"Bearer {settings.GITHUB_TOKEN}"
 
-            # Check file extension
-            _, ext = os.path.splitext(file)
-            if ext.lower() not in ALLOWED_EXTENSIONS:
-                continue
+    with httpx.Client(follow_redirects=True, timeout=30.0) as client:
+        # 1. Resolve the default branch
+        repo_resp = client.get(
+            f"https://api.github.com/repos/{owner}/{repo}",
+            headers=api_headers,
+        )
+        if repo_resp.status_code == 404:
+            raise ValueError(f"Repository not found: {repo_url}")
+        if repo_resp.status_code != 200:
+            raise ValueError(
+                f"GitHub API returned HTTP {repo_resp.status_code} for repository info."
+            )
+        default_branch = repo_resp.json().get("default_branch", "main")
 
-            full_path = os.path.join(root, file)
+        # 2. Fetch the full recursive file tree
+        tree_resp = client.get(
+            f"https://api.github.com/repos/{owner}/{repo}/git/trees/{default_branch}?recursive=1",
+            headers=api_headers,
+        )
+        if tree_resp.status_code != 200:
+            raise ValueError(
+                f"Failed to fetch repository tree: HTTP {tree_resp.status_code}."
+            )
 
-            # Check file size
+        tree_items = tree_resp.json().get("tree", [])
+
+        # 3. Filter to allowed blobs
+        candidate_items = [
+            item for item in tree_items
+            if item.get("type") == "blob"
+            and os.path.splitext(item["path"])[1].lower() in ALLOWED_EXTENSIONS
+            and not any(part in IGNORE_DIRS for part in item["path"].split("/"))
+            and item.get("size", 0) <= MAX_FILE_SIZE_REPO
+        ][:MAX_REPO_FILES]
+
+        if not candidate_items:
+            raise ValueError(
+                "No readable files found in the repository matching the allowed extensions."
+            )
+
+        # 4. Download each file via raw.githubusercontent.com
+        collected: List[Dict[str, Any]] = []
+        for item in candidate_items:
+            raw_url = (
+                f"https://raw.githubusercontent.com/{owner}/{repo}"
+                f"/{default_branch}/{item['path']}"
+            )
             try:
-                file_size = os.path.getsize(full_path)
-                if file_size > MAX_FILE_SIZE_REPO:
+                content_resp = client.get(
+                    raw_url,
+                    headers={"User-Agent": "LogiPlanner/1.0"},
+                )
+                if content_resp.status_code != 200:
                     continue
-            except OSError:
-                continue
-
-            # Read file content
-            try:
-                with open(full_path, "r", encoding="utf-8") as f:
-                    content = f.read()
-                    if not content.strip():
-                        continue
-
+                content = content_resp.text
+                if content.strip():
                     collected.append({
-                        "path": os.path.relpath(full_path, repo_path),
+                        "path": item["path"],
                         "content": content,
-                        "size": file_size
+                        "size": item.get("size", len(content.encode("utf-8"))),
                     })
-                    file_count += 1
-            except (UnicodeDecodeError, OSError):
-                # Skip binary files or files that can't be read
+            except (httpx.TimeoutException, httpx.RequestError):
                 continue
 
-        if file_count >= MAX_REPO_FILES:
-            break
-
-    return collected
+    return collected, default_branch
 
 
 def process_github_repo(
     repo_url: str,
     team_id: int,
+    document_id: int,
     uploader_email: str,
 ) -> Tuple[List[LCDocument], str, int]:
-    """Clone a GitHub repo and process all valid files into document chunks."""
-    import shutil
+    """Fetch a public GitHub repo via the REST API and process all valid files into chunks."""
+    # Extract repo name for the document title
+    repo_url = repo_url.rstrip("/")
+    repo_name = repo_url.split("/")[-1]
+    if repo_name.endswith(".git"):
+        repo_name = repo_name[:-4]
 
-    repo_path = None
-    try:
-        repo_path = clone_github_repo(repo_url)
-        files = read_repo_files(repo_path)
+    files, default_branch = fetch_github_repo_files(repo_url)
 
-        if not files:
-            raise ValueError("No readable files found in the repository")
+    if not files:
+        raise ValueError("No readable files found in the repository")
 
-        # Extract repo name from URL
-        repo_name = repo_url.split('/')[-1]
-        if repo_name.endswith('.git'):
-            repo_name = repo_name[:-4]
+    all_chunks: List[LCDocument] = []
+    total_size = 0
 
-        all_chunks = []
-        total_size = 0
+    for file_info in files:
+        lc_doc = LCDocument(
+            page_content=file_info["content"],
+            metadata={"source": f"{repo_url}/blob/{default_branch}/{file_info['path']}"},
+        )
 
-        for file_info in files:
-            lc_doc = LCDocument(
-                page_content=file_info["content"],
-                metadata={"source": f"{repo_url}/blob/main/{file_info['path']}"},
+        chunks = split_documents([lc_doc])
+        if chunks:
+            enriched = enrich_metadata(
+                chunks=chunks,
+                team_id=team_id,
+                document_id=document_id,
+                filename=file_info["path"],
+                uploader_email=uploader_email,
+                doc_type=get_doc_type(file_info["path"]) or "text",
             )
+            all_chunks.extend(enriched)
+            total_size += file_info["size"]
 
-            chunks = split_documents([lc_doc])
-            if chunks:
-                enriched = enrich_metadata(
-                    chunks=chunks,
-                    team_id=team_id,
-                    document_id=0,  # Will be set per document
-                    filename=file_info["path"],
-                    uploader_email=uploader_email,
-                    doc_type=get_doc_type(file_info["path"]) or "text",
-                )
-                all_chunks.extend(enriched)
-                total_size += file_info["size"]
+    if not all_chunks:
+        raise ValueError("Repository files produced no chunks after splitting")
 
-        if not all_chunks:
-            raise ValueError("Repository files produced no chunks after splitting")
-
-        return all_chunks, f"{repo_name} (repo)", total_size
-
-    finally:
-        if repo_path and os.path.exists(repo_path):
-            shutil.rmtree(repo_path, ignore_errors=True)
+    return all_chunks, f"{repo_name} (repo)", total_size

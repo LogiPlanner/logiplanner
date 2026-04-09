@@ -26,6 +26,3 @@ pypdf
 python-docx
 docx2txt
 tiktoken
-
-# GitHub repo cloning
-GitPython

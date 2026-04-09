@@ -748,6 +748,7 @@ async def ingest_github_document(
             chunks, title, file_size = process_github_repo(
                 repo_url=github_url,
                 team_id=data.team_id,
+                document_id=doc_record.id,
                 uploader_email=current_user.email,
             )
         else:
