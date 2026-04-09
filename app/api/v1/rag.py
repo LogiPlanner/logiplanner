@@ -27,6 +27,7 @@ from app.schemas.rag import (
     IngestTextRequest,
     IngestURLRequest,
     DriveIngestRequest,
+    GitHubIngestRequest,
     IngestResponse,
     DocumentResponse,
     DocumentListResponse,
@@ -47,6 +48,8 @@ from app.rag.processor import (
     process_text,
     process_drive_url,
     process_url,
+    process_github_url,
+    process_github_repo,
     parse_drive_url,
     list_folder_files,
     validate_file,
@@ -705,6 +708,92 @@ async def ingest_drive_document(
         )],
         total_chunks=0,
     )
+
+
+@router.post("/ingest-github", response_model=IngestResponse)
+async def ingest_github_document(
+    data: GitHubIngestRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Ingest a public GitHub file or repository. Requires owner or editor role."""
+    team = _verify_team_access(current_user, data.team_id, db)
+    _require_editor_or_owner(current_user, data.team_id, db)
+
+    github_url = (data.github_url or "").strip()
+    if not github_url:
+        raise HTTPException(status_code=400, detail="GitHub URL is required.")
+
+    # Determine if this is a repo URL or file URL
+    is_repo_url = "github.com" in github_url and "/blob/" not in github_url
+
+    custom_name = (data.custom_name or "").strip()[:200] or None
+    doc_record = Document(
+        team_id=data.team_id,
+        uploader_id=current_user.id,
+        filename=custom_name or github_url,
+        stored_path=None,
+        doc_type="text",
+        file_size=0,
+        chunk_count=0,
+        status="processing",
+        source_url=github_url,
+    )
+    db.add(doc_record)
+    db.flush()
+
+    try:
+        if is_repo_url:
+            # Process entire repository
+            chunks, title, file_size = process_github_repo(
+                repo_url=github_url,
+                team_id=data.team_id,
+                uploader_email=current_user.email,
+            )
+        else:
+            # Process single file
+            chunks, title, file_size = process_github_url(
+                github_url=github_url,
+                team_id=data.team_id,
+                document_id=doc_record.id,
+                uploader_email=current_user.email,
+            )
+
+        chunk_count = rag_engine.ingest_chunks(data.team_id, chunks)
+        summary = _generate_doc_summary(chunks, title)
+
+        doc_record.filename = custom_name or title
+        doc_record.file_size = file_size
+        doc_record.chunk_count = chunk_count
+        doc_record.status = "ready"
+        doc_record.summary = summary
+        db.commit()
+
+        return IngestResponse(
+            message=f"GitHub {'repository' if is_repo_url else 'file'} '{doc_record.filename}' ingested successfully.",
+            documents=[DocumentResponse(
+                id=doc_record.id,
+                team_id=data.team_id,
+                filename=doc_record.filename,
+                doc_type="text",
+                file_size=file_size,
+                chunk_count=chunk_count,
+                status="ready",
+                uploader_email=current_user.email,
+                source_url=github_url,
+            )],
+            total_chunks=chunk_count,
+        )
+    except ValueError as e:
+        doc_record.status = "error"
+        doc_record.error_message = str(e)[:500]
+        db.commit()
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        doc_record.status = "error"
+        doc_record.error_message = str(e)[:500]
+        db.commit()
+        raise HTTPException(status_code=500, detail=f"Error ingesting GitHub {'repository' if is_repo_url else 'file'}: {str(e)}")
 
 
 # ═══════════════════════════════════════════════════
