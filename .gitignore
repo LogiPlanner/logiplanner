@@ -223,3 +223,4 @@ __marimo__/
 # RAG / AI Brain
 chroma_data/
 app/static/uploads/
+chroma_data/chroma.sqlite3
