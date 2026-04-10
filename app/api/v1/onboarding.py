@@ -22,6 +22,8 @@ from app.schemas.onboarding import (
     JoinTeamUserDetails,
     TeamPreviewResponse,
     OnboardingBriefResponse,
+    SetupProjectRequest,
+    SetupProjectResponse,
 )
 
 router = APIRouter()
