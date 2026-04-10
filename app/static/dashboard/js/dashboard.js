@@ -28,6 +28,7 @@
     let teamMembers = [];
     let taggedUserIds = [];      // Currently tagged user IDs in the modal
     let selectedColorTag = '';   // Currently selected color hex
+    let syncToGoogleCalendar = false;
 
     // AI suggestions state
     let aiSuggestions = [];
@@ -1070,6 +1071,7 @@
             if (taskTypeInput) taskTypeInput.value = editTask.task_type || 'regular';
             selectedColorTag = editTask.color_tag || '';
             taggedUserIds = (editTask.tagged_users || []).map(u => u.id);
+            syncToGoogleCalendar = false;
         } else {
             title.textContent = 'Add Task';
             saveBtn.textContent = 'Add Task';
@@ -1081,6 +1083,9 @@
             if (taskTypeInput) taskTypeInput.value = 'regular';
             selectedColorTag = '';
             taggedUserIds = [];
+            syncToGoogleCalendar = false;
+            const googleInput = document.getElementById('taskGoogleCalendarInput');
+            if (googleInput) googleInput.checked = false;
 
             // Default: today at current hour, +1 hour
             const now = new Date();
@@ -1101,6 +1106,11 @@
             colorPicker.querySelectorAll('.task-modal__color-swatch').forEach(s => {
                 s.classList.toggle('active', (s.dataset.color || '') === selectedColorTag);
             });
+        }
+
+        const googleInput = document.getElementById('taskGoogleCalendarInput');
+        if (googleInput) {
+            googleInput.checked = syncToGoogleCalendar;
         }
 
         renderTaggedMembers();
@@ -1134,6 +1144,26 @@
         el._hideTimer = setTimeout(() => { el.style.display = 'none'; }, 6000);
     }
 
+    function formatGoogleCalendarDate(isoString) {
+        const date = new Date(isoString);
+        return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    }
+
+    function buildGoogleCalendarUrl(task) {
+        const title = encodeURIComponent(task.title || '');
+        const details = encodeURIComponent(task.description || '');
+        const location = encodeURIComponent(task.location || '');
+        const dates = formatGoogleCalendarDate(task.start_datetime) + '/' + formatGoogleCalendarDate(task.end_datetime);
+        const params = [
+            'action=TEMPLATE',
+            'text=' + title,
+            'dates=' + dates,
+            details ? 'details=' + details : '',
+            location ? 'location=' + location : '',
+        ].filter(Boolean).join('&');
+        return 'https://calendar.google.com/calendar/render?' + params;
+    }
+
     async function saveTask() {
         const editId = document.getElementById('taskEditId').value;
         const titleVal = document.getElementById('taskTitleInput').value.trim();
@@ -1156,66 +1186,93 @@
             return;
         }
 
-        // Time conflict detection for time-based task types
-        const timeBasedTypes = ['meeting', 'regular'];
-        if (timeBasedTypes.includes(taskTypeVal)) {
-            const conflictResult = await apiJson(
-                '/calendar/tasks/' + currentTeamId + '/check-conflicts', 'POST',
-                {
-                    start_datetime: startDt,
-                    end_datetime: endDt,
-                    exclude_task_id: editId ? parseInt(editId) : null,
-                }
-            );
+        // Open the Google Calendar window synchronously (before any await) so
+        // browsers treat it as user-initiated and don't block the popup.
+        const googleInput = document.getElementById('taskGoogleCalendarInput');
+        syncToGoogleCalendar = googleInput?.checked || false;
+        let googleWindow = null;
+        if (syncToGoogleCalendar) {
+            googleWindow = window.open('about:blank', '_blank');
+        }
 
-            if (conflictResult && !conflictResult._error && conflictResult.has_conflict) {
-                const conflictWarning = document.getElementById('taskConflictWarning');
-                const conflictDetails = document.getElementById('taskConflictDetails');
-                if (conflictWarning && conflictDetails) {
-                    const names = conflictResult.conflicting_tasks.map(t => '"' + t.title + '"').join(', ');
-                    conflictDetails.textContent = 'This overlaps with: ' + names + '. Save anyway?';
-                    conflictWarning.style.display = 'flex';
+        try {
+            // Time conflict detection for time-based task types
+            const timeBasedTypes = ['meeting', 'regular'];
+            if (timeBasedTypes.includes(taskTypeVal)) {
+                const conflictResult = await apiJson(
+                    '/calendar/tasks/' + currentTeamId + '/check-conflicts', 'POST',
+                    {
+                        start_datetime: startDt,
+                        end_datetime: endDt,
+                        exclude_task_id: editId ? parseInt(editId) : null,
+                    }
+                );
 
-                    // If already showing warning and user presses save again, proceed
-                    if (!conflictWarning.dataset.acknowledged) {
-                        conflictWarning.dataset.acknowledged = '1';
-                        return; // First press just shows warning
+                if (conflictResult && !conflictResult._error && conflictResult.has_conflict) {
+                    const conflictWarning = document.getElementById('taskConflictWarning');
+                    const conflictDetails = document.getElementById('taskConflictDetails');
+                    if (conflictWarning && conflictDetails) {
+                        const names = conflictResult.conflicting_tasks.map(t => '"' + t.title + '"').join(', ');
+                        conflictDetails.textContent = 'This overlaps with: ' + names + '. Save anyway?';
+                        conflictWarning.style.display = 'flex';
+
+                        // If already showing warning and user presses save again, proceed
+                        if (!conflictWarning.dataset.acknowledged) {
+                            conflictWarning.dataset.acknowledged = '1';
+                            if (googleWindow) googleWindow.close();
+                            return; // First press just shows warning
+                        }
                     }
                 }
             }
-        }
 
-        // Reset conflict acknowledged flag
-        const conflictWarning = document.getElementById('taskConflictWarning');
-        if (conflictWarning) delete conflictWarning.dataset.acknowledged;
+            // Reset conflict acknowledged flag
+            const conflictWarning = document.getElementById('taskConflictWarning');
+            if (conflictWarning) delete conflictWarning.dataset.acknowledged;
 
-        const body = {
-            title: titleVal,
-            description: descVal || null,
-            start_datetime: startDt,
-            end_datetime: endDt,
-            priority: priorityVal,
-            task_type: taskTypeVal,
-            location: locationVal || null,
-            color_tag: selectedColorTag || null,
-            tagged_user_ids: taggedUserIds.length > 0 ? taggedUserIds : null,
-        };
+            const body = {
+                title: titleVal,
+                description: descVal || null,
+                start_datetime: startDt,
+                end_datetime: endDt,
+                priority: priorityVal,
+                task_type: taskTypeVal,
+                location: locationVal || null,
+                color_tag: selectedColorTag || null,
+                tagged_user_ids: taggedUserIds.length > 0 ? taggedUserIds : null,
+            };
 
-        let result;
-        if (editId) {
-            result = await apiJson('/calendar/tasks/' + currentTeamId + '/' + editId, 'PATCH', body);
-        } else {
-            result = await apiJson('/calendar/tasks/' + currentTeamId, 'POST', body);
-        }
+            let result;
+            if (editId) {
+                result = await apiJson('/calendar/tasks/' + currentTeamId + '/' + editId, 'PATCH', body);
+            } else {
+                result = await apiJson('/calendar/tasks/' + currentTeamId, 'POST', body);
+            }
 
-        if (result && !result._error) {
-            closeTaskModal();
-            await loadCalendarTasks();
-            // Refresh day panel if open
-            if (selectedDate) refreshDayPanel(selectedDate);
-        } else {
-            const detail = (result && result.detail) ? result.detail : 'Could not save task. Please try again.';
-            showTaskModalError(typeof detail === 'string' ? detail : JSON.stringify(detail));
+            if (result && !result._error) {
+                closeTaskModal();
+                await loadCalendarTasks();
+                // Refresh day panel if open
+                if (selectedDate) refreshDayPanel(selectedDate);
+
+                if (syncToGoogleCalendar) {
+                    const url = buildGoogleCalendarUrl(result);
+                    if (googleWindow) {
+                        googleWindow.location.href = url;
+                    } else {
+                        window.open(url, '_blank');
+                    }
+                    syncToGoogleCalendar = false;
+                }
+            } else {
+                if (googleWindow) googleWindow.close();
+                const detail = (result && result.detail) ? result.detail : 'Could not save task. Please try again.';
+                showTaskModalError(typeof detail === 'string' ? detail : JSON.stringify(detail));
+            }
+        } catch (err) {
+            console.error('Task save error:', err);
+            if (googleWindow) googleWindow.close();
+            showTaskModalError('An unexpected error occurred. Please try again.');
         }
     }
 
