@@ -137,86 +137,8 @@
         return local.toISOString().slice(0, 16);
     }
 
-    // ── Welcome Overlay — project setup from onboarding ──
-    let _pendingSetupData = null;
-
-    function showWelcomeOverlay() {
-        const el = document.getElementById('welcomeOverlay');
-        if (el) el.style.display = 'flex';
-    }
-
-    function updateOverlayProgress(pct, status) {
-        const bar = document.getElementById('welcomeOverlayBar');
-        const txt = document.getElementById('welcomeOverlayStatus');
-        if (bar) bar.style.width = pct + '%';
-        if (txt) txt.textContent = status;
-    }
-
-    function showOverlayError(msg) {
-        const errEl = document.getElementById('welcomeOverlayError');
-        const msgEl = document.getElementById('welcomeOverlayErrorMsg');
-        if (errEl) errEl.style.display = 'block';
-        if (msgEl) msgEl.textContent = msg;
-    }
-
-    async function handlePendingSetup(raw) {
-        let data;
-        try { data = JSON.parse(raw); } catch { sessionStorage.removeItem('lp_pending_setup'); location.reload(); return; }
-        _pendingSetupData = data;
-
-        showWelcomeOverlay();
-        updateOverlayProgress(10, 'Creating your project workspace...');
-
-        try {
-            const res = await window.__lp.authFetch(API + '/onboarding/setup-project', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: raw
-            });
-
-            if (!res || !res.ok) {
-                const err = await res.json().catch(() => null);
-                showOverlayError(err?.detail || 'Failed to create project. Please try again.');
-                return;
-            }
-
-            const result = await res.json();
-            updateOverlayProgress(80, 'Almost there...');
-
-            // Store the newly created team
-            if (result.team_id) {
-                localStorage.setItem('selected_team_id', String(result.team_id));
-            }
-
-            sessionStorage.removeItem('lp_pending_setup');
-            updateOverlayProgress(100, 'Done! Loading your dashboard...');
-
-            // Short delay for visual feedback then reload
-            setTimeout(function() { location.reload(); }, 800);
-
-        } catch (e) {
-            showOverlayError('Network error. Please check your connection and try again.');
-        }
-    }
-
-    // Exposed globally so the retry button in the overlay works
-    window.retrySetup = function() {
-        const errEl = document.getElementById('welcomeOverlayError');
-        if (errEl) errEl.style.display = 'none';
-        if (_pendingSetupData) {
-            handlePendingSetup(JSON.stringify(_pendingSetupData));
-        }
-    };
-
     // ── Initialize ──
     async function init() {
-        // ── Pending project setup (deferred from onboarding) ──
-        const pendingSetup = sessionStorage.getItem('lp_pending_setup');
-        if (pendingSetup) {
-            await handlePendingSetup(pendingSetup);
-            return; // page will reload after setup completes
-        }
-
         const [profile, teamsData] = await Promise.all([
             api('/profile-status'),
             api('/user-teams'),

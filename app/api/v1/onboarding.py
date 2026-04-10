@@ -12,7 +12,7 @@ import os
 
 from app.core.dependencies import get_current_user
 from app.core.database import get_db
-from app.models.user import User, Team, Role, UserRole, Document
+from app.models.user import User, Team, Role, UserRole
 from app.schemas.onboarding import (
     CreateTeamStep1,
     CreateTeamStep2,
@@ -22,8 +22,6 @@ from app.schemas.onboarding import (
     JoinTeamUserDetails,
     TeamPreviewResponse,
     OnboardingBriefResponse,
-    SetupProjectRequest,
-    SetupProjectResponse,
 )
 
 router = APIRouter()
@@ -47,17 +45,6 @@ def _get_or_create_role(db: Session, role_name: str) -> Role:
 # ──────────────────────────────────────────────
 # CREATE TEAM FLOW
 # ──────────────────────────────────────────────
-
-@router.get("/check-team-name")
-async def check_team_name(
-    name: str,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """Check if a team/project name is already taken."""
-    existing = db.query(Team).filter(Team.team_name == name).first()
-    return {"available": existing is None}
-
 
 @router.post("/create-team-full", response_model=CreateTeamResponse)
 async def create_team_full(
