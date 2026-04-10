@@ -874,7 +874,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function escapeHtml(s) {
-        return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        if (s === null || s === undefined) return '';
+        return String(s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
     }
 
     /* ── Full block-level markdown parser ── */
@@ -893,8 +899,12 @@ document.addEventListener('DOMContentLoaded', () => {
         let inUL = false, inOL = false, inBQ = false;
         let para = [];
 
+        function safeInlineFormat(content) {
+            return inlineFormat(escapeHtml(content));
+        }
+
         function flushPara() {
-            if (para.length) { out.push(`<p>${inlineFormat(para.join(' '))}</p>`); para = []; }
+            if (para.length) { out.push(`<p>${safeInlineFormat(para.join(' '))}</p>`); para = []; }
         }
         function closeList() {
             if (inUL) { out.push('</ul>'); inUL = false; }

@@ -516,8 +516,6 @@ def _process_and_ingest_drive(
             uploader_email=uploader_email,
         )
 
-        for c in chunks:
-            c.metadata["doc_summary"] = summary
         # Generate summary BEFORE ingest so it lands on each chunk's metadata
         summary = _generate_doc_summary(chunks, filename)
         for c in chunks:
