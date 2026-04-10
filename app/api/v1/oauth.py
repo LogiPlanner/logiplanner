@@ -21,11 +21,12 @@ def get_or_create_google_user(db: Session, email: str, full_name: str = None):
             full_name=full_name,
             is_active=True,
             is_verified=True,       # Google already verified the email
-            hashed_password="",     # No password needed for OAuth users
+            hashed_password=None,   # OAuth users have no password
         )
         db.add(user)
         db.commit()
         db.refresh(user)
+
     return user
 
 
@@ -36,7 +37,6 @@ async def google_login(request: Request):
         raise HTTPException(status_code=500, detail="Google OAuth not configured")
 
     state = secrets.token_urlsafe(32)
-    request.session["oauth_state"] = state
 
     params = urlencode({
         "client_id": settings.GOOGLE_CLIENT_ID,
@@ -49,7 +49,20 @@ async def google_login(request: Request):
     })
 
     auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{params}"
-    return RedirectResponse(url=auth_url)
+    response = RedirectResponse(url=auth_url)
+
+    # Store state in a signed HttpOnly cookie instead of session middleware
+    # This avoids the timing bug where the session cookie wasn't set on first visit
+    response.set_cookie(
+        key="oauth_state",
+        value=state,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        max_age=600,  # 10 minutes
+    )
+
+    return response
 
 
 @router.get("/google/callback")
@@ -67,8 +80,8 @@ async def google_callback(
     if not code:
         return RedirectResponse(url="/login?error=no_code")
 
-    # Verify state for CSRF protection
-    stored_state = request.session.get("oauth_state")
+    # Verify state from cookie for CSRF protection
+    stored_state = request.cookies.get("oauth_state")
     if not stored_state or state != stored_state:
         print(f"⚠️ OAuth state mismatch: stored={stored_state}, received={state}")
         return RedirectResponse(url="/login?error=invalid_state")
@@ -122,7 +135,8 @@ async def google_callback(
     else:
         redirect_url = f"/dashboard?token={access_token}&refresh_token={refresh_token}"
 
-    # Clear OAuth state from session
-    request.session.pop("oauth_state", None)
+    # Build response and clear the OAuth state cookie
+    response = RedirectResponse(url=redirect_url)
+    response.delete_cookie("oauth_state")
 
-    return RedirectResponse(url=redirect_url)
+    return response

@@ -92,8 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Logout
     // LOGOUT
     document.getElementById('logoutBtn')?.addEventListener('click', () => {
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
+        window.__lpStorage.clearAll();
         window.location.href = '/login';
     });
 

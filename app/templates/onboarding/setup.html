@@ -41,8 +41,8 @@
                     <div class="auth-brand__logo-icon" style="width:32px;height:32px;"><svg viewBox="0 0 24 24" style="width:18px;height:18px;"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
                     <span style="font-size:1.1rem;font-weight:800;">LogiPlanner</span>
                 </div>
-                <h2 class="wizard-step__title">Welcome to LogiPlanner! 🎉</h2>
-                <p class="wizard-step__subtitle">How would you like to get started?</p>
+                <h2 class="wizard-step__title onboarding-hero__title">Welcome to LogiPlanner! 🎉</h2>
+                <p class="wizard-step__subtitle onboarding-hero__subtitle">How would you like to get started?</p>
 
                 <div class="choose-cards">
                     <div class="choose-card" id="chooseCreate" onclick="startFlow('create')">
@@ -94,7 +94,7 @@
 
                 <form id="createStep2Form">
                     <div class="form-row-2col">
-                        <div class="form-group">
+                        <div class="form-group" id="c_fullNameGroup">
                             <label for="c_fullName">Full Name<span class="form-required" aria-label="required">*</span></label>
                             <input type="text" id="c_fullName" class="form-input" placeholder="Jane Doe" required>
                         </div>
@@ -146,28 +146,26 @@
                 <!-- External Links -->
                 <div class="ingestion-links">
                     <h3 class="ingestion-links__title">External Links</h3>
-                    <p class="ingestion-links__desc">Connect your Google Drive, Miro board, or GitHub repo.</p>
+                    <p class="ingestion-links__desc">Connect your Google Drive or GitHub repo — we'll pull the content into your AI Brain.</p>
 
                     <div id="linksList">
                         <div class="link-row" data-index="0">
-                            <select class="form-select link-type" style="width:140px;">
-                                <option value="link">🔗 Link</option>
+                            <select class="form-select link-type" style="width:160px;">
                                 <option value="google_drive">📁 Google Drive</option>
-                                <option value="miro">🎨 Miro</option>
                                 <option value="github">💻 GitHub</option>
-                                <option value="notion">📝 Notion</option>
                             </select>
                             <input type="url" class="form-input link-url" placeholder="https://...">
                             <input type="text" class="form-input link-label" placeholder="Label (optional)" style="width:140px;">
+                            <button type="button" class="link-remove-btn" onclick="removeLinkRow(this)" title="Remove">✕</button>
                         </div>
                     </div>
-                    <button type="button" class="btn btn--ghost btn--sm" onclick="addLinkRow()">+ Add another link</button>
+                    <button type="button" class="btn btn--ghost btn--sm" onclick="addLinkRow()">+ Add another link <span style="opacity:0.5;">(max 5)</span></button>
                 </div>
 
                 <!-- Context Notes -->
                 <div class="form-group" style="margin-top:24px;">
-                    <label for="c_notes">Additional Context <span class="form-label-hint">(optional)</span></label>
-                    <textarea id="c_notes" class="form-input form-textarea" placeholder="Any extra notes for the AI Brain? e.g. 'We decided to use FastAPI instead of Django last week...'" rows="3"></textarea>
+                    <label for="c_notes">Additional Context <span class="form-label-hint">(optional — max 5,000 characters)</span></label>
+                    <textarea id="c_notes" class="form-input form-textarea" placeholder="Any extra notes for the AI Brain? e.g. 'We decided to use FastAPI instead of Django last week...'" rows="3" maxlength="5000"></textarea>
                 </div>
 
                 <div class="wizard-step__actions">
@@ -184,14 +182,7 @@
                 <button class="wizard-back" onclick="goBack('step-create-3')">&larr; Back</button>
                 <div class="wizard-step__badge">Step 4 of 4 — Invite Members</div>
                 <h2 class="wizard-step__title">Invite your project members</h2>
-                <p class="wizard-step__subtitle">Add members by email. They'll get a link to join instantly.</p>
-
-                <!-- Invite Code Display -->
-                <div class="invite-code-card" id="inviteCodeCard" style="display:none;">
-                    <div class="invite-code-card__label">Your Project Invite Code</div>
-                    <div class="invite-code-card__code" id="inviteCodeDisplay"></div>
-                    <button type="button" class="btn btn--ghost btn--sm" onclick="copyInviteCode()">📋 Copy Code</button>
-                </div>
+                <p class="wizard-step__subtitle">Add members by email. They'll get a link to join once the project is ready.</p>
 
                 <!-- Email Invites -->
                 <div id="inviteRows">
@@ -206,7 +197,7 @@
                 <button type="button" class="btn btn--ghost btn--sm" onclick="addInviteRow()">+ Add another</button>
 
                 <div class="wizard-step__actions" style="margin-top:32px;">
-                    <button type="button" class="btn btn--outline" onclick="finishOnboarding()">Skip & Go to Dashboard</button>
+                    <button type="button" class="btn btn--outline" onclick="sendInvitesAndFinish()">Skip & Go to Dashboard</button>
                     <button type="button" class="btn btn--accent" id="createStep4Btn" onclick="sendInvitesAndFinish()">Send Invites & Finish 🎉</button>
                 </div>
                 <div id="createStep4Msg" class="message" aria-live="polite"></div>

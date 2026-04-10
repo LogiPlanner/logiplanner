@@ -46,8 +46,7 @@ window.AuthUI = {
 
     /** Redirect to login after clearing tokens. */
     _forceLogout() {
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
+        window.__lpStorage.clearAll();
         window.location.href = '/login';
     },
 
