@@ -46,7 +46,6 @@ from app.core.config import settings
 from app.rag.prompts import (
     SYSTEM_PROMPT,
     CONTEXT_TEMPLATE,
-    SOURCE_CITATION_TEMPLATE,
     HYDE_SYSTEM_PROMPT,
     MULTI_QUERY_SYSTEM_PROMPT,
 )
