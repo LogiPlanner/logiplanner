@@ -269,7 +269,9 @@ class RAGEngine:
                 if not is_transient or attempt == max_retries:
                     raise
                 time.sleep(2 ** (attempt - 1))
-        raise last_error
+        if last_error is not None:
+            raise last_error
+        raise RuntimeError("Expansion invoke failed without capturing an exception.")
 
     def _invoke_llm_with_retry(self, messages, max_retries: int = 3):
         """Invoke chat model with small retry/backoff for transient connection failures."""
