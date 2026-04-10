@@ -11,4 +11,7 @@ This package contains the complete RAG pipeline for the AI Brain feature:
 Architecture:
   Upload → Processor (load → split → enrich metadata) → Engine (embed → store in ChromaDB)
   Query  → Engine (retrieve from ChromaDB → assemble context → GPT-4o) → Response with sources
+
+Embeddings use local HuggingFace model (BAAI/bge-base-en-v1.5) — free, no API key needed.
+Configurable via HF_EMBEDDING_MODEL env var.
 """

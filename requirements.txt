@@ -18,6 +18,8 @@ fastapi-mail
 # RAG System (AI Brain)
 langchain
 langchain-openai
+langchain-huggingface
+sentence-transformers
 langchain-chroma
 langchain-community
 chromadb

@@ -39,10 +39,10 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = ""
     RAG_CHUNK_SIZE: int = 800
     RAG_CHUNK_OVERLAP: int = 200
-    RAG_EMBEDDING_MODEL: str = "text-embedding-3-small"
     RAG_CHAT_MODEL: str = "gpt-4o"
     RAG_TOP_K: int = 5
     CHROMA_PERSIST_DIR: str = "./chroma_data"
+    HF_EMBEDDING_MODEL: str = "BAAI/bge-base-en-v1.5"
 
     # GitHub Integration
     GITHUB_TOKEN: Optional[str] = None  # Personal access token for higher API rate limits

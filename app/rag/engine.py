@@ -31,7 +31,8 @@ from datetime import datetime, timezone
 
 import chromadb
 from chromadb.config import Settings as ChromaSettings
-from langchain_openai import OpenAIEmbeddings, ChatOpenAI
+from langchain_openai import ChatOpenAI
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 from langchain_core.documents import Document as LCDocument
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
@@ -47,7 +48,7 @@ class RAGEngine:
     Key design decisions:
     - Per-team ChromaDB collections for data isolation
     - Persistent storage at ./chroma_data/ (survives server restarts)
-    - OpenAI embeddings for high-quality semantic search
+    - Local HuggingFace embeddings (BAAI/bge-base-en-v1.5) — free, no API key needed
     - GPT-4o for chat responses with source citations
     """
 
@@ -58,15 +59,9 @@ class RAGEngine:
         self._initialized = False
 
     def _ensure_initialized(self):
-        """Lazy initialization — only connects to ChromaDB and OpenAI when first needed."""
+        """Lazy initialization — only connects to ChromaDB and embedding/chat providers when first needed."""
         if self._initialized:
             return
-
-        if not settings.OPENAI_API_KEY:
-            raise RuntimeError(
-                "OPENAI_API_KEY is not set in .env. "
-                "The RAG system requires an OpenAI API key for embeddings and chat."
-            )
 
         # ChromaDB persistent client
         self._chroma_client = chromadb.PersistentClient(
@@ -76,13 +71,18 @@ class RAGEngine:
             ),
         )
 
-        # OpenAI embeddings
-        self._embeddings = OpenAIEmbeddings(
-            model=settings.RAG_EMBEDDING_MODEL,
-            openai_api_key=settings.OPENAI_API_KEY,
+        # ── Embeddings (local HuggingFace) ─────────────────────────────────
+        self._embeddings = HuggingFaceEmbeddings(
+            model_name=settings.HF_EMBEDDING_MODEL,
+            model_kwargs={"device": "cpu"},
+            encode_kwargs={"normalize_embeddings": True},
         )
 
-        # OpenAI chat model
+        # ── Chat LLM (always OpenAI GPT) ────────────────────────────────────
+        if not settings.OPENAI_API_KEY:
+            raise RuntimeError(
+                "OPENAI_API_KEY is not set. Required for the chat LLM."
+            )
         self._llm = ChatOpenAI(
             model=settings.RAG_CHAT_MODEL,
             openai_api_key=settings.OPENAI_API_KEY,
@@ -91,8 +91,7 @@ class RAGEngine:
         )
 
         self._initialized = True
-        print(f"[RAG] Engine initialized — ChromaDB: {settings.CHROMA_PERSIST_DIR}, "
-              f"Embedding: {settings.RAG_EMBEDDING_MODEL}, Chat: {settings.RAG_CHAT_MODEL}")
+        print(f"[RAG] Engine initialized — Embeddings: HuggingFace local ({settings.HF_EMBEDDING_MODEL}), Chat: {settings.RAG_CHAT_MODEL}")
 
     def _get_collection_name(self, team_id: int) -> str:
         """Generate a collection name for a team. Each team gets its own isolated collection."""
