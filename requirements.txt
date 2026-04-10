@@ -18,6 +18,9 @@ fastapi-mail
 # RAG System (AI Brain)
 langchain
 langchain-openai
+langchain-huggingface
+sentence-transformers
+rank_bm25
 langchain-chroma
 langchain-community
 chromadb
@@ -26,3 +29,6 @@ pypdf
 python-docx
 docx2txt
 tiktoken
+
+# Git integration
+GitPython

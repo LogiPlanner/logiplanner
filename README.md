@@ -4,6 +4,11 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql)](https://www.postgresql.org)
 [![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org)
 
+![alt text](image.png)
+![alt text](image-1.png)
+![alt text](image-2.png)
+![alt text](image-3.png)
+
 **LogiPlanner** is an AI-driven project management and **project memory** system. It unifies scattered information — from Miro boards and Slack chats to meeting notes and Drive files — into a single intelligent, searchable, and evolving **"Project Brain."**
 
 ---

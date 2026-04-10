@@ -865,24 +865,124 @@ document.addEventListener('DOMContentLoaded', () => {
         return { pdf: 'PDF', docx: 'DOC', txt: 'TXT', markdown: 'MD', text: 'TXT' }[type] || 'FILE';
     }
 
-    function formatMarkdown(text) {
-        if (!text) return '';
-        let html = text
-            .replace(/```(\w+)?\n?([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
+    /* ── Inline formatter (bold, italic, inline code) ── */
+    function inlineFormat(text) {
+        return text
             .replace(/`([^`]+)`/g, '<code>$1</code>')
             .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
             .replace(/\*(.+?)\*/g, '<em>$1</em>')
-            .replace(/^### (.+)$/gm, '<strong style="font-size:0.92rem;">$1</strong>')
-            .replace(/^## (.+)$/gm, '<strong style="font-size:0.98rem;">$1</strong>')
-            .replace(/^[-*\u2022] (.+)$/gm, '<li>$1</li>')
-            .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
-            .replace(/\n\n/g, '</p><p>')
-            .replace(/\n/g, '<br>');
+            .replace(/_(.+?)_/g, '<em>$1</em>');
+    }
 
-        html = html.replace(/(<li>.*?<\/li>(?:\s*<br>\s*<li>.*?<\/li>)*)/g, '<ul>$1</ul>');
-        html = html.replace(/<br><li>/g, '<li>');
+    function escapeHtml(s) {
+        if (s === null || s === undefined) return '';
+        return String(s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
 
-        return `<p>${html}</p>`;
+    /* ── Full block-level markdown parser ── */
+    function formatMarkdown(text) {
+        if (!text) return '';
+
+        // Pull out fenced code blocks first so nothing inside gets mangled
+        const codeBlocks = [];
+        text = text.replace(/```(\w+)?\n?([\s\S]*?)```/g, (_, _lang, code) => {
+            codeBlocks.push(`<pre><code>${escapeHtml(code.trim())}</code></pre>`);
+            return `\x00CODE${codeBlocks.length - 1}\x00`;
+        });
+
+        const lines = text.split('\n');
+        const out = [];
+        let inUL = false, inOL = false, inBQ = false;
+        let para = [];
+
+        function safeInlineFormat(content) {
+            return inlineFormat(escapeHtml(content));
+        }
+
+        function flushPara() {
+            if (para.length) { out.push(`<p>${safeInlineFormat(para.join(' '))}</p>`); para = []; }
+        }
+        function closeList() {
+            if (inUL) { out.push('</ul>'); inUL = false; }
+            if (inOL) { out.push('</ol>'); inOL = false; }
+        }
+        function closeBQ() {
+            if (inBQ) { out.push('</blockquote>'); inBQ = false; }
+        }
+
+        for (const line of lines) {
+            // Code block placeholder
+            if (line.includes('\x00CODE')) {
+                flushPara(); closeList(); closeBQ();
+                out.push(line.replace(/\x00CODE(\d+)\x00/g, (_, i) => codeBlocks[+i]));
+                continue;
+            }
+
+            // Headings
+            const h3m = line.match(/^### (.+)$/);
+            const h2m = line.match(/^## (.+)$/);
+            const h1m = line.match(/^# (.+)$/);
+            if (h3m || h2m || h1m) {
+                flushPara(); closeList(); closeBQ();
+                const tag = h3m ? 'h3' : h2m ? 'h2' : 'h1';
+                out.push(`<${tag}>${inlineFormat((h3m||h2m||h1m)[1])}</${tag}>`);
+                continue;
+            }
+
+            // Horizontal rule
+            if (/^[-*]{3,}$/.test(line.trim())) {
+                flushPara(); closeList(); closeBQ();
+                out.push('<hr>');
+                continue;
+            }
+
+            // Blockquote
+            const bqm = line.match(/^> (.+)$/);
+            if (bqm) {
+                flushPara(); closeList();
+                if (!inBQ) { out.push('<blockquote>'); inBQ = true; }
+                out.push(`<p>${inlineFormat(bqm[1])}</p>`);
+                continue;
+            } else { closeBQ(); }
+
+            // Unordered list
+            const ulm = line.match(/^[-*\u2022] (.+)$/);
+            if (ulm) {
+                flushPara();
+                if (inOL) { out.push('</ol>'); inOL = false; }
+                if (!inUL) { out.push('<ul>'); inUL = true; }
+                out.push(`<li>${inlineFormat(ulm[1])}</li>`);
+                continue;
+            }
+
+            // Ordered list
+            const olm = line.match(/^\d+\. (.+)$/);
+            if (olm) {
+                flushPara();
+                if (inUL) { out.push('</ul>'); inUL = false; }
+                if (!inOL) { out.push('<ol>'); inOL = true; }
+                out.push(`<li>${inlineFormat(olm[1])}</li>`);
+                continue;
+            }
+
+            // Empty line — close everything and break paragraph
+            if (line.trim() === '') {
+                flushPara(); closeList(); closeBQ();
+                continue;
+            }
+
+            // Regular text line
+            closeList();
+            para.push(line);
+        }
+
+        flushPara(); closeList(); closeBQ();
+        return out.join('\n');
     }
 
     function scrollToBottom() {

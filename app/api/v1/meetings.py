@@ -4,7 +4,8 @@ import uuid
 from typing import List, Optional
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status, WebSocket, WebSocketDisconnect, UploadFile, File, Form, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect, UploadFile, File, Form, BackgroundTasks
+from jose import jwt, JWTError
 from sqlalchemy.orm import Session
 from openai import OpenAI
 
@@ -51,9 +52,35 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 @router.websocket("/ws/{team_id}")
-async def websocket_endpoint(websocket: WebSocket, team_id: int, db: Session = Depends(get_db)):
-    # Note: WebSocket authentication can be tricky, typically done via token in query param.
-    # For now, we will accept and handle team-based broadcasting.
+async def websocket_endpoint(websocket: WebSocket, team_id: int, token: str = Query(None), db: Session = Depends(get_db)):
+    # Authenticate before accepting the WebSocket connection.
+    if not token:
+        await websocket.close(code=1008)
+        return
+
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        email: str = payload.get("sub")
+        token_type: str = payload.get("token_type")
+        if email is None or token_type != "access":
+            await websocket.close(code=1008)
+            return
+    except JWTError:
+        await websocket.close(code=1008)
+        return
+
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        await websocket.close(code=1008)
+        return
+
+    # Verify the authenticated user is a member of the requested team.
+    try:
+        _verify_team_access(user, team_id, db)
+    except HTTPException:
+        await websocket.close(code=1008)
+        return
+
     await manager.connect(websocket, team_id)
     
     try:

@@ -39,12 +39,21 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = ""
     RAG_CHUNK_SIZE: int = 800
     RAG_CHUNK_OVERLAP: int = 200
-    RAG_EMBEDDING_MODEL: str = "text-embedding-3-small"
-    RAG_CHAT_MODEL: str = "gpt-4o"
+    RAG_CHAT_MODEL: str = "gpt-5.2"
+    RAG_EXPANSION_MODEL: str = "gpt-4o-mini"          # Cheap model for query expansion + doc summaries
+    RAG_QUERY_EXPANSION: bool = True                   # HyDE: expand queries before embedding search
     RAG_TOP_K: int = 5
     CHROMA_PERSIST_DIR: str = "./chroma_data"
+    HF_EMBEDDING_MODEL: str = "BAAI/bge-base-en-v1.5"
+    HF_RERANKER_MODEL: str = "BAAI/bge-reranker-base"
+    RAG_RERANK_FETCH_MULTIPLIER: int = 5  # Fetch 5× candidates, rerank, return top-K
+    RAG_MULTI_QUERY: bool = True           # Generate paraphrases for diverse retrieval
+    RAG_MULTI_QUERY_COUNT: int = 3         # Number of query paraphrases to generate
+    RAG_BM25_WEIGHT: float = 0.3           # Relative RRF contribution for BM25 results (<= 0 disables BM25)
+    RAG_CONTEXTUAL_HEADERS: bool = True    # Prepend doc title + summary to chunks before embedding
 
-    @model_validator(mode="after")
+    # GitHub Integration
+    GITHUB_TOKEN: Optional[str] = None  # Personal access token for higher API rate limits
     def validate_secret_key(self):
         if not self.DEBUG and self.SECRET_KEY == _DEV_SECRET_KEY:
             raise ValueError("SECRET_KEY must be set explicitly when DEBUG is false")

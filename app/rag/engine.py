@@ -5,9 +5,13 @@ The core orchestration layer for the LogiPlanner AI Brain.
 
 Responsibilities:
 - Manages ChromaDB persistent vector store (per-team collections)
-- Handles document embedding via OpenAI text-embedding-3-small
-- Performs similarity search with metadata filtering
-- Orchestrates chat responses via GPT-4o with retrieval context
+- Handles document embedding via local BAAI/bge-base-en-v1.5
+- Performs hybrid search (vector + BM25) with Reciprocal Rank Fusion
+- Cross-encoder reranking for higher precision
+- Conversation-aware HyDE query expansion via GPT-4o-mini
+- Multi-query retrieval for diverse results
+- Contextual chunk headers baked into embeddings
+- Orchestrates chat responses via GPT-5.2 with retrieval context
 - Provides knowledge base statistics
 
 Usage:
@@ -28,16 +32,23 @@ import re
 import time
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone
+from collections import defaultdict
 
 import chromadb
 from chromadb.config import Settings as ChromaSettings
-from langchain_openai import OpenAIEmbeddings, ChatOpenAI
+from langchain_openai import ChatOpenAI
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 from langchain_core.documents import Document as LCDocument
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 
 from app.core.config import settings
-from app.rag.prompts import SYSTEM_PROMPT, CONTEXT_TEMPLATE, NO_CONTEXT_RESPONSE, SOURCE_CITATION_TEMPLATE
+from app.rag.prompts import (
+    SYSTEM_PROMPT,
+    CONTEXT_TEMPLATE,
+    HYDE_SYSTEM_PROMPT,
+    MULTI_QUERY_SYSTEM_PROMPT,
+)
 
 
 class RAGEngine:
@@ -47,26 +58,28 @@ class RAGEngine:
     Key design decisions:
     - Per-team ChromaDB collections for data isolation
     - Persistent storage at ./chroma_data/ (survives server restarts)
-    - OpenAI embeddings for high-quality semantic search
-    - GPT-4o for chat responses with source citations
+    - Local HuggingFace embeddings (BAAI/bge-base-en-v1.5) — free, no API key needed
+    - Local cross-encoder reranker (BAAI/bge-reranker-base) for higher-precision retrieval
+    - Hybrid search: vector similarity + BM25 keyword matching, fused with RRF
+    - Multi-query retrieval: 3 paraphrases for diverse candidate coverage
+    - Conversation-aware HyDE: expands queries using recent chat context
+    - Contextual chunk headers: doc title + summary prepended to chunk text at ingest time
+    - GPT-4o-mini for query expansion, paraphrase generation, and document summarization
+    - GPT-5.2 for chat responses with source citations
     """
 
     def __init__(self):
         self._chroma_client = None
         self._embeddings = None
+        self._reranker = None
         self._llm = None
+        self._expansion_llm = None
         self._initialized = False
 
     def _ensure_initialized(self):
-        """Lazy initialization — only connects to ChromaDB and OpenAI when first needed."""
+        """Lazy initialization — only connects to ChromaDB and embedding/chat providers when first needed."""
         if self._initialized:
             return
-
-        if not settings.OPENAI_API_KEY:
-            raise RuntimeError(
-                "OPENAI_API_KEY is not set in .env. "
-                "The RAG system requires an OpenAI API key for embeddings and chat."
-            )
 
         # ChromaDB persistent client
         self._chroma_client = chromadb.PersistentClient(
@@ -76,13 +89,18 @@ class RAGEngine:
             ),
         )
 
-        # OpenAI embeddings
-        self._embeddings = OpenAIEmbeddings(
-            model=settings.RAG_EMBEDDING_MODEL,
-            openai_api_key=settings.OPENAI_API_KEY,
+        # ── Embeddings (local HuggingFace) ─────────────────────────────────
+        self._embeddings = HuggingFaceEmbeddings(
+            model_name=settings.HF_EMBEDDING_MODEL,
+            model_kwargs={"device": "cpu"},
+            encode_kwargs={"normalize_embeddings": True},
         )
 
-        # OpenAI chat model
+        # ── Chat LLM (always OpenAI GPT) ────────────────────────────────────
+        if not settings.OPENAI_API_KEY:
+            raise RuntimeError(
+                "OPENAI_API_KEY is not set. Required for the chat LLM."
+            )
         self._llm = ChatOpenAI(
             model=settings.RAG_CHAT_MODEL,
             openai_api_key=settings.OPENAI_API_KEY,
@@ -90,9 +108,29 @@ class RAGEngine:
             max_tokens=2000,
         )
 
+        # ── Cross-encoder reranker (local HuggingFace) ────────────────────────
+        from sentence_transformers import CrossEncoder
+        self._reranker = CrossEncoder(
+            settings.HF_RERANKER_MODEL,
+            max_length=512,
+        )
+
+        # ── Expansion LLM (cheap model for HyDE + doc summaries) ─────────────
+        self._expansion_llm = ChatOpenAI(
+            model=settings.RAG_EXPANSION_MODEL,
+            openai_api_key=settings.OPENAI_API_KEY,
+            temperature=0.1,
+            max_tokens=300,
+        )
+
         self._initialized = True
-        print(f"[RAG] Engine initialized — ChromaDB: {settings.CHROMA_PERSIST_DIR}, "
-              f"Embedding: {settings.RAG_EMBEDDING_MODEL}, Chat: {settings.RAG_CHAT_MODEL}")
+        print(
+            f"[RAG] Engine initialized — "
+            f"Embeddings: {settings.HF_EMBEDDING_MODEL}, "
+            f"Reranker: {settings.HF_RERANKER_MODEL}, "
+            f"Expansion: {settings.RAG_EXPANSION_MODEL}, "
+            f"Chat: {settings.RAG_CHAT_MODEL}"
+        )
 
     def _get_collection_name(self, team_id: int) -> str:
         """Generate a collection name for a team. Each team gets its own isolated collection."""
@@ -108,6 +146,167 @@ class RAGEngine:
             collection_name=collection_name,
             embedding_function=self._embeddings,
         )
+
+    def _expand_query(self, query: str, chat_history: Optional[List[Dict[str, str]]] = None) -> str:
+        """Conversation-aware HyDE: use the cheap LLM to generate a hypothetical
+        document excerpt that answers the query. When chat_history is provided,
+        the last few turns are included so the model can resolve references like
+        'what about last quarter?' into a self-contained excerpt."""
+        if not settings.RAG_QUERY_EXPANSION:
+            return query
+        try:
+            messages: list = [SystemMessage(content=HYDE_SYSTEM_PROMPT)]
+
+            # Feed last 3 exchanges so the expansion model can resolve pronouns / references
+            if chat_history:
+                for msg in chat_history[-6:]:
+                    if msg["role"] == "user":
+                        messages.append(HumanMessage(content=msg["content"]))
+                    elif msg["role"] == "assistant":
+                        messages.append(AIMessage(content=msg["content"]))
+
+            messages.append(HumanMessage(content=query))
+            response = self._expansion_llm.invoke(messages)
+            expanded = response.content.strip()
+            return expanded if expanded else query
+        except Exception as e:
+            print(f"[RAG] Query expansion failed, using original: {e}")
+            return query
+
+    def _generate_multi_queries(self, query: str) -> List[str]:
+        """Generate paraphrased versions of the query for diverse retrieval.
+        Returns a list of alternative queries (excluding the original)."""
+        if not settings.RAG_MULTI_QUERY:
+            return []
+        try:
+            n = settings.RAG_MULTI_QUERY_COUNT
+            messages = [
+                SystemMessage(content=MULTI_QUERY_SYSTEM_PROMPT.format(n=n)),
+                HumanMessage(content=query),
+            ]
+            response = self._expansion_llm.invoke(messages)
+            lines = [l.strip() for l in response.content.strip().splitlines() if l.strip()]
+            return lines[:n]
+        except Exception as e:
+            print(f"[RAG] Multi-query generation failed: {e}")
+            return []
+
+    def _bm25_search(self, team_id: int, query: str, k: int) -> List[LCDocument]:
+        """Keyword search using BM25 over all chunks in the team's collection.
+        Returns top-k documents ranked by BM25 score."""
+        if settings.RAG_BM25_WEIGHT <= 0:
+            return []
+        try:
+            from rank_bm25 import BM25Okapi
+
+            collection_name = self._get_collection_name(team_id)
+            collection = self._chroma_client.get_collection(collection_name)
+            if collection.count() == 0:
+                return []
+
+            all_data = collection.get(include=["documents", "metadatas"])
+            texts = all_data.get("documents", []) or []
+            metas = all_data.get("metadatas", []) or []
+
+            if not texts:
+                return []
+
+            # Tokenize for BM25
+            tokenized_corpus = [doc.lower().split() for doc in texts]
+            bm25 = BM25Okapi(tokenized_corpus)
+            tokenized_query = query.lower().split()
+            scores = bm25.get_scores(tokenized_query)
+
+            # Rank and take top-k
+            scored = sorted(
+                zip(scores, texts, metas),
+                key=lambda x: x[0],
+                reverse=True,
+            )
+            results = []
+            for score, text, meta in scored[:k]:
+                if score > 0:
+                    results.append(LCDocument(page_content=text, metadata=meta or {}))
+            return results
+        except Exception as e:
+            print(f"[RAG] BM25 search failed: {e}")
+            return []
+
+    @staticmethod
+    def _reciprocal_rank_fusion(
+        weighted_result_lists: List[tuple[List[LCDocument], float]],
+        k_constant: int = 60,
+    ) -> List[LCDocument]:
+        """Merge multiple ranked result lists using Reciprocal Rank Fusion (RRF).
+        Each document's fused score = sum(weight / (k + rank)) across all lists it appears in.
+        De-duplicates by page_content."""
+        fused_scores: Dict[str, float] = defaultdict(float)
+        doc_map: Dict[str, LCDocument] = {}
+
+        for result_list, weight in weighted_result_lists:
+            if weight <= 0:
+                continue
+            for rank, doc in enumerate(result_list):
+                key = doc.page_content
+                fused_scores[key] += weight / (k_constant + rank)
+                if key not in doc_map:
+                    doc_map[key] = doc
+
+        sorted_keys = sorted(fused_scores, key=fused_scores.get, reverse=True)
+        return [doc_map[k] for k in sorted_keys]
+
+    def invoke_expansion(self, messages, max_retries: int = 3):
+        """Invoke the cheap expansion LLM with retry. Used for doc summaries + expansion."""
+        self._ensure_initialized()
+        last_error = None
+        for attempt in range(1, max_retries + 1):
+            try:
+                return self._expansion_llm.invoke(messages)
+            except Exception as e:
+                last_error = e
+                err_text = str(e).lower()
+                is_transient = any(kw in err_text for kw in ("connection", "timeout", "rate", "tempor", "try again"))
+                print(f"[RAG] Expansion invoke failed (attempt {attempt}/{max_retries}): {e.__class__.__name__}: {e}")
+                if not is_transient or attempt == max_retries:
+                    raise
+                time.sleep(2 ** (attempt - 1))
+        if last_error is not None:
+            raise last_error
+        raise RuntimeError("Expansion invoke failed without capturing an exception.")
+
+    def generate_document_summary(
+        self,
+        chunks: List[LCDocument],
+        filename: str,
+        max_chunks: int = 5,
+    ) -> str:
+        """Generate a concise document-level summary from the first few chunks."""
+        try:
+            texts = []
+            for chunk in chunks[:max_chunks]:
+                snippet = (chunk.page_content or "").strip()
+                if len(snippet) > 600:
+                    snippet = snippet[:600] + "..."
+                if snippet:
+                    texts.append(snippet)
+
+            if not texts:
+                return f"Document: {filename}"
+
+            joined = "\n\n".join(texts)
+            messages = [
+                SystemMessage(content=(
+                    "Summarize the following document excerpt in ONE concise sentence (max 30 words). "
+                    "Focus on the key topic or purpose of the document. Return ONLY the summary sentence."
+                )),
+                HumanMessage(content=f"Document: {filename}\n\n{joined}"),
+            ]
+
+            response = self.invoke_expansion(messages)
+            return response.content.strip()[:300]
+        except Exception as e:
+            print(f"[RAG] Summary generation failed for {filename}: {e}")
+            return f"Document: {filename}"
 
     def _invoke_llm_with_retry(self, messages, max_retries: int = 3):
         """Invoke chat model with small retry/backoff for transient connection failures."""
@@ -204,6 +403,83 @@ class RAGEngine:
 
         return 0
 
+    def _get_chunk_sort_index(self, metadata: Optional[Dict[str, Any]]) -> int:
+        """Normalize chunk_index metadata into a stable integer sort key."""
+        if not metadata:
+            return 0
+
+        value = metadata.get("chunk_index", 0)
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return 0
+
+    def get_document_chunks(self, team_id: int, document_id: int, limit: int = 20, offset: int = 0) -> dict:
+        """Retrieve stored chunks for a specific document from the vector store."""
+        self._ensure_initialized()
+        collection_name = self._get_collection_name(team_id)
+
+        safe_limit = max(limit, 0)
+        safe_offset = max(offset, 0)
+
+        try:
+            collection = self._chroma_client.get_collection(collection_name)
+
+            # First fetch only IDs + metadata so we can compute total count and
+            # establish a stable ordering from stored chunk_index metadata.
+            metadata_results = collection.get(
+                where={"document_id": document_id},
+                include=["metadatas"],
+            )
+
+            all_ids = metadata_results.get("ids", []) or []
+            all_metas = metadata_results.get("metadatas", []) or []
+            total = len(all_ids)
+
+            if total == 0 or safe_limit == 0 or safe_offset >= total:
+                return {"total": total, "chunks": []}
+
+            ordered_rows = sorted(
+                zip(all_ids, all_metas),
+                key=lambda item: self._get_chunk_sort_index(item[1]),
+            )
+            paged_rows = ordered_rows[safe_offset:safe_offset + safe_limit]
+            paged_ids = [chunk_id for chunk_id, _ in paged_rows]
+
+            if not paged_ids:
+                return {"total": total, "chunks": []}
+
+            # Fetch only the requested page of chunk documents.
+            page_results = collection.get(
+                ids=paged_ids,
+                include=["documents", "metadatas"],
+            )
+
+            result_by_id = {}
+            for chunk_id, text, meta in zip(
+                page_results.get("ids", []) or [],
+                page_results.get("documents", []) or [],
+                page_results.get("metadatas", []) or [],
+            ):
+                result_by_id[chunk_id] = {
+                    "text": text,
+                    "meta": meta or {},
+                }
+
+            chunks = []
+            for position, (chunk_id, fallback_meta) in enumerate(paged_rows):
+                entry = result_by_id.get(chunk_id, {"text": "", "meta": fallback_meta or {}})
+                meta = entry["meta"] or fallback_meta or {}
+                chunks.append({
+                    "index": self._get_chunk_sort_index(meta),
+                    "text": entry["text"],
+                    "source": meta.get("source", ""),
+                })
+            return {"total": total, "chunks": chunks}
+        except Exception as e:
+            print(f"[RAG] Error getting document chunks: {e}")
+            return {"total": 0, "chunks": []}
+
     def delete_timeline_entry_chunks(self, team_id: int, timeline_entry_id: int) -> int:
         """
         Delete all chunks belonging to a specific timeline entry from the vector store.
@@ -236,32 +512,70 @@ class RAGEngine:
         query: str,
         k: int = None,
         filters: Optional[Dict[str, Any]] = None,
+        chat_history: Optional[List[Dict[str, str]]] = None,
     ) -> List[LCDocument]:
         """
-        Perform similarity search on a team's knowledge base.
-        
-        Args:
-            team_id: Team to search in
-            query: The search query
-            k: Number of results to return
-            filters: Optional metadata filters (e.g., {"doc_type": "pdf"})
-            
-        Returns:
-            List of relevant document chunks with metadata
+        Hybrid retrieval pipeline:
+        1. Conversation-aware HyDE expands the query
+        2. Multi-query generates paraphrases for diverse coverage
+        3. Vector search runs for each query variant
+        4. BM25 keyword search runs on the original query
+        5. Reciprocal Rank Fusion merges all result lists
+        6. Cross-encoder reranker scores the fused pool and returns top-k
         """
         k = k or settings.RAG_TOP_K
+        self._ensure_initialized()
         vectorstore = self._get_vectorstore(team_id)
 
-        search_kwargs = {"k": k}
+        # Step 1: HyDE expansion (conversation-aware)
+        expanded_query = self._expand_query(query, chat_history=chat_history)
+
+        # Step 2: Multi-query paraphrases
+        alt_queries = self._generate_multi_queries(query)
+
+        # Step 3: Vector search for each query variant
+        fetch_k = k * settings.RAG_RERANK_FETCH_MULTIPLIER
+        search_kwargs = {"k": fetch_k}
         if filters:
             search_kwargs["filter"] = filters
 
+        weighted_result_lists: List[tuple[List[LCDocument], float]] = []
+
+        # Primary: expanded query
         try:
-            results = vectorstore.similarity_search(query, **search_kwargs)
-            return results
+            primary_results = vectorstore.similarity_search(expanded_query, **search_kwargs)
+            weighted_result_lists.append((primary_results, 1.0))
         except Exception as e:
-            print(f"[RAG] Search error: {e}")
+            print(f"[RAG] Primary vector search error: {e}")
+
+        # Alt queries
+        for alt_q in alt_queries:
+            try:
+                alt_results = vectorstore.similarity_search(alt_q, **search_kwargs)
+                weighted_result_lists.append((alt_results, 1.0))
+            except Exception as e:
+                print(f"[RAG] Alt query search error: {e}")
+
+        # Step 4: BM25 keyword search on the original query
+        bm25_results = self._bm25_search(team_id, query, k=fetch_k)
+        if bm25_results:
+            weighted_result_lists.append((bm25_results, settings.RAG_BM25_WEIGHT))
+
+        if not weighted_result_lists:
             return []
+
+        # Step 5: Reciprocal Rank Fusion
+        fused = self._reciprocal_rank_fusion(weighted_result_lists)
+
+        if not fused:
+            return []
+
+        # Step 6: Cross-encoder reranking on fused pool
+        # Use the original query for reranking (user intent, not HyDE excerpt)
+        pairs = [[query, doc.page_content] for doc in fused]
+        scores = self._reranker.predict(pairs)
+        ranked = sorted(zip(scores, fused), key=lambda x: x[0], reverse=True)
+        return [doc for _, doc in ranked[:k]]
 
     def chat(
         self,
@@ -293,8 +607,8 @@ class RAGEngine:
         """
         self._ensure_initialized()
 
-        # Step 1: Retrieve relevant chunks
-        relevant_chunks = self.search(team_id, query, filters=filters)
+        # Step 1: Retrieve relevant chunks (with chat history for conversation-aware expansion)
+        relevant_chunks = self.search(team_id, query, filters=filters, chat_history=chat_history)
 
         # Step 2 & 3: Assemble context from chunks
         context_parts = []
@@ -306,9 +620,14 @@ class RAGEngine:
         else:
             for i, chunk in enumerate(relevant_chunks):
                 meta = chunk.metadata
+                summary_tag = ""
+                doc_summary = meta.get("doc_summary", "")
+                if doc_summary:
+                    summary_tag = f" — \"{doc_summary}\""
                 context_parts.append(
-                    f"[Source {i+1}: {meta.get('filename', 'Unknown')} "
-                    f"(Page {meta.get('page_number', '?')})]\n{chunk.page_content}"
+                    f"[Source {i+1}: {meta.get('filename', 'Unknown')}"
+                    f"{summary_tag}"
+                    f" (Page {meta.get('page_number', '?')})]\n{chunk.page_content}"
                 )
 
                 # Collect unique sources
@@ -334,7 +653,8 @@ class RAGEngine:
             })
 
         # Step 4: Build message chain
-        messages = [SystemMessage(content=SYSTEM_PROMPT)]
+        today = datetime.now(timezone.utc).strftime("%B %d, %Y")
+        messages = [SystemMessage(content=SYSTEM_PROMPT.replace("{today}", today))]
 
         # Add chat history (last 10 exchanges max)
         if chat_history:

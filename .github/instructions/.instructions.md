@@ -8,7 +8,7 @@
 
 **LogiPlanner** ("Plans With Logic") is an AI-driven project management and **project memory** system built to solve context loss in teams. It unifies scattered project information — decisions, updates, meeting notes — into a single searchable, AI-powered "Project Brain."
 
-The codebase is a **Python/FastAPI monolith** with server-side Jinja2 templating, plain Vanilla JS/CSS on the frontend, PostgreSQL for data, and ChromaDB for RAG embeddings. There is **no SPA framework, no bundler, no frontend build step.**
+The codebase is currently centered on a **Python/FastAPI** backend with Jinja2-rendered pages, a mixed frontend that may use Vanilla JS or framework-based UI where justified, a SQL-backed application data layer, and a Chroma-powered RAG system. Treat the stack as evolving: avoid assuming the frontend, database vendor, or retrieval pipeline are permanently fixed in their current form.
 
 ---
 
@@ -18,14 +18,14 @@ The codebase is a **Python/FastAPI monolith** with server-side Jinja2 templating
 |---|---|---|
 | Backend | **FastAPI 0.135+** (async) | All API routes under `/api/v1/` |
 | Templating | **Jinja2** | Server-rendered HTML; page routes live in `app/main.py` |
-| Frontend | **Vanilla HTML / CSS / JS** | No React, Vue, Tailwind, jQuery, or Axios — ever |
-| Database | **PostgreSQL** via `psycopg2-binary` | Sync driver; SQLAlchemy 2.0 ORM |
-| Migrations | **Alembic** | All schema changes must go through Alembic — never raw SQL DDL |
+| Frontend | **Vanilla JS plus optional framework-based UI** | Prefer consistency with the surrounding feature; React and external JS libraries are allowed when they improve delivery and are integrated cleanly |
+| Database | **SQLAlchemy-backed relational storage** | Current database details may change; avoid overfitting guidance to a single vendor |
+| Migrations | **Alembic** | Prefer migration-based schema changes while the current SQLAlchemy/Alembic stack remains in place |
 | Auth — Passwords | **bcrypt direct** | `bcrypt.hashpw` / `bcrypt.checkpw` — no passlib wrapper |
 | Auth — Tokens | **python-jose** (JWT, HS256) | Access + refresh tokens |
 | Auth — OAuth | **Manual Google OAuth** with `httpx` | No authlib, no fastapi-users |
 | Settings | **pydantic-settings v2** | `SettingsConfigDict`, `.env` file, `extra="ignore"` |
-| RAG | **ChromaDB + OpenAI embeddings** | Per-team knowledge bases; `app/rag/` |
+| RAG | **ChromaDB + OpenAI + local HuggingFace models** | Hybrid retrieval pipeline lives under `app/rag/` |
 | Email | **fastapi-mail + aiosmtplib** | Dual-mode: console log always + SMTP if creds set |
 
 ---
@@ -73,10 +73,10 @@ app/
 ## Backend Rules & Conventions
 
 ### Database
-- **All schema changes via Alembic only.** Never use raw DDL or `Base.metadata.create_all()` in production paths.
-- All models share a single `Base = declarative_base()` defined in `app/models/user.py`. Alembic's `env.py` imports `Base` from there — new models must also import and extend this same `Base`.
-- Migration message must be descriptive: `alembic revision --autogenerate -m "add notifications table"`.
-- The startup `create_all()` in `app/main.py` is a dev convenience only — do not rely on it in production.
+- The current data layer uses SQLAlchemy models plus Alembic migrations. Follow that path for changes unless the task is explicitly part of the database transition work.
+- Models currently share a single `Base = declarative_base()` defined in `app/models/user.py`. If the data layer is restructured later, update the instructions with it rather than preserving this as a permanent assumption.
+- Migration messages should stay descriptive, for example: `alembic revision --autogenerate -m "add notifications table"`.
+- The startup `create_all()` in `app/main.py` is still a dev convenience and should not be treated as the long-term production migration strategy.
 
 ### Authentication & Security
 - Passwords use **direct bcrypt** (`bcrypt.hashpw` / `bcrypt.checkpw`). Reject any PR that introduces `passlib`.
@@ -103,20 +103,21 @@ app/
 - Dual-mode: always logs to console; only attempts SMTP if `SMTP_USER` and `SMTP_PASSWORD` are both set.
 
 ### RAG / AI Brain
-- `app/rag/engine.py` — `rag_engine.chat()` receives live DB data as a bounded JSON context string. **The LLM path must never be bypassed** for task/timeline prompts; do not short-circuit to DB queries.
-- `app/rag/prompts.py` — defines the optional `__CARDS__` JSON block in AI responses. The cards renderer in `app/static/ai-brain/js/ai-brain.js` supports `timeline`, `calendar`, and generic `workspace` card types.
+- `app/rag/engine.py` is a richer orchestration layer now: per-team Chroma collections, local HuggingFace embeddings, hybrid retrieval, reranking, query expansion, and OpenAI chat generation all live there.
+- `app/rag/prompts.py` still defines the optional `__CARDS__` JSON block in AI responses. The cards renderer in `app/static/ai-brain/js/ai-brain.js` supports `timeline`, `calendar`, and generic `workspace` card types.
+- When changing RAG behavior, preserve the end-to-end retrieval and grounding flow unless the task is explicitly about redesigning it. Avoid treating the older live-DB-context-only path as the whole system.
 - RAG uploads are stored under `app/static/uploads/rag/`. Validate file types and sizes at the API boundary.
 
 ---
 
 ## Frontend Rules & Conventions
 
-- **No frameworks ever** — No React, Vue, Svelte. No Tailwind, Bootstrap, or CSS-in-JS.
-- **No external JS libraries** — No jQuery, Axios, or Lodash. Use native Fetch API for all HTTP calls.
+- The existing product includes server-rendered pages and plain static assets, but frontend architecture can evolve per feature. Do not reject React or other JS libraries by default.
+- Prefer the simplest approach that matches the area you are editing. Preserve established patterns in an existing feature unless there is a reason to modernize that slice.
 - `app/static/auth/css/common.css` is the **shared design system** — colors, typography, layout, animations for auth pages. Page-specific CSS files (e.g., `login.css`) hold only overrides.
 - `app/static/auth/js/common.js` holds shared JS utilities (e.g., token helpers). Don't duplicate these.
 - File naming mirrors templates: `login.html` → `login.css` + `login.js`.
-- JS communicates with the backend only through `fetch()` calls to `/api/v1/` endpoints — never by directly mutating server state via form actions that bypass the API.
+- Frontend code should keep backend interactions explicit and maintainable. Native `fetch()` is fine, and other libraries are acceptable when they are a better fit for the feature.
 
 ---
 
@@ -140,12 +141,12 @@ When reviewing a pull request, check for:
 - [ ] CORS is not further loosened
 
 ### Frontend
-- [ ] No framework/library imports introduced (React, Vue, jQuery, Axios, Tailwind…)
-- [ ] API calls use the native Fetch API
+- [ ] New frontend code fits the conventions of the feature area it lives in
+- [ ] Added libraries or frameworks are justified and integrated cleanly
 - [ ] New pages include the corresponding CSS/JS under `static/` and extend the correct base template
 
 ### RAG / AI
-- [ ] `rag_engine.chat()` is never bypassed — live DB context is passed as input, not used as a shortcut
+- [ ] RAG changes respect the current retrieval pipeline or intentionally update it end-to-end
 - [ ] `__CARDS__` output format matches the documented schema (`timeline`, `calendar`, `workspace`)
 
 ### Migrations

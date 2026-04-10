@@ -76,3 +76,27 @@ class OnboardingBriefResponse(BaseModel):
     project_info: Optional[str] = None
     member_count: int
     message: str = "Welcome aboard! Here's what you need to know."
+
+
+# ── Deferred Setup (single POST from dashboard) ──
+
+class SetupProjectRequest(BaseModel):
+    """All wizard data sent in one shot after redirect to dashboard."""
+    team_name: str
+    description: Optional[str] = None
+    full_name: Optional[str] = None
+    job_title: Optional[str] = None
+    role_preference: Optional[str] = None
+    project_stage: Optional[str] = None
+    project_info: Optional[str] = None
+    links: List[IngestLinkItem] = []
+    notes: Optional[str] = None
+    uploaded_files: List[str] = []
+    invites: List[InviteMemberItem] = []
+
+
+class SetupProjectResponse(BaseModel):
+    message: str
+    team_id: int
+    team_name: str
+    invite_code: str

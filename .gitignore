@@ -61,6 +61,11 @@ local_settings.py
 db.sqlite3
 db.sqlite3-journal
 
+# SQLite databases
+*.sqlite3
+*.sqlite3-journal
+*.sqlite
+
 # Flask stuff:
 instance/
 .webassets-cache
@@ -218,3 +223,4 @@ __marimo__/
 # RAG / AI Brain
 chroma_data/
 app/static/uploads/
+chroma_data/chroma.sqlite3
