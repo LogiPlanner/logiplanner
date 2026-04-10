@@ -20,29 +20,6 @@
         <!-- Scrollable Content -->
         <div class="dashboard-scroll">
 
-            <!-- Welcome Overlay — shown while project is being created -->
-            <div class="welcome-overlay" id="welcomeOverlay" style="display:none;">
-                <div class="welcome-overlay__card">
-                    <div class="welcome-overlay__icon">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="48" height="48">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-                        </svg>
-                    </div>
-                    <h2 class="welcome-overlay__title" id="welcomeOverlayTitle">Setting up your project...</h2>
-                    <p class="welcome-overlay__desc" id="welcomeOverlayDesc">We're creating your workspace, processing your documents, and getting everything ready.</p>
-                    <div class="welcome-overlay__progress">
-                        <div class="welcome-overlay__bar">
-                            <div class="welcome-overlay__bar-fill" id="welcomeOverlayBar"></div>
-                        </div>
-                        <span class="welcome-overlay__status" id="welcomeOverlayStatus">Initializing...</span>
-                    </div>
-                    <div class="welcome-overlay__error" id="welcomeOverlayError" style="display:none;">
-                        <p id="welcomeOverlayErrorMsg"></p>
-                        <button class="btn btn--primary btn--sm" onclick="retrySetup()">Retry</button>
-                    </div>
-                </div>
-            </div>
-
             <!-- Hero Header — Slim, personal, date-aware -->
             <div class="hero-header">
                 <div class="hero-header__left">

@@ -45,29 +45,6 @@
         </a>
         <h2 class="auth-form-container__heading">Welcome back</h2>
         <p class="auth-form-container__subtext">Sign in to access your team's project memory.</p>
-
-        <!-- Shown if user is already logged in -->
-        <div id="alreadyLoggedInBanner" class="already-logged-in-banner">
-            <div class="alb-card">
-                <div class="alb-header">
-                    <p class="alb-header-label">Active Session</p>
-                    <div class="alb-avatar" id="albAvatar">?</div>
-                </div>
-                <div class="alb-body">
-                    <p class="alb-name" id="loggedInName"></p>
-                    <p class="alb-email" id="loggedInEmail"></p>
-                    <span class="alb-badge">Signed in</span>
-                    <p class="alb-countdown" id="albCountdown">Redirecting to your dashboard...</p>
-                    <a href="/dashboard" class="alb-cta" id="albCtaBtn">
-                        Open Dashboard
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                    </a>
-                    <div class="alb-divider">or</div>
-                    <button type="button" class="alb-switch" id="switchAccountBtn">Sign in as a different account</button>
-                </div>
-            </div>
-        </div>
-
         <form id="loginForm">
             <div class="form-group">
                 <label for="email">Email address<span class="form-required" aria-label="required">*</span></label>
