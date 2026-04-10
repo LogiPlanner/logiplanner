@@ -42,26 +42,6 @@
         border-left: 4px solid #ef4444;
     }
 
-    /* Proper floating modal */
-    #notesModal {
-        position: absolute;
-        resize: both;
-        overflow: hidden;
-        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
-        background: #fff;
-        border: 1px solid #e5e7eb;
-        border-radius: 8px;
-        z-index: 1000;
-    }
-
-    #notesModal .modal-header {
-        cursor: grab;
-    }
-
-    #notesModal .modal-header:active {
-        cursor: grabbing;
-    }
-
     .record-btn-pulsing {
         animation: pulse-red 1.5s infinite;
         color: #ef4444 !important;
@@ -238,8 +218,10 @@
     </header>
 
     <div class="meetings-workspace">
+        <!-- Main view area (hosts whiteboard-view + notes-view) -->
+        <div class="main-view-area">
         <!-- Whiteboard Area -->
-        <div class="whiteboard-area" id="whiteboardContainer" style="position: relative;">
+        <div class="whiteboard-area whiteboard-view" id="whiteboardContainer" style="position: relative;">
 
             <div class="toolbar-left" style="display:flex; flex-direction:column; align-items:center;">
                 <!-- Cursor / Select -->
@@ -349,99 +331,6 @@
 
             <input type="file" id="boardImageUpload" accept="image/*" style="display:none;">
 
-            <!-- Notes Editor Floating Modal -->
-            <div class="floating-modal" id="notesModal"
-                style="display: none; width: 900px; height: 600px; top: 60px; left: 150px; flex-direction: column;">
-                <div class="modal-header" id="notesModalHeader"
-                    style="background:#f9fafb; border-bottom:1px solid #e5e7eb; padding: 12px 20px;">
-                    <div class="modal-title" id="currentNoteTitle" style="font-weight:600; color:#111827;">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="#6b7280" style="margin-right:8px;">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        Untitled Note
-                    </div>
-                    <div class="modal-actions">
-                        <button id="saveNoteBtn"
-                            style="background:#4f46e5;color:#fff;border:none;padding:6px 16px;border-radius:6px;cursor:pointer;font-weight:500; font-size:14px; box-shadow: 0 2px 4px rgba(79,70,229,0.2);">Save
-                            Note</button>
-                        <svg class="close-icon" viewBox="0 0 24 24" fill="none" stroke="#ef4444" id="closeNotesModal"
-                            style="cursor:pointer; margin-left: 12px;">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </div>
-                </div>
-                <div class="modal-body" style="height: calc(100% - 56px); display: flex; padding:0; background: #fff;">
-
-                    <!-- Pane 1: Folders -->
-                    <div
-                        style="width: 200px; border-right: 1px solid #e5e7eb; display: flex; flex-direction: column; background: #fcfcfc;">
-                        <div
-                            style="padding: 12px 16px; font-weight: 700; font-size: 11px; letter-spacing:0.5px; color: #6b7280; display:flex; justify-content: space-between; align-items:center; text-transform: uppercase;">
-                            Folders
-                            <button id="addFolderBtnUI"
-                                style="background:none;border:none;color:#9ca3af;cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center;">+</button>
-                        </div>
-                        <div id="newFolderContainer" style="display:none; padding: 0 12px 10px;">
-                            <div style="display:flex; gap:4px;">
-                                <input type="text" id="newFolderInput" placeholder="Folder name..."
-                                    style="flex:1; font-size: 13px; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; min-width:0;">
-                                <button id="submitFolderBtn"
-                                    style="background:#4f46e5; color:#fff; border:none; border-radius:4px; padding:0 10px; cursor:pointer; font-size:12px; font-weight:600;">Add</button>
-                            </div>
-                        </div>
-                        <div id="foldersList" style="flex:1; overflow-y:auto; padding: 0 8px;">
-                            <!-- Populated dynamically -->
-                        </div>
-                    </div>
-
-                    <!-- Pane 2: Notes -->
-                    <div
-                        style="width: 240px; border-right: 1px solid #e5e7eb; display: flex; flex-direction: column; background: #ffffff;">
-                        <div
-                            style="padding: 12px 16px; font-weight: 700; font-size: 11px; letter-spacing:0.5px; color: #6b7280; display:flex; justify-content: space-between; align-items:center; text-transform: uppercase;">
-                            Notes
-                            <button id="addNoteBtnUI"
-                                style="background:none;border:none;color:#9ca3af;cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center;">+</button>
-                        </div>
-                        <div id="newNoteContainer" style="display:none; padding: 0 12px 10px;">
-                            <div style="display:flex; gap:4px;">
-                                <input type="text" id="newNoteInput" placeholder="Note title..."
-                                    style="flex:1; font-size: 13px; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; min-width:0;">
-                                <button id="submitNoteBtn"
-                                    style="background:#4f46e5; color:#fff; border:none; border-radius:4px; padding:0 10px; cursor:pointer; font-size:12px; font-weight:600;">Add</button>
-                            </div>
-                        </div>
-                        <div id="notesList" style="flex:1; overflow-y:auto; padding: 0 8px;">
-                            <!-- Populated dynamically -->
-                        </div>
-                    </div>
-
-                    <!-- Pane 3: Editor -->
-                    <div class="modal-editor"
-                        style="flex: 1; display: flex; flex-direction: column; overflow: hidden; background: #fff; position: relative;">
-                        <!-- Empty State Overlay -->
-                        <div id="editorEmptyState"
-                            style="position: absolute; top:0; left:0; right:0; bottom:0; background:#fff; z-index:10; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#9ca3af;">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
-                                style="width:48px; height:48px; margin-bottom:16px; color:#d1d5db;">
-                                <path stroke-linecap="round" stroke-linejoin="round"
-                                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                            <div style="font-size:16px; font-weight:500; color:#4b5563;">Select a note to start editing
-                            </div>
-                            <div style="font-size:13px; margin-top:4px;">Or click the + icon in the Notes panel to
-                                create a new one.</div>
-                        </div>
-                        <!-- Quill will attach here -->
-                        <div style="flex:1; display:flex; flex-direction:column; min-height:0;">
-                            <div id="quillEditor" style="flex: 1; overflow-y:auto; border:none; padding:16px;"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
             <!-- Zoom Controls -->
             <div class="zoom-controls">
                 <button id="zoomOut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -455,6 +344,67 @@
                     </svg></button>
             </div>
         </div>
+
+        <!-- Notes View (inline three-pane layout) -->
+        <div class="notes-view" id="notesView" style="display: none;">
+            <!-- Pane 1: Folder Tree / Sidebar -->
+            <div class="notes-sidebar">
+                <div class="notes-sidebar__header">
+                    <span class="notes-sidebar__title">Folders</span>
+                    <button id="addFolderBtnUI" class="notes-sidebar__add-btn" title="New Folder">+</button>
+                </div>
+                <div id="newFolderContainer" class="notes-sidebar__new-input" style="display:none;">
+                    <input type="text" id="newFolderInput" placeholder="Folder name...">
+                    <button id="submitFolderBtn">Add</button>
+                </div>
+                <div id="foldersList" class="notes-sidebar__list">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+
+            <!-- Pane 2: Notes List -->
+            <div class="notes-list-pane">
+                <div class="notes-list-pane__header">
+                    <span class="notes-list-pane__title">Notes</span>
+                    <button id="addNoteBtnUI" class="notes-list-pane__add-btn" title="New Note">+</button>
+                </div>
+                <div id="newNoteContainer" class="notes-list-pane__new-input" style="display:none;">
+                    <input type="text" id="newNoteInput" placeholder="Note title...">
+                    <button id="submitNoteBtn">Add</button>
+                </div>
+                <div id="notesList" class="notes-list-pane__list">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+
+            <!-- Pane 3: Editor -->
+            <div class="notes-editor-pane">
+                <div class="notes-editor-pane__header">
+                    <div id="currentNoteTitle" class="notes-editor-pane__title">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#6b7280" style="margin-right:8px; width:16px; height:16px;">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Untitled Note
+                    </div>
+                    <button id="saveNoteBtn" class="notes-editor-pane__save-btn">Save Note</button>
+                </div>
+                <div class="notes-editor-pane__body">
+                    <div id="editorEmptyState" class="notes-editor-pane__empty">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                            style="width:48px; height:48px; margin-bottom:16px; color:#d1d5db;">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                        <div class="notes-editor-pane__empty-title">Select a note to start editing</div>
+                        <div class="notes-editor-pane__empty-sub">Or click the + icon in the Notes panel to create a new one.</div>
+                    </div>
+                    <div id="quillEditor" class="notes-editor-pane__quill"></div>
+                </div>
+            </div>
+        </div>
+        </div>
+        <!-- /main-view-area -->
 
         <!-- History Sidebar -->
         <div id="historySidebar">

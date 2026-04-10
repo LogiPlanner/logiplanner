@@ -4,106 +4,80 @@ document.addEventListener("DOMContentLoaded", () => {
     const navLinks     = document.querySelectorAll(".stg-nav__link");
     const sections     = document.querySelectorAll(".stg-section");
 
-    const profileForm  = document.getElementById("profileForm");
-    const projectForm  = document.getElementById("projectForm");
+    const projectForm       = document.getElementById("projectForm");
+    const sensitivitySlider = document.getElementById("sensitivitySlider");
+    const sensitivityValue  = document.getElementById("sensitivityValue");
 
     const toggleEmail     = document.getElementById("toggleEmail");
     const toggleDashboard = document.getElementById("toggleDashboard");
     const toggleDeadline  = document.getElementById("toggleDeadline");
 
-    const sensitivitySlider = document.getElementById("sensitivitySlider");
-    const sensitivityValue  = document.getElementById("sensitivityValue");
-
-    const teamMembersList = document.getElementById("teamMembersList");
-
-    const inviteModalOverlay = document.getElementById("inviteModalOverlay");
-    const openInviteModalBtn = document.getElementById("openInviteModal");
-    const inviteCancel       = document.getElementById("inviteCancel");
-    const inviteCancelBtn    = document.getElementById("inviteCancelBtn");
-    const inviteForm         = document.getElementById("inviteForm");
-
-    const removeModalOverlay = document.getElementById("removeModalOverlay");
-    const removeCancel       = document.getElementById("removeCancel");
-    const removeCloseBtn     = document.getElementById("removeCloseBtn");
-    const removeConfirmBtn   = document.getElementById("removeConfirmBtn");
-
-    const copyInviteCodeBtn  = document.getElementById("copySettingsInviteCode");
-    const inviteCodeDisplay  = document.getElementById("projectSettingsInviteCode");
-
     /* ── State ── */
-    let userRole       = "viewer";
-    let currentTeamId  = null;
-    let currentUserData = null;
+    let userRole      = "viewer";
+    let currentTeamId = null;
 
     /* ═══════════════════ INIT ═══════════════════ */
 
     async function init() {
         try {
-            // 1. Profile
+            // 1. Profile data (for notification toggles)
             const profileRes = await window.__lp.authFetch("/api/v1/profile-status");
-            if (profileRes.status === 401 || profileRes.status === 403) throw new Error("auth");
-            if (!profileRes.ok) { console.warn("Profile-status non-OK:", profileRes.status); return; }
+            if (!profileRes.ok) { window.location.href = "/login"; return; }
             const profile = await profileRes.json();
-            currentUserData = profile;
 
-            document.getElementById("profileName").value  = profile.full_name || "";
-            document.getElementById("profileEmail").value = profile.email || "";
-
-            // Avatar initial
-            const initial = (profile.full_name || profile.email || "U").charAt(0).toUpperCase();
-            const avatarEl = document.getElementById("avatarInitial");
-            if (avatarEl) avatarEl.textContent = initial;
-
-            const dispName = document.getElementById("avatarDisplayName");
-            if (dispName) dispName.textContent = profile.full_name || profile.email;
-
-            setToggle(toggleEmail, !!profile.notify_email);
+            setToggle(toggleEmail,     !!profile.notify_email);
             setToggle(toggleDashboard, !!profile.notify_dashboard);
-            setToggle(toggleDeadline, !!profile.notify_deadline);
+            setToggle(toggleDeadline,  !!profile.notify_deadline);
 
-            if (!profile.has_teams) { userRole = "viewer"; return; }
-
-            // 2. Teams
+            // 2. Teams → load project settings
             const teamsRes = await window.__lp.authFetch("/api/v1/onboarding/my-teams");
             if (!teamsRes.ok) return;
             const teamsData = await teamsRes.json();
-            if (!teamsData.teams.length) return;
+            if (!teamsData.teams || !teamsData.teams.length) return;
 
-            const storedId = parseInt(localStorage.getItem("selected_team_id"));
+            const storedId  = parseInt(localStorage.getItem("selected_team_id"));
             const activeTeam = teamsData.teams.find(t => t.id === storedId) || teamsData.teams[0];
 
             currentTeamId = activeTeam.id;
             localStorage.setItem("selected_team_id", currentTeamId);
-            userRole = activeTeam.role;
+            userRole = activeTeam.role || "viewer";
 
-            document.getElementById("projectName").value = activeTeam.team_name || "";
-            document.getElementById("projectDesc").value = activeTeam.description || "";
+            // Fill general form
+            const nameInput = document.getElementById("projectName");
+            const descInput = document.getElementById("projectDesc");
+            if (nameInput) nameInput.value = activeTeam.team_name || "";
+            if (descInput) descInput.value = activeTeam.description || "";
 
-            const roleDisp = document.getElementById("workspaceRoleDisplay");
-            if (roleDisp) roleDisp.textContent = capitalize(userRole);
-            const avatarRole = document.getElementById("avatarDisplayRole");
-            if (avatarRole) avatarRole.textContent = capitalize(userRole);
+            // Subtitle
+            const subtitle = document.getElementById("settingsSubtitle");
+            if (subtitle) subtitle.textContent = (activeTeam.team_name || "Project") + " Configuration";
 
+            // AI Sensitivity
             if (sensitivitySlider && activeTeam.ai_sensitivity !== undefined) {
                 sensitivitySlider.value = activeTeam.ai_sensitivity;
                 if (sensitivityValue) sensitivityValue.textContent = activeTeam.ai_sensitivity + "%";
             }
 
-            if (inviteCodeDisplay && activeTeam.invite_code) {
-                inviteCodeDisplay.textContent = activeTeam.invite_code;
+            // Enable delete button only for owner
+            const deleteBtn = document.getElementById("deleteProjectBtn");
+            if (deleteBtn && userRole === "owner") {
+                deleteBtn.disabled = false;
+                deleteBtn.classList.remove("stg-btn--gray");
+                deleteBtn.classList.add("stg-btn--danger");
             }
 
-            await loadTeamMembers();
+            // Load subteams
+            await loadSubteams();
 
             // URL tab restore
-            const tab = new URLSearchParams(window.location.search).get("tab");
+            const tab = new URLSearchParams(window.location.search).get("section") || new URLSearchParams(window.location.search).get("tab");
             if (tab) {
                 const link = document.querySelector(`.stg-nav__link[data-target="${tab}"]`);
                 if (link) link.click();
             }
+
         } catch (e) {
             console.error(e);
-            window.location.href = "/login";
         }
     }
 
@@ -123,27 +97,38 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 
-    /* ═══════════════════ PROFILE ═══════════════════ */
+    /* ═══════════════════ GENERAL (Project Settings) ═══════════════════ */
 
-    profileForm.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const payload = {
-            full_name: document.getElementById("profileName").value,
-            email: document.getElementById("profileEmail").value
-        };
-        const res = await apiCall("/api/v1/settings/profile", "PUT", payload);
-        if (res) {
-            showToast("Profile updated", "success");
-            const sbName = document.getElementById("sidebarUserName");
-            if (sbName) sbName.textContent = payload.full_name;
-            const dispName = document.getElementById("avatarDisplayName");
-            if (dispName) dispName.textContent = payload.full_name;
-            const avatarEl = document.getElementById("avatarInitial");
-            if (avatarEl) avatarEl.textContent = (payload.full_name || "U").charAt(0).toUpperCase();
-        }
-    });
+    if (projectForm) {
+        projectForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            if (!currentTeamId) return;
+            const payload = {
+                team_name: document.getElementById("projectName").value,
+                description: document.getElementById("projectDesc").value
+            };
+            const res = await apiCall(`/api/v1/settings/teams/${currentTeamId}`, "PUT", payload);
+            if (res) {
+                showToast("Project settings saved", "success");
+                const subtitle = document.getElementById("settingsSubtitle");
+                if (subtitle) subtitle.textContent = (payload.team_name || "Project") + " Configuration";
+            }
+        });
+    }
 
-    /* ═══════════════════ TOGGLES ═══════════════════ */
+    /* ═══════════════════ AI SENSITIVITY ═══════════════════ */
+
+    if (sensitivitySlider) {
+        sensitivitySlider.addEventListener("input", (e) => {
+            if (sensitivityValue) sensitivityValue.textContent = e.target.value + "%";
+        });
+        sensitivitySlider.addEventListener("change", async (e) => {
+            if (!currentTeamId) return;
+            await apiCall(`/api/v1/settings/teams/${currentTeamId}`, "PUT", { ai_sensitivity: parseInt(e.target.value) });
+        });
+    }
+
+    /* ═══════════════════ NOTIFICATION TOGGLES ═══════════════════ */
 
     function setToggle(el, on) {
         if (!el) return;
@@ -161,163 +146,211 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    attachToggle(toggleEmail, "notify_email");
+    attachToggle(toggleEmail,     "notify_email");
     attachToggle(toggleDashboard, "notify_dashboard");
-    attachToggle(toggleDeadline, "notify_deadline");
+    attachToggle(toggleDeadline,  "notify_deadline");
 
-    /* ═══════════════════ AI SENSITIVITY ═══════════════════ */
+    /* ═══════════════════ SUBTEAM MANAGEMENT (Team Management tab) ═══════════════════ */
 
-    if (sensitivitySlider) {
-        sensitivitySlider.addEventListener("input", (e) => {
-            if (sensitivityValue) sensitivityValue.textContent = e.target.value + "%";
-        });
-        sensitivitySlider.addEventListener("change", async (e) => {
-            if (!currentTeamId) return;
-            const val = parseInt(e.target.value);
-            const res = await apiCall(`/api/v1/settings/teams/${currentTeamId}`, "PUT", { ai_sensitivity: val });
-            if (res) showToast("AI sensitivity updated", "success");
-        });
-    }
+    let editingSubteamId = null;
 
-    /* ═══════════════════ PROJECT ═══════════════════ */
-
-    projectForm.addEventListener("submit", async (e) => {
-        e.preventDefault();
+    async function loadSubteams() {
         if (!currentTeamId) return;
-        const payload = {
-            team_name: document.getElementById("projectName").value,
-            description: document.getElementById("projectDesc").value
-        };
-        const res = await apiCall(`/api/v1/settings/teams/${currentTeamId}`, "PUT", payload);
-        if (res) {
-            showToast("Workspace updated", "success");
-            setTimeout(() => window.location.reload(), 500);
+        const res = await apiCall(`/api/v1/settings/teams/${currentTeamId}/subteams`, "GET");
+        if (res && res.subteams !== undefined) {
+            renderSubteamList(res.subteams);
         }
-    });
-
-    /* ═══════════════════ TEAM MEMBERS ═══════════════════ */
-
-    async function loadTeamMembers() {
-        if (!currentTeamId) return;
-        const res = await apiCall(`/api/v1/settings/teams/${currentTeamId}/members`, "GET");
-        if (res && res.members) renderMembers(res.members);
     }
 
+    const subteamColors = ['#4f46e5','#7c3aed','#06d6a0','#f59e0b','#ef4444','#3b82f6','#ec4899','#14b8a6'];
     const avatarPalette = [
         { bg: "#e0e7ff", fg: "#4f46e5" },
-        { bg: "#ffedd5", fg: "#ea580c" },
-        { bg: "#d1fae5", fg: "#059669" },
+        { bg: "#f5f3ff", fg: "#7c3aed" },
+        { bg: "#ccfbf1", fg: "#059669" },
+        { bg: "#fef3c7", fg: "#d97706" },
+        { bg: "#fee2e2", fg: "#dc2626" },
+        { bg: "#dbeafe", fg: "#2563eb" },
         { bg: "#fce7f3", fg: "#db2777" },
-        { bg: "#f1f5f9", fg: "#475569" },
+        { bg: "#ccfbf1", fg: "#0d9488" },
     ];
 
-    function renderMembers(members) {
-        teamMembersList.innerHTML = "";
-        const isOwner = userRole === "owner";
+    function renderSubteamList(subteams) {
+        const list = document.getElementById("subteamList");
+        const emptyState = document.getElementById("subteamEmptyState");
+        if (!list) return;
 
-        members.forEach(m => {
-            const isSelf = m.email === currentUserData?.email;
-            const c = avatarPalette[m.id % avatarPalette.length];
-            const initials = (m.full_name || m.email || "U").charAt(0).toUpperCase();
+        // Remove existing cards (keep empty state)
+        list.querySelectorAll(".stg-subteam-card").forEach(el => el.remove());
 
-            const row = document.createElement("div");
-            row.className = "stg-member";
+        if (!subteams || subteams.length === 0) {
+            if (emptyState) emptyState.style.display = "";
+            return;
+        }
 
-            row.innerHTML = `
-                <div class="stg-member__user">
-                    <div class="stg-member__avatar" style="background:${c.bg};color:${c.fg};">${initials}</div>
-                    <div style="min-width:0;">
-                        <div class="stg-member__name">${escapeHtml(m.full_name)}${isSelf ? ' <span style="color:var(--color-text-muted);font-weight:400;">(you)</span>' : ''}</div>
-                        <div class="stg-member__email">${escapeHtml(m.email)}</div>
-                    </div>
+        if (emptyState) emptyState.style.display = "none";
+
+        subteams.forEach((st, i) => {
+            const color = st.color || subteamColors[i % subteamColors.length];
+            const palette = avatarPalette[i % avatarPalette.length];
+            const initials = (st.name || "T").split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
+
+            const card = document.createElement("div");
+            card.className = "stg-subteam-card";
+            card.dataset.subteamId = st.id;
+            card.innerHTML = `
+                <div class="stg-subteam-card__avatar" style="background:${palette.bg};color:${palette.fg};">${escapeHtml(initials)}</div>
+                <div class="stg-subteam-card__info">
+                    <span class="stg-subteam-card__name">${escapeHtml(st.name)}</span>
+                    <span class="stg-subteam-card__meta">${st.member_count || 0} member${st.member_count !== 1 ? 's' : ''}</span>
                 </div>
-                <div>
-                    <select class="stg-member__role-select" data-id="${m.id}" ${(!isOwner || isSelf) ? 'disabled' : ''}>
-                        <option value="owner" ${m.role === 'owner' ? 'selected' : ''}>Owner</option>
-                        <option value="editor" ${m.role === 'editor' ? 'selected' : ''}>Editor</option>
-                        <option value="viewer" ${m.role === 'viewer' ? 'selected' : ''}>Viewer</option>
-                    </select>
-                </div>
-                <div>
-                    <button class="stg-member__remove" data-id="${m.id}" data-name="${escapeHtml(m.full_name)}" ${(isSelf || !isOwner) ? 'disabled' : ''} title="Remove member">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                    </button>
-                </div>
+                <button class="stg-subteam-card__manage" data-subteam-id="${st.id}">Manage Members</button>
+                <button class="stg-subteam-card__delete" data-subteam-id="${st.id}" data-name="${escapeHtml(st.name)}" title="Delete team">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                </button>
             `;
 
-            teamMembersList.appendChild(row);
-        });
-
-        // Role change handlers
-        teamMembersList.querySelectorAll(".stg-member__role-select").forEach(sel => {
-            sel.addEventListener("change", async (e) => {
-                const userId = sel.dataset.id;
-                const res = await apiCall(`/api/v1/settings/teams/${currentTeamId}/roles/${userId}`, "PUT", { role_name: e.target.value });
-                if (res) {
-                    showToast(`Role updated to ${capitalize(e.target.value)}`, "success");
-                }
-                loadTeamMembers();
+            card.querySelector(".stg-subteam-card__delete").addEventListener("click", (e) => {
+                e.stopPropagation();
+                const btn = e.currentTarget;
+                document.getElementById("deleteSubteamId").value = btn.dataset.subteamId;
+                document.getElementById("deleteSubteamName").textContent = btn.dataset.name;
+                openModal("deleteSubteamOverlay");
             });
-        });
 
-        // Remove handlers
-        teamMembersList.querySelectorAll(".stg-member__remove").forEach(btn => {
-            btn.addEventListener("click", () => {
-                document.getElementById("removeMemberId").value = btn.dataset.id;
-                document.getElementById("removeMemberName").textContent = btn.dataset.name;
-                removeModalOverlay.classList.add("active");
+            card.querySelector(".stg-subteam-card__manage").addEventListener("click", () => {
+                showToast("Member management for teams coming soon", "success");
             });
+
+            list.appendChild(card);
         });
     }
 
-    /* ═══════════════════ INVITE CODE ═══════════════════ */
+    // Create Team button
+    const createSubteamBtn = document.getElementById("createSubteamBtn");
+    if (createSubteamBtn) {
+        createSubteamBtn.addEventListener("click", () => {
+            editingSubteamId = null;
+            document.getElementById("subteamModalTitle").textContent = "Create Team";
+            document.getElementById("subteamSubmitBtn").textContent = "Create Team";
+            document.getElementById("subteamForm").reset();
+            document.getElementById("subteamColor").value = "#4f46e5";
+            document.querySelectorAll(".stg-color-swatch").forEach(s => s.classList.remove("active"));
+            const firstSwatch = document.querySelector(".stg-color-swatch");
+            if (firstSwatch) firstSwatch.classList.add("active");
+            openModal("subteamModalOverlay");
+        });
+    }
 
-    if (copyInviteCodeBtn) {
-        copyInviteCodeBtn.addEventListener("click", () => {
-            const code = inviteCodeDisplay.textContent;
-            if (code && code !== "--------") {
-                navigator.clipboard.writeText(code).then(() => showToast("Invite code copied", "success"));
+    // Color swatches
+    document.querySelectorAll(".stg-color-swatch").forEach(swatch => {
+        swatch.addEventListener("click", () => {
+            document.querySelectorAll(".stg-color-swatch").forEach(s => s.classList.remove("active"));
+            swatch.classList.add("active");
+            document.getElementById("subteamColor").value = swatch.dataset.color;
+        });
+    });
+
+    // Subteam form submit
+    const subteamForm = document.getElementById("subteamForm");
+    if (subteamForm) {
+        subteamForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const payload = {
+                name:        document.getElementById("subteamName").value,
+                description: document.getElementById("subteamDescription").value,
+                color:       document.getElementById("subteamColor").value
+            };
+            let res;
+            if (editingSubteamId) {
+                res = await apiCall(`/api/v1/settings/teams/${currentTeamId}/subteams/${editingSubteamId}`, "PUT", payload);
+            } else {
+                res = await apiCall(`/api/v1/settings/teams/${currentTeamId}/subteams`, "POST", payload);
+            }
+            if (res) {
+                showToast(editingSubteamId ? "Team updated" : "Team created", "success");
+                closeModal("subteamModalOverlay");
+                await loadSubteams();
             }
         });
     }
 
-    /* ═══════════════════ MODALS ═══════════════════ */
+    // Subteam modal close
+    document.getElementById("subteamModalClose")?.addEventListener("click", () => closeModal("subteamModalOverlay"));
+    document.getElementById("subteamCancelBtn")?.addEventListener("click", () => closeModal("subteamModalOverlay"));
 
-    function closeModal(overlay) { overlay.classList.remove("active"); }
-
-    openInviteModalBtn.addEventListener("click", () => inviteModalOverlay.classList.add("active"));
-    inviteCancel.addEventListener("click", () => closeModal(inviteModalOverlay));
-    inviteCancelBtn.addEventListener("click", () => closeModal(inviteModalOverlay));
-
-    inviteForm.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const payload = {
-            email: document.getElementById("inviteEmail").value,
-            role: document.getElementById("inviteRole").value
-        };
-        const res = await apiCall(`/api/v1/settings/teams/${currentTeamId}/invites`, "POST", payload);
+    // Delete subteam confirm
+    document.getElementById("deleteSubteamConfirm")?.addEventListener("click", async () => {
+        const id = document.getElementById("deleteSubteamId").value;
+        const res = await apiCall(`/api/v1/settings/teams/${currentTeamId}/subteams/${id}`, "DELETE");
         if (res) {
-            showToast("Invite sent!", "success");
-            closeModal(inviteModalOverlay);
-            inviteForm.reset();
-            loadTeamMembers();
+            showToast("Team deleted", "success");
+            closeModal("deleteSubteamOverlay");
+            await loadSubteams();
+        }
+    });
+    document.getElementById("deleteSubteamClose")?.addEventListener("click", () => closeModal("deleteSubteamOverlay"));
+    document.getElementById("deleteSubteamCancel")?.addEventListener("click", () => closeModal("deleteSubteamOverlay"));
+
+    /* ═══════════════════ SECURITY ═══════════════════ */
+
+    const changePasswordBtn = document.getElementById("changePasswordBtn");
+    if (changePasswordBtn) {
+        changePasswordBtn.addEventListener("click", () => {
+            showToast("Password change coming soon", "success");
+        });
+    }
+
+    /* ═══════════════════ DANGER ZONE ═══════════════════ */
+
+    document.getElementById("archiveProjectBtn")?.addEventListener("click", () => {
+        showToast("Archive feature coming soon", "success");
+    });
+
+    document.getElementById("deleteProjectBtn")?.addEventListener("click", () => {
+        if (confirm("Are you sure you want to permanently delete this project? This action cannot be undone.")) {
+            showToast("Delete feature coming soon", "success");
         }
     });
 
-    removeCancel.addEventListener("click", () => closeModal(removeModalOverlay));
-    removeCloseBtn.addEventListener("click", () => closeModal(removeModalOverlay));
+    /* ═══════════════════ INVITE (legacy compat) ═══════════════════ */
 
-    removeConfirmBtn.addEventListener("click", async () => {
-        const userId = document.getElementById("removeMemberId").value;
-        const res = await apiCall(`/api/v1/settings/teams/${currentTeamId}/members/${userId}`, "DELETE");
-        if (res) {
-            showToast("Member removed", "success");
-            closeModal(removeModalOverlay);
-            loadTeamMembers();
-        }
-    });
+    const inviteModalOverlay = document.getElementById("inviteModalOverlay");
+    const inviteForm = document.getElementById("inviteForm");
+
+    document.getElementById("inviteCancel")?.addEventListener("click", () => closeModal("inviteModalOverlay"));
+    document.getElementById("inviteCancelBtn")?.addEventListener("click", () => closeModal("inviteModalOverlay"));
+
+    if (inviteForm) {
+        inviteForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const payload = {
+                email: document.getElementById("inviteEmail").value,
+                role: document.getElementById("inviteRole").value
+            };
+            const res = await apiCall(`/api/v1/settings/teams/${currentTeamId}/invites`, "POST", payload);
+            if (res) {
+                showToast("Invite sent!", "success");
+                closeModal("inviteModalOverlay");
+                inviteForm.reset();
+            }
+        });
+    }
 
     /* ═══════════════════ UTILITIES ═══════════════════ */
+
+    function openModal(id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.style.display = "flex";
+        el.classList.add("active");
+    }
+
+    function closeModal(id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.style.display = "none";
+        el.classList.remove("active");
+    }
 
     async function apiCall(endpoint, method, body = null) {
         const opts = { method, headers: {} };
@@ -332,9 +365,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 showToast(err.detail || "Something went wrong", "error");
                 return null;
             }
+            if (r.status === 204) return {};
             return await r.json();
         } catch {
-            showToast("Network error — could not reach server", "error");
+            showToast("Network error", "error");
             return null;
         }
     }
@@ -349,10 +383,6 @@ document.addEventListener("DOMContentLoaded", () => {
             el.style.transition = "opacity 0.3s";
             setTimeout(() => el.remove(), 300);
         }, 3000);
-    }
-
-    function capitalize(s) {
-        return s ? s.charAt(0).toUpperCase() + s.slice(1) : "";
     }
 
     function escapeHtml(str) {

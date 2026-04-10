@@ -1191,3 +1191,123 @@
     .doc-filter-select { flex: 1; }
     .section-header { flex-direction: column; align-items: flex-start; gap: 8px; }
 }
+
+/* ═══════════════════════════════════════════════════════
+   NEW COMPONENTS — Chat/Studio tabs, doc type tabs, integrations
+   ═══════════════════════════════════════════════════════ */
+
+/* Chat / Studio pill tab group (mirrors ai-brain style) */
+.brain-tab-group {
+    display: flex;
+    background: var(--color-page-bg, #f3f4f6);
+    border: 1px solid var(--color-border, #e5e7eb);
+    border-radius: 10px;
+    padding: 3px;
+    gap: 2px;
+}
+
+.brain-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 12px;
+    border-radius: 7px;
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: var(--color-text-muted, #6b7280);
+    text-decoration: none;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.brain-tab:hover { color: var(--color-text-sec, #374151); }
+
+.brain-tab--active {
+    background: var(--color-surface, #fff);
+    color: var(--color-primary, #4f46e5);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+/* Outline variant of hero button (for Viewer) */
+.studio-hero__btn--outline {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.3);
+    color: #fff;
+}
+
+.studio-hero__btn--outline:hover {
+    background: rgba(255,255,255,0.1);
+    border-color: rgba(255,255,255,0.5);
+}
+
+/* Document type tabs (replace dropdown filter) */
+.doc-type-tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--color-page-bg, #f3f4f6);
+    border: 1px solid var(--color-border, #e5e7eb);
+    border-radius: 10px;
+    padding: 3px;
+    flex-wrap: wrap;
+}
+
+.doc-type-tab {
+    padding: 6px 14px;
+    border: none;
+    background: transparent;
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: var(--color-text-muted, #6b7280);
+    cursor: pointer;
+    border-radius: 7px;
+    transition: all 0.15s ease;
+    font-family: inherit;
+    white-space: nowrap;
+}
+
+.doc-type-tab:hover {
+    color: var(--color-text-sec, #374151);
+}
+
+.doc-type-tab--active {
+    background: var(--color-surface, #fff);
+    color: var(--color-primary, #4f46e5);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+/* BETA badge for integrations */
+.integrations-card__badge--beta {
+    font-size: 0.55rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #f59e0b, #ef4444);
+    color: #fff;
+    white-space: nowrap;
+    box-shadow: 0 1px 3px rgba(239,68,68,0.25);
+}
+
+/* GitHub coming-soon row variant */
+.integration-row--coming-soon {
+    opacity: 0.65;
+    position: relative;
+}
+
+.integration-row__coming {
+    margin-left: auto;
+    font-size: 0.58rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(156,163,175,0.15);
+    color: #6b7280;
+    border: 1px solid rgba(156,163,175,0.2);
+}
+
+@media (max-width: 768px) {
+    .doc-type-tabs { width: 100%; justify-content: flex-start; overflow-x: auto; }
+}

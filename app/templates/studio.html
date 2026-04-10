@@ -15,16 +15,6 @@
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
             <span>AI Brain</span>
         </div>
-        <div class="topbar__mode-switcher">
-            <a href="/ai-brain" class="topbar__mode-btn">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
-                Chat
-            </a>
-            <a href="/studio" class="topbar__mode-btn topbar__mode-btn--active">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/></svg>
-                Studio
-            </a>
-        </div>
     {% endcall %}
 
     <!-- ═══ SCROLLABLE CONTENT ═══ -->
@@ -38,10 +28,24 @@
                 <p class="studio-hero__subtitle">Feed, manage & grow your team's collective memory</p>
             </div>
             <div class="studio-hero__right">
+                <div class="brain-tab-group">
+                    <a href="/ai-brain" class="brain-tab">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                        Chat
+                    </a>
+                    <a href="/studio" class="brain-tab brain-tab--active">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/></svg>
+                        Studio
+                    </a>
+                </div>
                 <span class="role-badge" id="roleBadge">viewer</span>
                 <a href="/ai-brain" class="studio-hero__btn">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
                     Query Brain
+                </a>
+                <a href="/ai-brain" class="studio-hero__btn studio-hero__btn--outline">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                    Viewer
                 </a>
             </div>
         </div>
@@ -163,7 +167,10 @@
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
                         Integrations
                     </h3>
-                    <span class="integrations-card__badge">Coming Soon</span>
+                    <div style="display:flex;align-items:center;gap:6px;">
+                        <span class="integrations-card__badge--beta">BETA</span>
+                        <span class="integrations-card__badge">Coming Soon</span>
+                    </div>
                 </div>
                 <div class="integrations-list">
                     <div class="integration-row" id="sourceGoogleDrive">
@@ -171,12 +178,6 @@
                             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7.71 3.5L1.15 15l3.43 5.97L11.14 9.47 7.71 3.5zm1.14 0l6.86 11.93H22.86L16 3.5H8.85zM16.57 16.5H3.43L0 22.5h24l-3.43-6H16.57z"/></svg>
                         </div>
                         <span class="integration-row__name">Google Drive</span>
-                    </div>
-                    <div class="integration-row">
-                        <div class="integration-row__icon integration-row__icon--github">
-                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
-                        </div>
-                        <span class="integration-row__name">GitHub</span>
                     </div>
                     <div class="integration-row">
                         <div class="integration-row__icon integration-row__icon--notion">
@@ -189,6 +190,13 @@
                             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M11.975 0C9.472 0 7.5 1.972 7.5 4.475v2.025H3.975C1.472 6.5 0 8.178 0 10.425c0 .003 0 .006.001.01l.044 9.09C.046 21.718 1.581 23 3.5 23H3.975v-9.025c0-2.503 1.472-4.475 3.975-4.475H12V4.475C12 4.475 12 0 11.975 0zM16 7H12.025v5.5H16c2.503 0 3.975 1.972 3.975 4.475V23h.5c1.92 0 3.5-1.582 3.5-3.5L24 10.5c0-1.97-1.472-3.5-3.975-3.5H16z"/></svg>
                         </div>
                         <span class="integration-row__name">Jira</span>
+                    </div>
+                    <div class="integration-row integration-row--coming-soon">
+                        <div class="integration-row__icon integration-row__icon--github">
+                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                        </div>
+                        <span class="integration-row__name">GitHub</span>
+                        <span class="integration-row__coming">Soon</span>
                     </div>
                 </div>
             </div>
@@ -221,15 +229,15 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
                     <input type="text" id="docSearch" placeholder="Search documents...">
                 </div>
+                <div class="doc-type-tabs" id="docTypeTabs">
+                    <button class="doc-type-tab doc-type-tab--active" data-type="">All</button>
+                    <button class="doc-type-tab" data-type="file">Files</button>
+                    <button class="doc-type-tab" data-type="drive">Drive</button>
+                    <button class="doc-type-tab" data-type="text">Text</button>
+                    <button class="doc-type-tab" data-type="url">URL</button>
+                    <button class="doc-type-tab" data-type="github">GitHub</button>
+                </div>
                 <div class="doc-toolbar__filters">
-                    <select id="filterType" class="doc-filter-select">
-                        <option value="">All Types</option>
-                        <option value="pdf">PDF</option>
-                        <option value="docx">DOCX</option>
-                        <option value="txt">TXT</option>
-                        <option value="markdown">Markdown</option>
-                        <option value="text">Text Input</option>
-                    </select>
                     <select id="filterStatus" class="doc-filter-select">
                         <option value="">All Status</option>
                         <option value="ready">Ready</option>

@@ -66,26 +66,34 @@ document.addEventListener('DOMContentLoaded', () => {
     const tabWhiteboard = document.getElementById('tabWhiteboard');
     const tabEditor = document.getElementById('tabEditor');
     const tabHistory = document.getElementById('tabHistory');
-    const notesModal = document.getElementById('notesModal');
+    const whiteboardView = document.getElementById('whiteboardContainer');
+    const notesView = document.getElementById('notesView');
     const historySidebar = document.getElementById('historySidebar');
 
-    tabWhiteboard.addEventListener('click', () => {
+    function showWhiteboardView() {
         tabWhiteboard.classList.add('active');
         tabEditor.classList.remove('active');
-        notesModal.style.display = 'none';
+        if (notesView) notesView.style.display = 'none';
+        if (whiteboardView) whiteboardView.style.display = '';
         historySidebar.classList.remove('open');
-    });
+        // Re-measure canvas in case container size changed while hidden
+        if (typeof canvas !== 'undefined' && canvas && whiteboardView) {
+            canvas.setWidth(whiteboardView.clientWidth - 70);
+            canvas.setHeight(whiteboardView.clientHeight);
+            canvas.renderAll();
+        }
+    }
 
-    tabEditor.addEventListener('click', () => {
+    function showNotesView() {
         tabEditor.classList.add('active');
         tabWhiteboard.classList.remove('active');
-        notesModal.style.display = 'flex';
+        if (whiteboardView) whiteboardView.style.display = 'none';
+        if (notesView) notesView.style.display = 'flex';
         historySidebar.classList.remove('open');
-    });
+    }
 
-    document.getElementById('closeNotesModal').addEventListener('click', () => {
-        tabWhiteboard.click();
-    });
+    tabWhiteboard.addEventListener('click', showWhiteboardView);
+    tabEditor.addEventListener('click', showNotesView);
 
     tabHistory.addEventListener('click', () => {
         historySidebar.classList.toggle('open');
@@ -128,39 +136,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-
-    /* -------------------------------------------------------------------------- */
-    /*                        Draggable Notes Modal                             */
-    /* -------------------------------------------------------------------------- */
-    let isDragging = false;
-    let dragStartX, dragStartY;
-    let initialX, initialY;
-    const headerEl = document.getElementById('notesModalHeader');
-    
-    headerEl.addEventListener('mousedown', (e) => {
-        // Prevent drag on buttons inside header
-        if (e.target.closest('button') || e.target.closest('svg')) return;
-        isDragging = true;
-        dragStartX = e.clientX;
-        dragStartY = e.clientY;
-        initialX = notesModal.offsetLeft;
-        initialY = notesModal.offsetTop;
-        document.body.style.userSelect = 'none';
-    });
-
-    document.addEventListener('mousemove', (e) => {
-        if (!isDragging) return;
-        const dx = e.clientX - dragStartX;
-        const dy = e.clientY - dragStartY;
-        notesModal.style.left = `${initialX + dx}px`;
-        notesModal.style.top = `${initialY + dy}px`;
-    });
-
-    document.addEventListener('mouseup', () => {
-        isDragging = false;
-        document.body.style.userSelect = '';
-    });
-
 
     /* -------------------------------------------------------------------------- */
     /*                            Whiteboard & Fabric.js                        */

@@ -673,4 +673,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Update subtitle on subteam change
+    window.addEventListener('subteamchange', (e) => {
+        const subtitleEl = document.getElementById('timelineSubtitle');
+        if (!subtitleEl) return;
+        const { name } = e.detail || {};
+        if (name && name !== 'All Teams') {
+            subtitleEl.textContent = 'Timeline for ' + name + ' — The story of the project';
+        } else {
+            subtitleEl.textContent = 'Timeline for All Teams — The story of the project';
+        }
+    });
+
 });

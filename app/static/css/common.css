@@ -1434,3 +1434,185 @@ a:hover { color: var(--color-primary-dark); }
 .notif-item:last-child { border-bottom: none; }
 .notif-item .n-title { font-weight: 600; color: var(--color-text); }
 .notif-item .n-time  { font-size: 0.75rem; color: var(--color-text-muted); }
+
+
+/* ═══════════════════════════════════════════════════════════════
+   SIDEBAR REDESIGN — SubTeam Selector + Help Center
+   ═══════════════════════════════════════════════════════════════ */
+
+.sidebar__team-section {
+    padding: 0 12px 12px;
+    position: relative;
+    z-index: 10;
+}
+
+.sidebar__team-label {
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--color-text-muted);
+    margin-bottom: 6px;
+    padding: 0 2px;
+}
+
+.sidebar__team-dropdown {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    border: 1.5px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--color-text);
+    background: var(--color-surface);
+    transition: border-color var(--transition), box-shadow var(--transition);
+    user-select: none;
+}
+
+.sidebar__team-dropdown:hover {
+    border-color: var(--color-primary-light);
+    box-shadow: 0 0 0 3px rgba(79,70,229,0.08);
+}
+
+.sidebar__team-menu {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    top: 100%;
+    background: white;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-md);
+    z-index: 300;
+    overflow: hidden;
+}
+
+.sidebar__subteam-opt {
+    width: 100%;
+    text-align: left;
+    padding: 9px 14px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    border: none;
+    background: none;
+    cursor: pointer;
+    color: var(--color-text-sec);
+    font-family: inherit;
+    transition: background var(--transition);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.sidebar__subteam-opt:hover {
+    background: var(--color-border-lt);
+    color: var(--color-text);
+}
+
+.sidebar__subteam-opt.active {
+    color: var(--color-primary);
+    font-weight: 600;
+    background: rgba(79,70,229,0.04);
+}
+
+.sidebar__subteam-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.sidebar__help-link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--color-text-muted);
+    text-decoration: none;
+    border-radius: var(--radius-sm);
+    transition: all var(--transition);
+}
+
+.sidebar__help-link:hover {
+    color: var(--color-text-sec);
+    background: rgba(0,0,0,0.03);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   NAVBAR REDESIGN — Wide dropdown + project list + dividers
+   ═══════════════════════════════════════════════════════════════ */
+
+.topbar__dropdown--wide {
+    min-width: 220px;
+}
+
+.topbar__dropdown-group-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-text-muted);
+    padding: 6px 16px 4px;
+    pointer-events: none;
+}
+
+.topbar__dropdown-divider {
+    height: 1px;
+    background: var(--color-border-lt);
+    margin: 4px 8px;
+}
+
+.topbar__dropdown-item--active {
+    color: var(--color-primary);
+    font-weight: 600;
+    background: rgba(79,70,229,0.04);
+}
+
+.topbar__project-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    text-align: left;
+    padding: 8px 16px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--color-text-sec);
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background var(--transition);
+}
+
+.topbar__project-btn:hover {
+    background: var(--color-page-bg);
+    color: var(--color-text);
+}
+
+.topbar__project-btn.active {
+    color: var(--color-primary);
+    font-weight: 600;
+}
+
+.topbar__project-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--color-primary);
+    flex-shrink: 0;
+}
+
+/* Topbar subtitle (e.g. "Project Alpha Configuration" in settings) */
+.topbar__subtitle {
+    font-size: 0.78rem;
+    color: var(--color-text-muted);
+    margin-left: 4px;
+    font-weight: 400;
+}

@@ -1589,6 +1589,18 @@
         }
     }
 
+    // ── Subteam change — update eyebrow label ──
+    window.addEventListener('subteamchange', (e) => {
+        const labelEl = document.getElementById('teamLabel');
+        if (!labelEl) return;
+        const { name } = e.detail || {};
+        const team = teams.find(t => t.id === currentTeamId);
+        const projectName = team ? team.name : 'Your Workspace';
+        labelEl.textContent = name && name !== 'All Teams'
+            ? projectName + ' › ' + name
+            : projectName;
+    });
+
     // ── Boot ──
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);

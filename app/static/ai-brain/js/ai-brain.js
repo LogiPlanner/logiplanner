@@ -830,7 +830,7 @@ document.addEventListener('DOMContentLoaded', () => {
         sendMessage();
     }
 
-    document.querySelectorAll('.chat-welcome__suggestion').forEach(btn => {
+    document.querySelectorAll('.chat-welcome__suggestion-card').forEach(btn => {
         btn.addEventListener('click', () => {
             const textEl = btn.querySelector('.chat-welcome__suggestion-text');
             runQuickPrompt((textEl || btn).textContent.trim());

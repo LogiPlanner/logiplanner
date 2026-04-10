@@ -59,7 +59,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Document library
     const docSearch = document.getElementById('docSearch');
-    const filterType = document.getElementById('filterType');
+    const docTypeTabs = document.getElementById('docTypeTabs');
+    let activeTypeFilter = '';
     const filterStatus = document.getElementById('filterStatus');
     const docContainer = document.getElementById('docContainer');
     const docEmpty = document.getElementById('docEmpty');
@@ -245,7 +246,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function getFilteredDocs() {
         let docs = [...allDocuments];
         const search = (docSearch.value || '').toLowerCase().trim();
-        const typeFilter = filterType.value;
+        const typeFilter = activeTypeFilter;
         const statusFilter = filterStatus.value;
 
         if (search) {
@@ -256,7 +257,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (typeFilter) {
-            docs = docs.filter(d => d.doc_type === typeFilter);
+            const fileTypes = ['pdf', 'docx', 'doc', 'txt', 'markdown', 'md'];
+            if (typeFilter === 'file') {
+                docs = docs.filter(d => fileTypes.includes(d.doc_type));
+            } else {
+                docs = docs.filter(d => d.doc_type === typeFilter);
+            }
         }
 
         if (statusFilter) {
@@ -357,7 +363,16 @@ document.addEventListener('DOMContentLoaded', () => {
         searchDebounce = setTimeout(renderDocuments, 250);
     });
 
-    filterType.addEventListener('change', renderDocuments);
+    if (docTypeTabs) {
+        docTypeTabs.addEventListener('click', (e) => {
+            const tab = e.target.closest('.doc-type-tab');
+            if (!tab) return;
+            docTypeTabs.querySelectorAll('.doc-type-tab').forEach(t => t.classList.remove('doc-type-tab--active'));
+            tab.classList.add('doc-type-tab--active');
+            activeTypeFilter = tab.dataset.type || '';
+            renderDocuments();
+        });
+    }
     filterStatus.addEventListener('change', renderDocuments);
 
     // ─────────────────────────────────────────

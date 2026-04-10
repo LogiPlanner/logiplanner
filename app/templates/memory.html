@@ -9,7 +9,7 @@
 {% from "partials/navbar.html" import topbar %}
 {% block content %}
 <main class="memory-main">
-    {% call topbar(show_notif_dropdown=true) %}
+    {% call topbar() %}
         <div class="topbar-left">
             <div class="topbar__page-title">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
@@ -31,7 +31,7 @@
             <div class="timeline-header">
                 <div>
                     <h1 class="canvas-title" id="projectTitle" style="font-size: 2rem; font-weight: 700; color: #1e293b; margin-bottom: 0.5rem; letter-spacing: -0.02em;">Loading...</h1>
-                    <p class="canvas-subtitle" style="font-size: 1rem; color: #64748b; font-weight: 400; margin: 0;">The story of the project: How it started vs. how it’s going!</p>
+                    <p class="canvas-subtitle" id="timelineSubtitle" style="font-size: 1rem; color: #64748b; font-weight: 400; margin: 0;">Timeline for All Teams — The story of the project</p>
                 </div>
                 <div class="canvas-actions" style="position: relative; align-items: center;">
                     <!-- Search -->
@@ -116,7 +116,7 @@
 
             <!-- Key Stats -->
             <div class="stats-box">
-                <h4>Memory Analytics</h4>
+                <h4>Memory Analytics <span class="analytics-beta-badge">Beta</span></h4>
                 <div class="stats-grid">
                     <div class="stat-card">
                         <p>Decisions</p>
@@ -161,6 +161,20 @@
                     <p class="collab-title">Team Memory Collaboration</p>
                     <p class="collab-desc"><span id="activeParticipants">1</span> active participants recently</p>
                 </div>
+            </div>
+
+            <!-- Quick Recall -->
+            <div class="quick-recall-card">
+                <div class="quick-recall-header">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="16" height="16">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    <h4>Quick Recall</h4>
+                </div>
+                <p class="quick-recall-desc">Recently accessed memory entries</p>
+                <ul class="quick-recall-list" id="quickRecallList">
+                    <li class="quick-recall-empty">No recent entries</li>
+                </ul>
             </div>
 
         </aside>

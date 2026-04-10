@@ -9,6 +9,8 @@
     function forceLogout() {
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
+        localStorage.removeItem('selected_team_id');
+        localStorage.removeItem('selected_subteam_id');
         window.location.href = '/login';
     }
 
@@ -69,13 +71,8 @@
     }
 
     // ── Logout ──
-    document.getElementById('logoutBtn')?.addEventListener('click', () => {
-        forceLogout();
-    });
-
-    document.getElementById('navbarLogoutBtn')?.addEventListener('click', () => {
-        forceLogout();
-    });
+    document.getElementById('navbarLogoutBtn')?.addEventListener('click', () => forceLogout());
+    document.getElementById('logoutBtn')?.addEventListener('click', () => forceLogout());
 
     // ── Mobile Sidebar Toggle ──
     const toggle  = document.getElementById('mobileToggle');
@@ -88,7 +85,6 @@
             overlay?.classList.toggle('active');
         });
     }
-
     if (overlay) {
         overlay.addEventListener('click', () => {
             sidebar.classList.remove('open');
@@ -96,124 +92,234 @@
         });
     }
 
-    // ── Populate sidebar user pill ──
-    authFetch('/api/v1/auth/me')
-        .then(r => r && r.ok ? r.json() : null)
-        .then(d => {
-            if (!d) return;
-            const name = d.full_name || d.email || '';
-            const role = d.role || '';
-
-            const userEl = document.getElementById('sidebarUser');
-            if (userEl) userEl.style.display = 'flex';
-
-            const nameEl = document.getElementById('sidebarUserName');
-            if (nameEl) nameEl.textContent = name;
-
-            const roleEl = document.getElementById('sidebarUserRole');
-            if (roleEl) roleEl.textContent = role;
-
-            const avatarEl = document.getElementById('sidebarAvatar');
-            if (avatarEl) {
-                const initials = name.trim().split(/\s+/).slice(0, 2).map(p => p[0].toUpperCase()).join('');
-                avatarEl.textContent = initials || 'U';
-
-                const topbarAvatarEl = document.getElementById('avatarInitials');
-                if (topbarAvatarEl) {
-                    topbarAvatarEl.textContent = initials || 'U';
-                }
-            }
-        })
-        .catch(() => {});
-    // ── Sidebar team / project list ──
+    // ── Team colors palette ──
     var _teamColors = ['#4f46e5','#7c3aed','#06d6a0','#f59e0b','#ef4444','#3b82f6','#ec4899','#14b8a6'];
+
+    // ── Hidden team select (kept for page-script compat) ──
     var _ts = document.getElementById('teamSelect');
-    var _tl = document.getElementById('teamList');
 
-    function _renderTeamBtns(teams, selectedId) {
-        if (!_tl) return;
-        if (!teams || teams.length === 0) {
-            _tl.innerHTML = '<div class="sidebar__teams-empty">No projects yet</div>';
-            return;
-        }
-        _tl.innerHTML = '';
-        teams.forEach(function (t, i) {
-            var id = t.id || t.team_id;
-            var name = t.team_name || t.name || 'Team';
-            var initials = name.split(' ').map(function(w){return w[0]}).join('').toUpperCase().slice(0,2);
-            var color = _teamColors[i % _teamColors.length];
-
-            var btn = document.createElement('button');
-            btn.className = 'sidebar__team-btn' + (parseInt(selectedId) === id ? ' active' : '');
-            btn.dataset.teamId = id;
-            btn.innerHTML = '<span class="sidebar__team-icon" style="background:' + color + '">' + initials + '</span>'
-                + '<span class="sidebar__team-name">' + name + '</span>';
-            btn.addEventListener('click', function () {
-                // Update hidden select
-                if (_ts) { _ts.value = id; _ts.dispatchEvent(new Event('change')); }
-                // Update active state
-                _tl.querySelectorAll('.sidebar__team-btn').forEach(function(b){ b.classList.remove('active'); });
-                btn.classList.add('active');
-            });
-            _tl.appendChild(btn);
+    // ── Notification bell toggle ──
+    var _notifBtn = document.getElementById('notifBtn');
+    var _notifDropdown = document.getElementById('notifDropdown');
+    if (_notifBtn && _notifDropdown) {
+        _notifBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            var open = _notifDropdown.style.display !== 'none';
+            _notifDropdown.style.display = open ? 'none' : 'block';
         });
-    }
-
-    if (_ts) {
-        // Persist selection on change
-        _ts.addEventListener('change', function () {
-            localStorage.setItem('selected_team_id', _ts.value);
-            // Sync button active state
-            if (_tl) {
-                _tl.querySelectorAll('.sidebar__team-btn').forEach(function(b){
-                    b.classList.toggle('active', b.dataset.teamId === _ts.value);
-                });
+        document.addEventListener('click', function(e) {
+            if (!_notifDropdown.contains(e.target) && e.target !== _notifBtn) {
+                _notifDropdown.style.display = 'none';
             }
         });
-
-        // Fallback loader — populate if page JS hasn't done it yet
-        authFetch('/api/v1/onboarding/my-teams')
-            .then(function (r) { return r && r.ok ? r.json() : null; })
-            .then(function (data) {
-                // Skip if page-specific JS already populated the select
-                if (_ts.options.length > 1 || (_ts.options[0] && !_ts.options[0].textContent.includes('Loading'))) return;
-
-                if (!data || !data.teams || data.teams.length === 0) {
-                    _ts.innerHTML = '<option>No teams yet</option>';
-                    _renderTeamBtns(null);
-                    return;
-                }
-                var saved = localStorage.getItem('selected_team_id');
-                _ts.innerHTML = '';
-                data.teams.forEach(function (t) {
-                    var opt = document.createElement('option');
-                    opt.value = t.id;
-                    opt.textContent = t.team_name;
-                    opt.dataset.role = t.role || 'viewer';
-                    if (saved && parseInt(saved) === t.id) opt.selected = true;
-                    _ts.appendChild(opt);
-                });
-                if (!_ts.value) _ts.selectedIndex = 0;
-                localStorage.setItem('selected_team_id', _ts.value);
-                _renderTeamBtns(data.teams, _ts.value);
-            })
-            .catch(function () {});
-
-        // Auto-render team buttons when page-specific JS populates the select
-        if (_tl) {
-            var _obs = new MutationObserver(function () {
-                // Skip if still loading or buttons already rendered by page JS
-                if (_ts.options.length === 0) return;
-                if (_ts.options[0].textContent === 'Loading teams...' || _ts.options[0].textContent === 'No teams yet') return;
-                if (_tl.querySelector('.sidebar__team-btn')) return;
-                var _teams = [];
-                for (var i = 0; i < _ts.options.length; i++) {
-                    var val = parseInt(_ts.options[i].value);
-                    if (!isNaN(val)) _teams.push({ id: val, team_name: _ts.options[i].textContent });
-                }
-                if (_teams.length > 0) _renderTeamBtns(_teams, _ts.value);
-            });
-            _obs.observe(_ts, { childList: true });
-        }
     }
+
+    // ── User Avatar dropdown toggle ──
+    var _avatarBtn = document.getElementById('userAvatarBtn');
+    var _userDropdown = document.getElementById('userDropdown');
+    if (_avatarBtn && _userDropdown) {
+        _avatarBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            var isVisible = _userDropdown.style.opacity === '1' || _userDropdown.style.visibility === 'visible';
+            if (isVisible) {
+                _userDropdown.style.opacity = '0';
+                _userDropdown.style.visibility = 'hidden';
+                _userDropdown.style.transform = 'translateY(-8px)';
+            } else {
+                _userDropdown.style.opacity = '1';
+                _userDropdown.style.visibility = 'visible';
+                _userDropdown.style.transform = 'translateY(0)';
+            }
+        });
+        document.addEventListener('click', function(e) {
+            if (!_avatarBtn.contains(e.target)) {
+                _userDropdown.style.opacity = '0';
+                _userDropdown.style.visibility = 'hidden';
+                _userDropdown.style.transform = 'translateY(-8px)';
+            }
+        });
+    }
+
+    // ── Subteam dropdown toggle ──
+    var _subteamBtn  = document.getElementById('subteamDropdownBtn');
+    var _subteamMenu = document.getElementById('subteamMenu');
+    if (_subteamBtn && _subteamMenu) {
+        _subteamBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            var open = _subteamMenu.style.display !== 'none';
+            _subteamMenu.style.display = open ? 'none' : 'block';
+        });
+        document.addEventListener('click', function(e) {
+            if (!_subteamBtn.contains(e.target) && !_subteamMenu.contains(e.target)) {
+                _subteamMenu.style.display = 'none';
+            }
+        });
+    }
+
+    // ── Render Projects list in navbar dropdown (teams = UI "projects") ──
+    function _renderNavProjects(teams) {
+        var container = document.getElementById('navProjectsList');
+        if (!container) return;
+        var selectedId = parseInt(localStorage.getItem('selected_team_id') || '0');
+        container.innerHTML = '';
+        teams.forEach(function(t, i) {
+            var id = t.id || t.team_id;
+            var name = t.team_name || t.name || 'Project';
+            var color = _teamColors[i % _teamColors.length];
+            var btn = document.createElement('button');
+            btn.className = 'topbar__project-btn' + (id === selectedId ? ' active' : '');
+            btn.dataset.teamId = id;
+            btn.innerHTML = '<span class="topbar__project-dot" style="background:' + color + '"></span>' + _escHtml(name);
+            btn.addEventListener('click', function() {
+                localStorage.setItem('selected_team_id', id);
+                localStorage.removeItem('selected_subteam_id');
+                // Update hidden select for page-script compat
+                if (_ts) {
+                    for (var j = 0; j < _ts.options.length; j++) {
+                        if (parseInt(_ts.options[j].value) === id) {
+                            _ts.selectedIndex = j;
+                            _ts.dispatchEvent(new Event('change'));
+                            break;
+                        }
+                    }
+                }
+                // Close dropdown and reload page to reflect new project
+                if (_userDropdown) {
+                    _userDropdown.style.opacity = '0';
+                    _userDropdown.style.visibility = 'hidden';
+                }
+                window.location.reload();
+            });
+            container.appendChild(btn);
+        });
+    }
+
+    // ── Render SubTeam options in sidebar dropdown (subteams = UI "teams") ──
+    function _renderSubteamOpts(subteams) {
+        if (!_subteamMenu) return;
+        var selectedId = localStorage.getItem('selected_subteam_id') || 'all';
+        _subteamMenu.innerHTML = '';
+
+        // "All Teams" option
+        var allBtn = document.createElement('button');
+        allBtn.className = 'sidebar__subteam-opt' + (selectedId === 'all' ? ' active' : '');
+        allBtn.dataset.subteamId = 'all';
+        allBtn.innerHTML = '<span class="sidebar__subteam-dot" style="background:#9ca3af"></span>All Teams';
+        allBtn.addEventListener('click', function() {
+            _selectSubteam('all', 'All Teams');
+        });
+        _subteamMenu.appendChild(allBtn);
+
+        subteams.forEach(function(st, i) {
+            var color = st.color || _teamColors[i % _teamColors.length];
+            var btn = document.createElement('button');
+            btn.className = 'sidebar__subteam-opt' + (parseInt(selectedId) === st.id ? ' active' : '');
+            btn.dataset.subteamId = st.id;
+            btn.innerHTML = '<span class="sidebar__subteam-dot" style="background:' + _escHtml(color) + '"></span>' + _escHtml(st.name);
+            btn.addEventListener('click', function() {
+                _selectSubteam(st.id, st.name);
+            });
+            _subteamMenu.appendChild(btn);
+        });
+    }
+
+    function _selectSubteam(id, name) {
+        localStorage.setItem('selected_subteam_id', id);
+        var nameEl = document.getElementById('activeSubteamName');
+        if (nameEl) nameEl.textContent = name;
+        if (_subteamMenu) _subteamMenu.style.display = 'none';
+        // Update active states
+        if (_subteamMenu) {
+            _subteamMenu.querySelectorAll('.sidebar__subteam-opt').forEach(function(b) {
+                b.classList.toggle('active', String(b.dataset.subteamId) === String(id));
+            });
+        }
+        window.dispatchEvent(new CustomEvent('subteamchange', { detail: { id: id, name: name } }));
+    }
+
+    // ── Load subteams for current team ──
+    function _loadSubteams(teamId) {
+        if (!teamId || !_subteamMenu) return;
+        authFetch('/api/v1/settings/teams/' + teamId + '/subteams')
+            .then(function(r) { return r && r.ok ? r.json() : null; })
+            .then(function(data) {
+                _renderSubteamOpts(data && data.subteams ? data.subteams : []);
+                // Restore saved subteam name
+                var savedId = localStorage.getItem('selected_subteam_id') || 'all';
+                var nameEl = document.getElementById('activeSubteamName');
+                if (nameEl) {
+                    if (savedId === 'all') {
+                        nameEl.textContent = 'All Teams';
+                    } else if (data && data.subteams) {
+                        var found = data.subteams.find(function(s) { return String(s.id) === String(savedId); });
+                        if (found) nameEl.textContent = found.name;
+                    }
+                }
+            })
+            .catch(function() {});
+    }
+
+    function _escHtml(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    // ── Load user info → set initials, then load teams ──
+    authFetch('/api/v1/auth/me')
+        .then(function(r) { return r && r.ok ? r.json() : null; })
+        .then(function(d) {
+            if (!d) return;
+            var name = d.full_name || d.email || '';
+            var initials = name.trim().split(/\s+/).slice(0, 2).map(function(p) { return p[0].toUpperCase(); }).join('') || 'U';
+            var avatarEl = document.getElementById('avatarInitials');
+            if (avatarEl) avatarEl.textContent = initials;
+        })
+        .catch(function() {});
+
+    // ── Load teams → populate navbar projects + sidebar subteams ──
+    authFetch('/api/v1/onboarding/my-teams')
+        .then(function(r) { return r && r.ok ? r.json() : null; })
+        .then(function(data) {
+            if (!data || !data.teams || data.teams.length === 0) return;
+
+            var teams = data.teams;
+            var saved = localStorage.getItem('selected_team_id');
+            var selectedTeamId = saved ? parseInt(saved) : null;
+
+            // Auto-select first team if none saved
+            if (!selectedTeamId && teams.length > 0) {
+                selectedTeamId = teams[0].id || teams[0].team_id;
+                localStorage.setItem('selected_team_id', selectedTeamId);
+            }
+
+            // Populate hidden select (page-script compat)
+            if (_ts) {
+                if (_ts.options.length <= 1 && _ts.options[0] && _ts.options[0].textContent.includes('Loading')) {
+                    _ts.innerHTML = '';
+                    teams.forEach(function(t) {
+                        var opt = document.createElement('option');
+                        opt.value = t.id || t.team_id;
+                        opt.textContent = t.team_name || t.name;
+                        if (parseInt(opt.value) === selectedTeamId) opt.selected = true;
+                        _ts.appendChild(opt);
+                    });
+                    if (!_ts.value) _ts.selectedIndex = 0;
+                }
+                _ts.addEventListener('change', function() {
+                    localStorage.setItem('selected_team_id', _ts.value);
+                    _loadSubteams(_ts.value);
+                });
+            }
+
+            // Render navbar project list
+            _renderNavProjects(teams);
+
+            // Load subteams for currently selected team
+            _loadSubteams(selectedTeamId);
+        })
+        .catch(function() {});
+
 })();
