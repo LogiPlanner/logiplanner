@@ -125,17 +125,27 @@ class SetupProjectRequest(BaseModel):
     @field_validator("uploaded_files")
     @classmethod
     def validate_filenames(cls, v: list) -> list:
-        """Sanitize filenames — only allow expected UUID-prefixed names, no path traversal."""
+        """Sanitize filenames — only allow expected stored filenames, no path traversal."""
+        import os
         import re
-        safe_pattern = re.compile(r"^[a-f0-9]{8}_[\w\-. ]+$", re.IGNORECASE)
+        import unicodedata
+
+        safe_pattern = re.compile(
+            r"^[a-f0-9]{8}_[A-Za-z0-9_-]+(?: [A-Za-z0-9_-]+)*(?:\.[A-Za-z0-9]+)?$",
+            re.IGNORECASE,
+        )
         sanitized = []
         for name in v:
-            name = name.strip()
-            if ".." in name or "/" in name or "\\" in name:
-                raise ValueError(f"Invalid filename: {name}")
-            if not safe_pattern.match(name):
-                raise ValueError(f"Invalid filename format: {name}")
-            sanitized.append(name)
+            normalized_name = unicodedata.normalize("NFKC", name).strip()
+            if not normalized_name:
+                raise ValueError("Invalid filename: empty filename")
+            if os.path.basename(normalized_name) != normalized_name:
+                raise ValueError(f"Invalid filename: {normalized_name}")
+            if ".." in normalized_name or "/" in normalized_name or "\\" in normalized_name:
+                raise ValueError(f"Invalid filename: {normalized_name}")
+            if not safe_pattern.fullmatch(normalized_name):
+                raise ValueError(f"Invalid filename format: {normalized_name}")
+            sanitized.append(normalized_name)
         return sanitized
 
 

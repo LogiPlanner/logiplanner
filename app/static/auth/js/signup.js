@@ -72,9 +72,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Switch account — clear timer + tokens
                 document.getElementById('switchAccountBtn')?.addEventListener('click', () => {
-                    localStorage.removeItem('access_token');
-                    localStorage.removeItem('refresh_token');
-                    localStorage.removeItem('selected_team_id');
+                    const k = window.__lpStorage.KEYS;
+                    localStorage.removeItem(k.ACCESS_TOKEN);
+                    localStorage.removeItem(k.REFRESH_TOKEN);
+                    localStorage.removeItem(k.SELECTED_TEAM_ID);
                     location.reload();
                 });
 

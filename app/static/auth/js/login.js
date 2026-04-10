@@ -49,18 +49,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.querySelector('.auth-footer-text')?.style.setProperty('display', 'none');
 
                 // Auto-redirect countdown (3s)
-                const dest = data.next_step === 'dashboard' ? '/dashboard' : '/onboarding';
+                const isDashboardNext = data.next_step === 'dashboard';
+                const dest = isDashboardNext ? '/dashboard' : '/onboarding';
+                const destLabel = isDashboardNext ? 'dashboard' : 'onboarding';
                 const countdownEl = document.getElementById('albCountdown');
                 let secs = 3;
                 if (countdownEl) {
-                    countdownEl.textContent = `Taking you to your dashboard in ${secs}…`;
+                    countdownEl.textContent = `Taking you to ${destLabel} in ${secs}…`;
                     const ticker = setInterval(() => {
                         secs--;
                         if (secs <= 0) {
                             clearInterval(ticker);
                             window.location.href = dest;
                         } else {
-                            countdownEl.textContent = `Taking you to your dashboard in ${secs}…`;
+                            countdownEl.textContent = `Taking you to ${destLabel} in ${secs}…`;
                         }
                     }, 1000);
 
@@ -72,9 +74,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Switch account — clear timer + tokens
                 document.getElementById('switchAccountBtn')?.addEventListener('click', () => {
-                    localStorage.removeItem('access_token');
-                    localStorage.removeItem('refresh_token');
-                    localStorage.removeItem('selected_team_id');
+                    const k = window.__lpStorage.KEYS;
+                    localStorage.removeItem(k.ACCESS_TOKEN);
+                    localStorage.removeItem(k.REFRESH_TOKEN);
+                    localStorage.removeItem(k.SELECTED_TEAM_ID);
                     location.reload();
                 });
 

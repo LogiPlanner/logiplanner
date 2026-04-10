@@ -372,23 +372,44 @@ function renderFileList() {
     const list = document.getElementById('uploadList');
     if (!list) return;
 
+    list.replaceChildren();
+
     if (selectedFiles.length === 0) {
-        list.innerHTML = '';
         return;
     }
 
-    list.innerHTML = selectedFiles.map((f, i) => {
+    selectedFiles.forEach((f, i) => {
         const icon = getFileIcon(f.name);
         const size = formatSize(f.size);
-        return `
-            <div class="upload-item">
-                <div class="upload-item__icon">${icon}</div>
-                <div class="upload-item__name">${escapeHtml(f.name)}</div>
-                <div class="upload-item__size">${size}</div>
-                <button class="upload-item__remove" onclick="removeFile(${i})" title="Remove">\u2715</button>
-            </div>
-        `;
-    }).join('');
+
+        const item = document.createElement('div');
+        item.className = 'upload-item';
+
+        const iconEl = document.createElement('div');
+        iconEl.className = 'upload-item__icon';
+        iconEl.textContent = icon;
+
+        const nameEl = document.createElement('div');
+        nameEl.className = 'upload-item__name';
+        nameEl.textContent = f.name;
+
+        const sizeEl = document.createElement('div');
+        sizeEl.className = 'upload-item__size';
+        sizeEl.textContent = size;
+
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'upload-item__remove';
+        removeBtn.type = 'button';
+        removeBtn.title = 'Remove';
+        removeBtn.textContent = '\u2715';
+        removeBtn.addEventListener('click', () => removeFile(i));
+
+        item.appendChild(iconEl);
+        item.appendChild(nameEl);
+        item.appendChild(sizeEl);
+        item.appendChild(removeBtn);
+        list.appendChild(item);
+    });
 }
 
 function escapeHtml(str) {

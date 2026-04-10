@@ -26,10 +26,7 @@ def get_or_create_google_user(db: Session, email: str, full_name: str = None):
         db.add(user)
         db.commit()
         db.refresh(user)
-    elif user.hashed_password == "":
-        # Fix legacy OAuth users that got empty-string password
-        user.hashed_password = None
-        db.commit()
+
     return user
 
 
