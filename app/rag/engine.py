@@ -5,8 +5,8 @@ The core orchestration layer for the LogiPlanner AI Brain.
 
 Responsibilities:
 - Manages ChromaDB persistent vector store (per-team collections)
-- Handles document embedding via OpenAI text-embedding-3-small
-- Performs similarity search with metadata filtering
+- Handles document embedding via local BAAI/bge-base-en-v1.5
+- Performs similarity search + cross-encoder reranking for higher precision
 - Orchestrates chat responses via GPT-4o with retrieval context
 - Provides knowledge base statistics
 
@@ -49,12 +49,14 @@ class RAGEngine:
     - Per-team ChromaDB collections for data isolation
     - Persistent storage at ./chroma_data/ (survives server restarts)
     - Local HuggingFace embeddings (BAAI/bge-base-en-v1.5) — free, no API key needed
+    - Local cross-encoder reranker (BAAI/bge-reranker-base) for higher-precision retrieval
     - GPT-4o for chat responses with source citations
     """
 
     def __init__(self):
         self._chroma_client = None
         self._embeddings = None
+        self._reranker = None
         self._llm = None
         self._initialized = False
 
@@ -90,8 +92,20 @@ class RAGEngine:
             max_tokens=2000,
         )
 
+        # ── Cross-encoder reranker (local HuggingFace) ────────────────────────
+        from sentence_transformers import CrossEncoder
+        self._reranker = CrossEncoder(
+            settings.HF_RERANKER_MODEL,
+            max_length=512,
+        )
+
         self._initialized = True
-        print(f"[RAG] Engine initialized — Embeddings: HuggingFace local ({settings.HF_EMBEDDING_MODEL}), Chat: {settings.RAG_CHAT_MODEL}")
+        print(
+            f"[RAG] Engine initialized — "
+            f"Embeddings: {settings.HF_EMBEDDING_MODEL}, "
+            f"Reranker: {settings.HF_RERANKER_MODEL}, "
+            f"Chat: {settings.RAG_CHAT_MODEL}"
+        )
 
     def _get_collection_name(self, team_id: int) -> str:
         """Generate a collection name for a team. Each team gets its own isolated collection."""
@@ -328,16 +342,26 @@ class RAGEngine:
         k = k or settings.RAG_TOP_K
         vectorstore = self._get_vectorstore(team_id)
 
-        search_kwargs = {"k": k}
+        # Fetch a larger candidate pool so the reranker has room to reorder
+        fetch_k = k * settings.RAG_RERANK_FETCH_MULTIPLIER
+        search_kwargs = {"k": fetch_k}
         if filters:
             search_kwargs["filter"] = filters
 
         try:
-            results = vectorstore.similarity_search(query, **search_kwargs)
-            return results
+            candidates = vectorstore.similarity_search(query, **search_kwargs)
         except Exception as e:
             print(f"[RAG] Search error: {e}")
             return []
+
+        if not candidates:
+            return []
+
+        # Cross-encoder reranking: score every (query, chunk) pair and return top-k
+        pairs = [[query, doc.page_content] for doc in candidates]
+        scores = self._reranker.predict(pairs)
+        ranked = sorted(zip(scores, candidates), key=lambda x: x[0], reverse=True)
+        return [doc for _, doc in ranked[:k]]
 
     def chat(
         self,

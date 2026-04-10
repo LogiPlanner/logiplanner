@@ -43,6 +43,8 @@ class Settings(BaseSettings):
     RAG_TOP_K: int = 5
     CHROMA_PERSIST_DIR: str = "./chroma_data"
     HF_EMBEDDING_MODEL: str = "BAAI/bge-base-en-v1.5"
+    HF_RERANKER_MODEL: str = "BAAI/bge-reranker-base"
+    RAG_RERANK_FETCH_MULTIPLIER: int = 5  # Fetch 5× candidates, rerank, return top-K
 
     # GitHub Integration
     GITHUB_TOKEN: Optional[str] = None  # Personal access token for higher API rate limits
