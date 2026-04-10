@@ -94,9 +94,9 @@
 
                 <form id="createStep2Form">
                     <div class="form-row-2col">
-                        <div class="form-group">
+                        <div class="form-group" id="fullNameGroup">
                             <label for="c_fullName">Full Name<span class="form-required" aria-label="required">*</span></label>
-                            <input type="text" id="c_fullName" class="form-input" placeholder="Jane Doe" required>
+                            <input type="text" id="c_fullName" class="form-input" placeholder="Jane Doe">
                         </div>
                         <div class="form-group">
                             <label for="c_jobTitle">Job Title / Role<span class="form-required" aria-label="required">*</span></label>
@@ -166,8 +166,9 @@
 
                 <!-- Context Notes -->
                 <div class="form-group" style="margin-top:24px;">
-                    <label for="c_notes">Additional Context <span class="form-label-hint">(optional)</span></label>
-                    <textarea id="c_notes" class="form-input form-textarea" placeholder="Any extra notes for the AI Brain? e.g. 'We decided to use FastAPI instead of Django last week...'" rows="3"></textarea>
+                    <label for="c_notes">Additional Context <span class="form-label-hint">(optional — max 5,000 characters)</span></label>
+                    <textarea id="c_notes" class="form-input form-textarea" placeholder="Any extra notes for the AI Brain? e.g. 'We decided to use FastAPI instead of Django last week...'" rows="3" maxlength="5000"></textarea>
+                    <div class="char-counter" id="notesCharCounter">0 / 5,000</div>
                 </div>
 
                 <div class="wizard-step__actions">

@@ -22,6 +22,8 @@ from app.schemas.onboarding import (
     JoinTeamUserDetails,
     TeamPreviewResponse,
     OnboardingBriefResponse,
+    SetupProjectRequest,
+    SetupProjectResponse,
 )
 
 router = APIRouter()
@@ -45,6 +47,17 @@ def _get_or_create_role(db: Session, role_name: str) -> Role:
 # ──────────────────────────────────────────────
 # CREATE TEAM FLOW
 # ──────────────────────────────────────────────
+
+@router.get("/check-team-name")
+async def check_team_name(
+    name: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Check if a team name is already taken."""
+    exists = db.query(Team).filter(Team.team_name == name).first() is not None
+    return {"exists": exists}
+
 
 @router.post("/create-team-full", response_model=CreateTeamResponse)
 async def create_team_full(
