@@ -151,6 +151,12 @@ def enrich_metadata(
     """
     uploaded_at = datetime.now(timezone.utc).isoformat()
 
+    def _build_contextual_header(filename_value: str, summary_value: str) -> str:
+        header_parts = [f"[Document: {filename_value}]"]
+        if summary_value:
+            header_parts.append(f"[Summary: {summary_value}]")
+        return " ".join(header_parts)
+
     for i, chunk in enumerate(chunks):
         # Preserve any existing metadata from loaders (e.g., page number from PDF)
         existing_meta = chunk.metadata or {}
@@ -172,11 +178,37 @@ def enrich_metadata(
         # Contextual chunk headers: prepend document title + summary to the
         # chunk text so the embedding vector captures document-level context.
         if settings.RAG_CONTEXTUAL_HEADERS:
-            header_parts = [f"[Document: {filename}]"]
-            if doc_summary:
-                header_parts.append(f"[Summary: {doc_summary}]")
-            header = " ".join(header_parts)
+            header = _build_contextual_header(filename, doc_summary)
             chunk.page_content = f"{header}\n\n{chunk.page_content}"
+
+    return chunks
+
+
+def apply_document_summary(chunks: List[LCDocument], doc_summary: str) -> List[LCDocument]:
+    """Update chunk metadata and contextual headers after a summary is generated."""
+    normalized_summary = (doc_summary or "").strip()
+
+    for chunk in chunks:
+        if chunk.metadata is None:
+            chunk.metadata = {}
+
+        filename = chunk.metadata.get("filename") or chunk.metadata.get("source") or "Document"
+        chunk.metadata["doc_summary"] = normalized_summary
+
+        if not settings.RAG_CONTEXTUAL_HEADERS:
+            continue
+
+        body = chunk.page_content or ""
+        if body.startswith("[Document: "):
+            _, separator, remainder = body.partition("\n\n")
+            if separator:
+                body = remainder
+
+        header_parts = [f"[Document: {filename}]"]
+        if normalized_summary:
+            header_parts.append(f"[Summary: {normalized_summary}]")
+        header = " ".join(header_parts)
+        chunk.page_content = f"{header}\n\n{body}"
 
     return chunks
 

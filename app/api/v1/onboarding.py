@@ -161,7 +161,7 @@ async def upload_documents(
     """
     from app.models.user import Document
     from app.rag.engine import rag_engine
-    from app.rag.processor import process_document, validate_file, get_doc_type
+    from app.rag.processor import apply_document_summary, process_document, validate_file, get_doc_type
 
     RAG_UPLOAD_DIR = os.path.join("app", "static", "uploads", "rag")
     os.makedirs(RAG_UPLOAD_DIR, exist_ok=True)
@@ -205,9 +205,12 @@ async def upload_documents(
                             _doc.status = "processing"
                             _db.commit()
                             chunks = process_document(fp, fn, tid, doc_id, email)
+                            summary = rag_engine.generate_document_summary(chunks, fn)
+                            chunks = apply_document_summary(chunks, summary)
                             chunk_count = rag_engine.ingest_chunks(tid, chunks)
                             _doc.chunk_count = chunk_count
                             _doc.status = "ready"
+                            _doc.summary = summary
                             _db.commit()
                             print(f"[RAG/ONBOARDING] ✅ {fn} → {chunk_count} chunks")
                     except Exception as e:
@@ -280,6 +283,7 @@ async def setup_project(
     """
     from app.rag.engine import rag_engine
     from app.rag.processor import (
+        apply_document_summary,
         process_document, validate_file, get_doc_type,
         process_drive_url, process_github_repo, process_github_url,
         process_text,
@@ -349,9 +353,12 @@ async def setup_project(
                     _doc.status = "processing"
                     _db.commit()
                     chunks = process_document(fp, fn, tid, doc_id, email)
+                    summary = rag_engine.generate_document_summary(chunks, fn)
+                    chunks = apply_document_summary(chunks, summary)
                     chunk_count = rag_engine.ingest_chunks(tid, chunks)
                     _doc.chunk_count = chunk_count
                     _doc.status = "ready"
+                    _doc.summary = summary
                     _db.commit()
                     print(f"[SETUP/RAG] {fn} -> {chunk_count} chunks")
             except Exception as e:
@@ -407,9 +414,12 @@ async def setup_project(
                     _doc.file_size = size
 
                 if chunks:
+                    summary = rag_engine.generate_document_summary(chunks, _doc.filename)
+                    chunks = apply_document_summary(chunks, summary)
                     chunk_count = rag_engine.ingest_chunks(tid, chunks)
                     _doc.chunk_count = chunk_count
                     _doc.status = "ready"
+                    _doc.summary = summary
                     _db.commit()
                     print(f"[SETUP/LINK] {link_url} -> {chunk_count} chunks")
                 else:
@@ -453,9 +463,12 @@ async def setup_project(
                     _doc.status = "processing"
                     _db.commit()
                     chunks = process_text(notes_text, "Onboarding Context Notes", tid, doc_id, email)
+                    summary = rag_engine.generate_document_summary(chunks, "Onboarding Context Notes")
+                    chunks = apply_document_summary(chunks, summary)
                     chunk_count = rag_engine.ingest_chunks(tid, chunks)
                     _doc.chunk_count = chunk_count
                     _doc.status = "ready"
+                    _doc.summary = summary
                     _db.commit()
                     print(f"[SETUP/NOTES] Context notes -> {chunk_count} chunks")
             except Exception as e:

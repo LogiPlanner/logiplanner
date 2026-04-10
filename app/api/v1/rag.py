@@ -44,6 +44,7 @@ from app.schemas.rag import (
 )
 from app.rag.engine import rag_engine
 from app.rag.processor import (
+    apply_document_summary,
     process_document,
     process_text,
     process_drive_url,
@@ -228,33 +229,7 @@ def _build_live_task_summary(db: Session, team_id: int, current_user: User, max_
 
 def _generate_doc_summary(chunks, filename: str, max_chunks: int = 5) -> str:
     """Generate a one-line summary from the first chunks of a document using the cheap LLM."""
-    try:
-        texts = []
-        for i, chunk in enumerate(chunks[:max_chunks]):
-            snippet = (chunk.page_content or "").strip()
-            if len(snippet) > 600:
-                snippet = snippet[:600] + "..."
-            texts.append(snippet)
-
-        if not texts:
-            return f"Document: {filename}"
-
-        joined = "\n\n".join(texts)
-
-        from langchain_core.messages import SystemMessage, HumanMessage
-        messages = [
-            SystemMessage(content=(
-                "Summarize the following document excerpt in ONE concise sentence (max 30 words). "
-                "Focus on the key topic or purpose of the document. Return ONLY the summary sentence."
-            )),
-            HumanMessage(content=f"Document: {filename}\n\n{joined}"),
-        ]
-
-        response = rag_engine.invoke_expansion(messages)
-        return response.content.strip()[:300]
-    except Exception as e:
-        print(f"[RAG] Summary generation failed for {filename}: {e}")
-        return f"Document: {filename}"
+    return rag_engine.generate_document_summary(chunks, filename, max_chunks=max_chunks)
 
 
 def _update_folder_summary(doc, db):
@@ -311,8 +286,7 @@ def _process_and_ingest(
 
         # Generate summary BEFORE ingest so it lands on each chunk's metadata
         summary = _generate_doc_summary(chunks, filename)
-        for c in chunks:
-            c.metadata["doc_summary"] = summary
+        chunks = apply_document_summary(chunks, summary)
 
         # Ingest into ChromaDB
         chunk_count = rag_engine.ingest_chunks(team_id, chunks)
@@ -460,8 +434,7 @@ async def ingest_text(
             uploader_email=current_user.email,
         )
         summary = _generate_doc_summary(chunks, data.title)
-        for c in chunks:
-            c.metadata["doc_summary"] = summary
+        chunks = apply_document_summary(chunks, summary)
         chunk_count = rag_engine.ingest_chunks(data.team_id, chunks)
         doc_record.chunk_count = chunk_count
         doc_record.status = "ready"
@@ -516,12 +489,9 @@ def _process_and_ingest_drive(
             uploader_email=uploader_email,
         )
 
-        for c in chunks:
-            c.metadata["doc_summary"] = summary
         # Generate summary BEFORE ingest so it lands on each chunk's metadata
         summary = _generate_doc_summary(chunks, filename)
-        for c in chunks:
-            c.metadata["doc_summary"] = summary
+        chunks = apply_document_summary(chunks, summary)
 
         chunk_count = rag_engine.ingest_chunks(team_id, chunks)
 
@@ -769,8 +739,7 @@ async def ingest_github_document(
             )
 
         summary = _generate_doc_summary(chunks, title)
-        for c in chunks:
-            c.metadata["doc_summary"] = summary
+        chunks = apply_document_summary(chunks, summary)
 
         chunk_count = rag_engine.ingest_chunks(data.team_id, chunks)
 
@@ -947,8 +916,7 @@ async def ingest_url(
             uploader_email=current_user.email,
         )
         summary = _generate_doc_summary(chunks, title)
-        for c in chunks:
-            c.metadata["doc_summary"] = summary
+        chunks = apply_document_summary(chunks, summary)
         chunk_count = rag_engine.ingest_chunks(data.team_id, chunks)
         doc_record.filename = title
         doc_record.file_size = file_size

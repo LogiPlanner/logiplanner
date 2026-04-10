@@ -235,19 +235,21 @@ class RAGEngine:
 
     @staticmethod
     def _reciprocal_rank_fusion(
-        result_lists: List[List[LCDocument]],
+        weighted_result_lists: List[tuple[List[LCDocument], float]],
         k_constant: int = 60,
     ) -> List[LCDocument]:
         """Merge multiple ranked result lists using Reciprocal Rank Fusion (RRF).
-        Each document's fused score = sum(1 / (k + rank)) across all lists it appears in.
+        Each document's fused score = sum(weight / (k + rank)) across all lists it appears in.
         De-duplicates by page_content."""
         fused_scores: Dict[str, float] = defaultdict(float)
         doc_map: Dict[str, LCDocument] = {}
 
-        for result_list in result_lists:
+        for result_list, weight in weighted_result_lists:
+            if weight <= 0:
+                continue
             for rank, doc in enumerate(result_list):
                 key = doc.page_content
-                fused_scores[key] += 1.0 / (k_constant + rank)
+                fused_scores[key] += weight / (k_constant + rank)
                 if key not in doc_map:
                     doc_map[key] = doc
 
@@ -272,6 +274,40 @@ class RAGEngine:
         if last_error is not None:
             raise last_error
         raise RuntimeError("Expansion invoke failed without capturing an exception.")
+
+    def generate_document_summary(
+        self,
+        chunks: List[LCDocument],
+        filename: str,
+        max_chunks: int = 5,
+    ) -> str:
+        """Generate a concise document-level summary from the first few chunks."""
+        try:
+            texts = []
+            for chunk in chunks[:max_chunks]:
+                snippet = (chunk.page_content or "").strip()
+                if len(snippet) > 600:
+                    snippet = snippet[:600] + "..."
+                if snippet:
+                    texts.append(snippet)
+
+            if not texts:
+                return f"Document: {filename}"
+
+            joined = "\n\n".join(texts)
+            messages = [
+                SystemMessage(content=(
+                    "Summarize the following document excerpt in ONE concise sentence (max 30 words). "
+                    "Focus on the key topic or purpose of the document. Return ONLY the summary sentence."
+                )),
+                HumanMessage(content=f"Document: {filename}\n\n{joined}"),
+            ]
+
+            response = self.invoke_expansion(messages)
+            return response.content.strip()[:300]
+        except Exception as e:
+            print(f"[RAG] Summary generation failed for {filename}: {e}")
+            return f"Document: {filename}"
 
     def _invoke_llm_with_retry(self, messages, max_retries: int = 3):
         """Invoke chat model with small retry/backoff for transient connection failures."""
@@ -504,12 +540,12 @@ class RAGEngine:
         if filters:
             search_kwargs["filter"] = filters
 
-        all_result_lists: List[List[LCDocument]] = []
+        weighted_result_lists: List[tuple[List[LCDocument], float]] = []
 
         # Primary: expanded query
         try:
             primary_results = vectorstore.similarity_search(expanded_query, **search_kwargs)
-            all_result_lists.append(primary_results)
+            weighted_result_lists.append((primary_results, 1.0))
         except Exception as e:
             print(f"[RAG] Primary vector search error: {e}")
 
@@ -517,20 +553,20 @@ class RAGEngine:
         for alt_q in alt_queries:
             try:
                 alt_results = vectorstore.similarity_search(alt_q, **search_kwargs)
-                all_result_lists.append(alt_results)
+                weighted_result_lists.append((alt_results, 1.0))
             except Exception as e:
                 print(f"[RAG] Alt query search error: {e}")
 
         # Step 4: BM25 keyword search on the original query
         bm25_results = self._bm25_search(team_id, query, k=fetch_k)
         if bm25_results:
-            all_result_lists.append(bm25_results)
+            weighted_result_lists.append((bm25_results, settings.RAG_BM25_WEIGHT))
 
-        if not all_result_lists:
+        if not weighted_result_lists:
             return []
 
         # Step 5: Reciprocal Rank Fusion
-        fused = self._reciprocal_rank_fusion(all_result_lists)
+        fused = self._reciprocal_rank_fusion(weighted_result_lists)
 
         if not fused:
             return []

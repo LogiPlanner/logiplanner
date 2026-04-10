@@ -49,7 +49,7 @@ class Settings(BaseSettings):
     RAG_RERANK_FETCH_MULTIPLIER: int = 5  # Fetch 5× candidates, rerank, return top-K
     RAG_MULTI_QUERY: bool = True           # Generate paraphrases for diverse retrieval
     RAG_MULTI_QUERY_COUNT: int = 3         # Number of query paraphrases to generate
-    RAG_BM25_WEIGHT: float = 0.3           # RRF weight for BM25 results (0 = vector only)
+    RAG_BM25_WEIGHT: float = 0.3           # Relative RRF contribution for BM25 results (<= 0 disables BM25)
     RAG_CONTEXTUAL_HEADERS: bool = True    # Prepend doc title + summary to chunks before embedding
 
     # GitHub Integration
