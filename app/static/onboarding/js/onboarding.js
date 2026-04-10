@@ -1,15 +1,13 @@
 /* ═══════════════════════════════════════════════════════════════
    LogiPlanner — Onboarding Wizard Logic
    Multi-step flow for Create Team / Join Team
-   ALL data collected locally, team creation deferred to dashboard.
    ═══════════════════════════════════════════════════════════════ */
 
-// State — everything held in memory, persisted to sessionStorage on finish
+// State
 let currentFlow = null;          // 'create' | 'join'
+let createdTeamData = null;      // { team_id, team_name, invite_code }
 let selectedFiles = [];          // Files queued for upload
-let uploadedFileNames = [];      // stored_as names from server after upload
 let joinInviteCode = '';         // Stored invite code for join flow
-let userProfile = null;          // Fetched profile info (full_name, email, has_teams)
 
 const CREATE_STEPS = [
     { id: 'step-create-1', label: 'Team Info' },
@@ -129,40 +127,16 @@ async function authGet(url) {
 
 
 // ──────────────────────────────────────────────
-// INIT — Fetch profile, set up forms
+// CREATE FLOW — Step 1: Team Name
 // ──────────────────────────────────────────────
 
-document.addEventListener('DOMContentLoaded', async () => {
+document.addEventListener('DOMContentLoaded', () => {
     window.AuthUI.storeTokenFromUrl();
 
     const token = getToken();
     if (!token) { window.location.href = '/login'; return; }
 
-    // Fetch profile to know if full_name is set, and if user already has teams
-    try {
-        const result = await authGet('/api/v1/profile-status');
-        if (result && result.response.ok) {
-            userProfile = result.data;
-        }
-    } catch (e) {
-        console.error('Could not fetch profile:', e);
-    }
-
-    // Adapt step 0 (choice) messaging for returning users
-    if (userProfile && userProfile.has_teams) {
-        const heroTitle = document.querySelector('.onboarding-hero__title');
-        const heroSub = document.querySelector('.onboarding-hero__subtitle');
-        if (heroTitle) heroTitle.textContent = 'Set Up Another Project';
-        if (heroSub) heroSub.textContent = 'Create a new project workspace or join an existing one.';
-    }
-
-    // Hide full_name field on step 2 if user already has one
-    if (userProfile && userProfile.full_name) {
-        const nameField = document.getElementById('c_fullNameGroup');
-        if (nameField) nameField.style.display = 'none';
-    }
-
-    // Step 1 form — validate name availability, then advance
+    // Step 1 form
     const step1Form = document.getElementById('createStep1Form');
     if (step1Form) {
         step1Form.addEventListener('submit', async (e) => {
@@ -170,66 +144,89 @@ document.addEventListener('DOMContentLoaded', async () => {
             const msg = document.getElementById('createStep1Msg');
             const btn = document.getElementById('createStep1Btn');
             const teamName = document.getElementById('c_teamName').value.trim();
+            const teamDesc = document.getElementById('c_teamDesc').value.trim();
 
             if (!teamName) {
-                window.AuthUI.setMessage(msg, 'error', 'Project name is required.');
+                window.AuthUI.setMessage(msg, 'error', 'Team name is required.');
+                return;
+            }
+
+            // If team was already created in this session, skip the API and advance
+            if (createdTeamData) {
+                showStep('step-create-2');
                 return;
             }
 
             window.AuthUI.setMessage(msg, '', '');
-            if (btn) window.AuthUI.setButtonLoading(btn, true, 'Continue', 'Checking...');
+            window.AuthUI.setButtonLoading(btn, true, 'Continue', 'Creating team...');
 
             try {
-                const result = await authGet(
-                    '/api/v1/onboarding/check-team-name?name=' + encodeURIComponent(teamName)
-                );
+                const result = await authPost('/api/v1/onboarding/create-team-full', {
+                    team_name: teamName,
+                    description: teamDesc || null,
+                });
+
                 if (!result) return;
 
-                if (!result.response.ok || result.data.available === false) {
-                    window.AuthUI.setMessage(msg, 'error', 'A project with this name already exists. Please choose a different name.');
-                    return;
+                if (result.response.ok) {
+                    createdTeamData = result.data;
+                    showStep('step-create-2');
+                } else {
+                    window.AuthUI.setMessage(msg, 'error', result.data.detail || 'Could not create team.');
                 }
-
-                showStep('step-create-2');
             } catch (err) {
                 window.AuthUI.setMessage(msg, 'error', 'Network error. Please try again.');
             } finally {
-                if (btn) window.AuthUI.setButtonLoading(btn, false, 'Continue', 'Checking...');
+                window.AuthUI.setButtonLoading(btn, false, 'Continue', 'Creating team...');
             }
         });
     }
 
-    // Step 2 form — just collect data, NO API call
+    // Step 2 form
     const step2Form = document.getElementById('createStep2Form');
     if (step2Form) {
-        step2Form.addEventListener('submit', (e) => {
+        step2Form.addEventListener('submit', async (e) => {
             e.preventDefault();
             const msg = document.getElementById('createStep2Msg');
-            const jobTitle = document.getElementById('c_jobTitle').value.trim();
+            const btn = document.getElementById('createStep2Btn');
 
-            // full_name only required if not already set
-            if (!userProfile || !userProfile.full_name) {
-                const fullNameInput = document.getElementById('c_fullName');
-                if (fullNameInput && !fullNameInput.value.trim()) {
-                    window.AuthUI.setMessage(msg, 'error', 'Name is required.');
-                    return;
-                }
-            }
+            const payload = {
+                full_name: document.getElementById('c_fullName').value.trim(),
+                job_title: document.getElementById('c_jobTitle').value.trim(),
+                project_stage: document.getElementById('c_projectStage').value || null,
+                project_info: document.getElementById('c_projectInfo').value.trim() || null,
+            };
 
-            if (!jobTitle) {
-                window.AuthUI.setMessage(msg, 'error', 'Job title is required.');
+            if (!payload.full_name || !payload.job_title) {
+                window.AuthUI.setMessage(msg, 'error', 'Name and job title are required.');
                 return;
             }
 
             window.AuthUI.setMessage(msg, '', '');
-            showStep('step-create-3');
+            window.AuthUI.setButtonLoading(btn, true, 'Continue', 'Saving...');
+
+            try {
+                const result = await authPost('/api/v1/onboarding/save-owner-details', payload);
+                if (!result) return;
+
+                if (result.response.ok) {
+                    showStep('step-create-3');
+                } else {
+                    window.AuthUI.setMessage(msg, 'error', result.data.detail || 'Failed to save.');
+                }
+            } catch (err) {
+                window.AuthUI.setMessage(msg, 'error', 'Network error.');
+            } finally {
+                window.AuthUI.setButtonLoading(btn, false, 'Continue', 'Saving...');
+            }
         });
     }
 
+    // Step 4: Show invite code
+    // (populated when step-create-4 becomes active)
+
     // File upload zone
     setupFileUpload();
-
-    // ── Join Flow ──
 
     // Join Step 1
     const joinStep1 = document.getElementById('joinStep1Form');
@@ -303,6 +300,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (!result) return;
 
                 if (result.response.ok) {
+                    // Load onboarding brief
                     await loadOnboardingBrief();
                     showStep('step-join-3');
                 } else {
@@ -372,50 +370,23 @@ function renderFileList() {
     const list = document.getElementById('uploadList');
     if (!list) return;
 
-    list.replaceChildren();
-
     if (selectedFiles.length === 0) {
+        list.innerHTML = '';
         return;
     }
 
-    selectedFiles.forEach((f, i) => {
+    list.innerHTML = selectedFiles.map((f, i) => {
         const icon = getFileIcon(f.name);
         const size = formatSize(f.size);
-
-        const item = document.createElement('div');
-        item.className = 'upload-item';
-
-        const iconEl = document.createElement('div');
-        iconEl.className = 'upload-item__icon';
-        iconEl.textContent = icon;
-
-        const nameEl = document.createElement('div');
-        nameEl.className = 'upload-item__name';
-        nameEl.textContent = f.name;
-
-        const sizeEl = document.createElement('div');
-        sizeEl.className = 'upload-item__size';
-        sizeEl.textContent = size;
-
-        const removeBtn = document.createElement('button');
-        removeBtn.className = 'upload-item__remove';
-        removeBtn.type = 'button';
-        removeBtn.title = 'Remove';
-        removeBtn.textContent = '\u2715';
-        removeBtn.addEventListener('click', () => removeFile(i));
-
-        item.appendChild(iconEl);
-        item.appendChild(nameEl);
-        item.appendChild(sizeEl);
-        item.appendChild(removeBtn);
-        list.appendChild(item);
-    });
-}
-
-function escapeHtml(str) {
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
+        return `
+            <div class="upload-item">
+                <div class="upload-item__icon">${icon}</div>
+                <div class="upload-item__name">${f.name}</div>
+                <div class="upload-item__size">${size}</div>
+                <button class="upload-item__remove" onclick="removeFile(${i})" title="Remove">✕</button>
+            </div>
+        `;
+    }).join('');
 }
 
 function getFileIcon(name) {
@@ -433,32 +404,17 @@ function formatSize(bytes) {
 
 // ──────────────────────────────────────────────
 // CREATE FLOW — Step 3: Save Ingestion
-// Uploads files to temp storage, collects links/notes in memory
 // ──────────────────────────────────────────────
 
 async function saveIngestion() {
     const msg = document.getElementById('createStep3Msg');
     const btn = document.getElementById('createStep3Btn');
 
-    // Validate links limit
-    const links = collectLinks();
-    if (links.length > 5) {
-        window.AuthUI.setMessage(msg, 'error', 'Maximum 5 links allowed.');
-        return;
-    }
-
-    // Validate notes length
-    const notes = document.getElementById('c_notes').value.trim();
-    if (notes.length > 5000) {
-        window.AuthUI.setMessage(msg, 'error', 'Additional context must be 5,000 characters or fewer.');
-        return;
-    }
-
     window.AuthUI.setMessage(msg, '', '');
-    window.AuthUI.setButtonLoading(btn, true, 'Continue', 'Uploading files...');
+    window.AuthUI.setButtonLoading(btn, true, 'Continue', 'Saving...');
 
     try {
-        // Upload files to temp storage (no team_id — deferred)
+        // Upload files if any
         if (selectedFiles.length > 0) {
             const formData = new FormData();
             selectedFiles.forEach(f => formData.append('files', f));
@@ -475,17 +431,32 @@ async function saveIngestion() {
                 window.AuthUI.setMessage(msg, 'error', err.detail || 'File upload failed.');
                 return;
             }
+        }
 
-            const uploadData = await uploadRes.json();
-            // Store the server-side filenames for linking later
-            uploadedFileNames = (uploadData.files || []).map(f => f.stored_as);
+        // Save links
+        const links = collectLinks();
+        const notes = document.getElementById('c_notes').value.trim();
+
+        if (links.length > 0 || notes) {
+            const result = await authPost('/api/v1/onboarding/save-ingestion-links', { links, notes: notes || null });
+            if (!result || !result.response.ok) {
+                const detail = result?.data?.detail || 'Failed to save links.';
+                window.AuthUI.setMessage(msg, 'error', detail);
+                return;
+            }
+        }
+
+        // Show invite code on step 4
+        if (createdTeamData) {
+            document.getElementById('inviteCodeDisplay').textContent = createdTeamData.invite_code;
+            document.getElementById('inviteCodeCard').style.display = 'block';
         }
 
         showStep('step-create-4');
     } catch (err) {
         window.AuthUI.setMessage(msg, 'error', 'Network error.');
     } finally {
-        window.AuthUI.setButtonLoading(btn, false, 'Continue', 'Uploading files...');
+        window.AuthUI.setButtonLoading(btn, false, 'Continue', 'Saving...');
     }
 }
 
@@ -507,7 +478,7 @@ function collectLinks() {
 
 
 // ──────────────────────────────────────────────
-// CREATE FLOW — Step 4: Invites → Store All & Go to Dashboard
+// CREATE FLOW — Step 4: Invites
 // ──────────────────────────────────────────────
 
 function addInviteRow() {
@@ -530,20 +501,6 @@ async function sendInvitesAndFinish() {
     const msg = document.getElementById('createStep4Msg');
     const btn = document.getElementById('createStep4Btn');
 
-    // Collect ALL data from the wizard into one payload
-    const teamName = document.getElementById('c_teamName').value.trim();
-    const teamDesc = document.getElementById('c_teamDesc').value.trim();
-    const jobTitle = document.getElementById('c_jobTitle').value.trim();
-    const projectStage = document.getElementById('c_projectStage')?.value || null;
-    const projectInfo = document.getElementById('c_projectInfo')?.value.trim() || null;
-
-    // Role preference (if the field exists)
-    const roleSelect = document.getElementById('c_rolePref');
-    const rolePref = roleSelect ? roleSelect.value || null : null;
-
-    const links = collectLinks();
-    const notes = document.getElementById('c_notes')?.value.trim() || null;
-
     const rows = document.querySelectorAll('#inviteRows .invite-row');
     const invites = [];
     rows.forEach(row => {
@@ -556,32 +513,29 @@ async function sendInvitesAndFinish() {
         }
     });
 
-    // Collect full_name only if the field is visible (not already set on profile)
-    const fullNameInput = document.getElementById('c_fullName');
-    const fullName = fullNameInput ? fullNameInput.value.trim() || null : null;
+    if (invites.length === 0) {
+        finishOnboarding();
+        return;
+    }
 
-    // Build the full setup payload
-    const setupData = {
-        team_name: teamName,
-        description: teamDesc || null,
-        full_name: fullName,
-        job_title: jobTitle,
-        role_preference: rolePref,
-        project_stage: projectStage,
-        project_info: projectInfo,
-        links: links,
-        notes: notes,
-        uploaded_files: uploadedFileNames,
-        invites: invites,
-    };
+    window.AuthUI.setMessage(msg, '', '');
+    window.AuthUI.setButtonLoading(btn, true, 'Send Invites & Finish 🎉', 'Sending...');
 
-    // Store in sessionStorage — dashboard will pick it up
-    sessionStorage.setItem('lp_pending_setup', JSON.stringify(setupData));
+    try {
+        const result = await authPost('/api/v1/onboarding/send-invites', { invites });
+        if (!result) return;
 
-    window.AuthUI.setMessage(msg, 'success', 'All set! Redirecting to your dashboard...');
-    window.AuthUI.setButtonLoading(btn, true, 'Finish', 'Setting up...');
-
-    setTimeout(finishOnboarding, 800);
+        if (result.response.ok) {
+            window.AuthUI.setMessage(msg, 'success', `Invited ${invites.length} member(s)! Redirecting...`);
+            setTimeout(finishOnboarding, 1200);
+        } else {
+            window.AuthUI.setMessage(msg, 'error', result.data.detail || 'Failed to send invites.');
+        }
+    } catch (err) {
+        window.AuthUI.setMessage(msg, 'error', 'Network error.');
+    } finally {
+        window.AuthUI.setButtonLoading(btn, false, 'Send Invites & Finish 🎉', 'Sending...');
+    }
 }
 
 function copyInviteCode() {
@@ -596,34 +550,27 @@ function copyInviteCode() {
 
 
 // ──────────────────────────────────────────────
-// LINK ROWS — Google Drive & GitHub only, max 5
+// LINK ROWS
 // ──────────────────────────────────────────────
 
 function addLinkRow() {
     const container = document.getElementById('linksList');
-    if (container.children.length >= 5) {
-        alert('Maximum 5 links allowed.');
-        return;
-    }
-
     const idx = container.children.length;
     const row = document.createElement('div');
     row.className = 'link-row';
     row.dataset.index = idx;
     row.innerHTML = `
-        <select class="form-select link-type" style="width:160px;">
+        <select class="form-select link-type" style="width:140px;">
+            <option value="link">🔗 Link</option>
             <option value="google_drive">📁 Google Drive</option>
+            <option value="miro">🎨 Miro</option>
             <option value="github">💻 GitHub</option>
+            <option value="notion">📝 Notion</option>
         </select>
         <input type="url" class="form-input link-url" placeholder="https://...">
         <input type="text" class="form-input link-label" placeholder="Label (optional)" style="width:140px;">
-        <button type="button" class="link-remove-btn" onclick="removeLinkRow(this)" title="Remove">\u2715</button>
     `;
     container.appendChild(row);
-}
-
-function removeLinkRow(btn) {
-    btn.closest('.link-row').remove();
 }
 
 

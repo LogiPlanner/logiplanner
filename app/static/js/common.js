@@ -7,7 +7,8 @@
 
     // ── Token helpers ──
     function forceLogout() {
-        window.__lpStorage.clearAll();
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
         window.location.href = '/login';
     }
 
