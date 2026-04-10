@@ -130,6 +130,7 @@ def enrich_metadata(
     filename: str,
     uploader_email: str,
     doc_type: str,
+    doc_summary: str = "",
 ) -> List[LCDocument]:
     """
     Enrich each chunk with metadata for filtering and traceability.
@@ -143,6 +144,10 @@ def enrich_metadata(
     - chunk_index: Position of this chunk in the document
     - page_number: Page number (for PDFs, from loader metadata)
     - uploaded_at: ISO timestamp of when the document was ingested
+    - doc_summary: One-sentence summary of the full document
+
+    When RAG_CONTEXTUAL_HEADERS is enabled, the chunk text is prepended with the
+    document title and summary so the embedding captures document-level context.
     """
     uploaded_at = datetime.now(timezone.utc).isoformat()
 
@@ -161,7 +166,17 @@ def enrich_metadata(
             "uploaded_at": uploaded_at,
             # Keep source from loader if present
             "source": existing_meta.get("source", filename),
+            "doc_summary": doc_summary,
         }
+
+        # Contextual chunk headers: prepend document title + summary to the
+        # chunk text so the embedding vector captures document-level context.
+        if settings.RAG_CONTEXTUAL_HEADERS:
+            header_parts = [f"[Document: {filename}]"]
+            if doc_summary:
+                header_parts.append(f"[Summary: {doc_summary}]")
+            header = " ".join(header_parts)
+            chunk.page_content = f"{header}\n\n{chunk.page_content}"
 
     return chunks
 

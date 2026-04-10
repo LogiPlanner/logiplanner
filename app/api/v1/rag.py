@@ -226,8 +226,8 @@ def _build_live_task_summary(db: Session, team_id: int, current_user: User, max_
 # INGESTION ENDPOINTS
 # ──────────────────────────────────────────────
 
-def _generate_doc_summary(chunks, filename: str, max_chunks: int = 3) -> str:
-    """Generate a one-line summary from the first chunks of a document using the LLM."""
+def _generate_doc_summary(chunks, filename: str, max_chunks: int = 5) -> str:
+    """Generate a one-line summary from the first chunks of a document using the cheap LLM."""
     try:
         texts = []
         for i, chunk in enumerate(chunks[:max_chunks]):
@@ -250,7 +250,7 @@ def _generate_doc_summary(chunks, filename: str, max_chunks: int = 3) -> str:
             HumanMessage(content=f"Document: {filename}\n\n{joined}"),
         ]
 
-        response = rag_engine._invoke_llm_with_retry(messages)
+        response = rag_engine.invoke_expansion(messages)
         return response.content.strip()[:300]
     except Exception as e:
         print(f"[RAG] Summary generation failed for {filename}: {e}")
@@ -309,11 +309,13 @@ def _process_and_ingest(
             uploader_email=uploader_email,
         )
 
+        # Generate summary BEFORE ingest so it lands on each chunk's metadata
+        summary = _generate_doc_summary(chunks, filename)
+        for c in chunks:
+            c.metadata["doc_summary"] = summary
+
         # Ingest into ChromaDB
         chunk_count = rag_engine.ingest_chunks(team_id, chunks)
-
-        # Generate a summary from the first few chunks
-        summary = _generate_doc_summary(chunks, filename)
 
         # Update record
         doc.chunk_count = chunk_count
@@ -457,8 +459,10 @@ async def ingest_text(
             document_id=doc_record.id,
             uploader_email=current_user.email,
         )
-        chunk_count = rag_engine.ingest_chunks(data.team_id, chunks)
         summary = _generate_doc_summary(chunks, data.title)
+        for c in chunks:
+            c.metadata["doc_summary"] = summary
+        chunk_count = rag_engine.ingest_chunks(data.team_id, chunks)
         doc_record.chunk_count = chunk_count
         doc_record.status = "ready"
         doc_record.summary = summary
@@ -512,10 +516,14 @@ def _process_and_ingest_drive(
             uploader_email=uploader_email,
         )
 
-        chunk_count = rag_engine.ingest_chunks(team_id, chunks)
-
-        # Generate a summary from the first few chunks
+        for c in chunks:
+            c.metadata["doc_summary"] = summary
+        # Generate summary BEFORE ingest so it lands on each chunk's metadata
         summary = _generate_doc_summary(chunks, filename)
+        for c in chunks:
+            c.metadata["doc_summary"] = summary
+
+        chunk_count = rag_engine.ingest_chunks(team_id, chunks)
 
         # Keep user-provided custom name; only overwrite generic placeholder names
         current_name = doc.filename or ""
@@ -760,8 +768,11 @@ async def ingest_github_document(
                 uploader_email=current_user.email,
             )
 
-        chunk_count = rag_engine.ingest_chunks(data.team_id, chunks)
         summary = _generate_doc_summary(chunks, title)
+        for c in chunks:
+            c.metadata["doc_summary"] = summary
+
+        chunk_count = rag_engine.ingest_chunks(data.team_id, chunks)
 
         doc_record.filename = custom_name or title
         doc_record.file_size = file_size
@@ -935,8 +946,10 @@ async def ingest_url(
             document_id=doc_record.id,
             uploader_email=current_user.email,
         )
-        chunk_count = rag_engine.ingest_chunks(data.team_id, chunks)
         summary = _generate_doc_summary(chunks, title)
+        for c in chunks:
+            c.metadata["doc_summary"] = summary
+        chunk_count = rag_engine.ingest_chunks(data.team_id, chunks)
         doc_record.filename = title
         doc_record.file_size = file_size
         doc_record.chunk_count = chunk_count

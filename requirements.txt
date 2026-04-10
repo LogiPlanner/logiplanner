@@ -20,6 +20,7 @@ langchain
 langchain-openai
 langchain-huggingface
 sentence-transformers
+rank_bm25
 langchain-chroma
 langchain-community
 chromadb
