@@ -28,6 +28,7 @@
     let teamMembers = [];
     let taggedUserIds = [];      // Currently tagged user IDs in the modal
     let selectedColorTag = '';   // Currently selected color hex
+    let syncToGoogleCalendar = false;
 
     // AI suggestions state
     let aiSuggestions = [];
@@ -1148,6 +1149,7 @@
             if (taskTypeInput) taskTypeInput.value = editTask.task_type || 'regular';
             selectedColorTag = editTask.color_tag || '';
             taggedUserIds = (editTask.tagged_users || []).map(u => u.id);
+            syncToGoogleCalendar = false;
         } else {
             title.textContent = 'Add Task';
             saveBtn.textContent = 'Add Task';
@@ -1159,6 +1161,9 @@
             if (taskTypeInput) taskTypeInput.value = 'regular';
             selectedColorTag = '';
             taggedUserIds = [];
+            syncToGoogleCalendar = false;
+            const googleInput = document.getElementById('taskGoogleCalendarInput');
+            if (googleInput) googleInput.checked = false;
 
             // Default: today at current hour, +1 hour
             const now = new Date();
@@ -1179,6 +1184,11 @@
             colorPicker.querySelectorAll('.task-modal__color-swatch').forEach(s => {
                 s.classList.toggle('active', (s.dataset.color || '') === selectedColorTag);
             });
+        }
+
+        const googleInput = document.getElementById('taskGoogleCalendarInput');
+        if (googleInput) {
+            googleInput.checked = syncToGoogleCalendar;
         }
 
         renderTaggedMembers();
@@ -1210,6 +1220,26 @@
         // Auto-hide after 6 seconds
         clearTimeout(el._hideTimer);
         el._hideTimer = setTimeout(() => { el.style.display = 'none'; }, 6000);
+    }
+
+    function formatGoogleCalendarDate(isoString) {
+        const date = new Date(isoString);
+        return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    }
+
+    function buildGoogleCalendarUrl(task) {
+        const title = encodeURIComponent(task.title || '');
+        const details = encodeURIComponent(task.description || '');
+        const location = encodeURIComponent(task.location || '');
+        const dates = formatGoogleCalendarDate(task.start_datetime) + '/' + formatGoogleCalendarDate(task.end_datetime);
+        const params = [
+            'action=TEMPLATE',
+            'text=' + title,
+            'dates=' + dates,
+            details ? 'details=' + details : '',
+            location ? 'location=' + location : '',
+        ].filter(Boolean).join('&');
+        return 'https://calendar.google.com/calendar/render?' + params;
     }
 
     async function saveTask() {
@@ -1267,6 +1297,13 @@
         const conflictWarning = document.getElementById('taskConflictWarning');
         if (conflictWarning) delete conflictWarning.dataset.acknowledged;
 
+        const googleInput = document.getElementById('taskGoogleCalendarInput');
+        syncToGoogleCalendar = googleInput?.checked || false;
+        let googleWindow = null;
+        if (syncToGoogleCalendar) {
+            googleWindow = window.open('about:blank', '_blank');
+        }
+
         const body = {
             title: titleVal,
             description: descVal || null,
@@ -1291,7 +1328,20 @@
             await loadCalendarTasks();
             // Refresh day panel if open
             if (selectedDate) refreshDayPanel(selectedDate);
+
+            if (syncToGoogleCalendar) {
+                const url = buildGoogleCalendarUrl(result);
+                if (googleWindow) {
+                    googleWindow.location.href = url;
+                } else {
+                    window.open(url, '_blank');
+                }
+                syncToGoogleCalendar = false;
+            }
         } else {
+            if (googleWindow) {
+                googleWindow.close();
+            }
             const detail = (result && result.detail) ? result.detail : 'Could not save task. Please try again.';
             showTaskModalError(typeof detail === 'string' ? detail : JSON.stringify(detail));
         }
