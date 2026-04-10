@@ -130,6 +130,7 @@ def enrich_metadata(
     filename: str,
     uploader_email: str,
     doc_type: str,
+    doc_summary: str = "",
 ) -> List[LCDocument]:
     """
     Enrich each chunk with metadata for filtering and traceability.
@@ -143,8 +144,18 @@ def enrich_metadata(
     - chunk_index: Position of this chunk in the document
     - page_number: Page number (for PDFs, from loader metadata)
     - uploaded_at: ISO timestamp of when the document was ingested
+    - doc_summary: One-sentence summary of the full document
+
+    When RAG_CONTEXTUAL_HEADERS is enabled, the chunk text is prepended with the
+    document title and summary so the embedding captures document-level context.
     """
     uploaded_at = datetime.now(timezone.utc).isoformat()
+
+    def _build_contextual_header(filename_value: str, summary_value: str) -> str:
+        header_parts = [f"[Document: {filename_value}]"]
+        if summary_value:
+            header_parts.append(f"[Summary: {summary_value}]")
+        return " ".join(header_parts)
 
     for i, chunk in enumerate(chunks):
         # Preserve any existing metadata from loaders (e.g., page number from PDF)
@@ -161,7 +172,43 @@ def enrich_metadata(
             "uploaded_at": uploaded_at,
             # Keep source from loader if present
             "source": existing_meta.get("source", filename),
+            "doc_summary": doc_summary,
         }
+
+        # Contextual chunk headers: prepend document title + summary to the
+        # chunk text so the embedding vector captures document-level context.
+        if settings.RAG_CONTEXTUAL_HEADERS:
+            header = _build_contextual_header(filename, doc_summary)
+            chunk.page_content = f"{header}\n\n{chunk.page_content}"
+
+    return chunks
+
+
+def apply_document_summary(chunks: List[LCDocument], doc_summary: str) -> List[LCDocument]:
+    """Update chunk metadata and contextual headers after a summary is generated."""
+    normalized_summary = (doc_summary or "").strip()
+
+    for chunk in chunks:
+        if chunk.metadata is None:
+            chunk.metadata = {}
+
+        filename = chunk.metadata.get("filename") or chunk.metadata.get("source") or "Document"
+        chunk.metadata["doc_summary"] = normalized_summary
+
+        if not settings.RAG_CONTEXTUAL_HEADERS:
+            continue
+
+        body = chunk.page_content or ""
+        if body.startswith("[Document: "):
+            _, separator, remainder = body.partition("\n\n")
+            if separator:
+                body = remainder
+
+        header_parts = [f"[Document: {filename}]"]
+        if normalized_summary:
+            header_parts.append(f"[Summary: {normalized_summary}]")
+        header = " ".join(header_parts)
+        chunk.page_content = f"{header}\n\n{body}"
 
     return chunks
 
