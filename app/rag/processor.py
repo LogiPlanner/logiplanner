@@ -589,14 +589,7 @@ def validate_public_http_url(url: str) -> str:
 
     def _is_public_ip(ip_str: str) -> bool:
         ip_obj = ipaddress.ip_address(ip_str)
-        return not (
-            ip_obj.is_private
-            or ip_obj.is_loopback
-            or ip_obj.is_link_local
-            or ip_obj.is_multicast
-            or ip_obj.is_reserved
-            or ip_obj.is_unspecified
-        )
+        return ip_obj.is_global
 
     # If host is a literal IP, validate directly.
     try:
