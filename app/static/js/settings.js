@@ -61,6 +61,9 @@ document.addEventListener("DOMContentLoaded", () => {
             // Load subteams
             await loadSubteams();
 
+            // Load project members + invite code
+            await loadProjectInviteInfo();
+
             // URL tab restore
             const tab = new URLSearchParams(window.location.search).get("section") || new URLSearchParams(window.location.search).get("tab");
             if (tab) {
@@ -107,6 +110,111 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         });
     }
+
+    /* ═══════════════════ PROJECT MEMBERS & INVITE CODE ═══════════════════ */
+
+    let projectMembers = [];
+    let projectMyRole  = "viewer";
+
+    async function loadProjectInviteInfo() {
+        if (!currentTeamId) return;
+        const data = await apiCall(`/api/v1/settings/teams/${currentTeamId}/invite-info`, "GET");
+        if (!data) return;
+
+        projectMyRole = data.my_role || "viewer";
+        projectMembers = data.members || [];
+
+        // Render invite code
+        const codeEl = document.getElementById("projectInviteCode");
+        if (codeEl) codeEl.textContent = data.invite_code || "—";
+
+        // Show/hide owner-only controls
+        document.querySelectorAll(".stg-btn--owner-only").forEach(btn => {
+            btn.style.display = projectMyRole === "owner" ? "" : "none";
+        });
+        const inviteBtn = document.getElementById("openProjectInviteBtn");
+        if (inviteBtn) inviteBtn.style.display = ["owner", "admin", "editor"].includes(projectMyRole) ? "" : "none";
+
+        renderProjectMembers(projectMembers);
+    }
+
+    function renderProjectMembers(members) {
+        const list = document.getElementById("projectMemberList");
+        if (!list) return;
+        if (!members || members.length === 0) {
+            list.innerHTML = `<div class="stg-member-list__empty">No members yet.</div>`;
+            return;
+        }
+        list.innerHTML = members.map(m => {
+            const initials = m.initials || (m.full_name || "U").split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
+            const canManage = projectMyRole === "owner" && !m.is_self;
+            return `
+            <div class="stg-member-row">
+                <div class="stg-member-row__avatar" style="background:#e0e7ff;color:#4f46e5;">${escapeHtml(initials)}</div>
+                <div class="stg-member-row__info">
+                    <span class="stg-member-row__name">${escapeHtml(m.full_name)}</span>
+                    <span class="stg-member-row__email">${escapeHtml(m.email)}</span>
+                </div>
+                <span class="stg-member-row__badge stg-member-row__badge--${escapeHtml(m.role)}">${escapeHtml(m.role)}</span>
+                ${canManage ? `<button class="stg-member-row__remove" data-uid="${m.id}" title="Remove from project">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>` : `<span></span>`}
+            </div>`;
+        }).join("");
+
+        list.querySelectorAll(".stg-member-row__remove").forEach(btn => {
+            btn.addEventListener("click", async () => {
+                const uid = parseInt(btn.dataset.uid);
+                if (!confirm("Remove this member from the project?")) return;
+                const res = await apiCall(`/api/v1/settings/teams/${currentTeamId}/members/${uid}`, "DELETE");
+                if (res) {
+                    showToast("Member removed", "success");
+                    await loadProjectInviteInfo();
+                }
+            });
+        });
+    }
+
+    // Open/close inline invite panel
+    document.getElementById("openProjectInviteBtn")?.addEventListener("click", () => {
+        const panel = document.getElementById("projectInvitePanel");
+        if (panel) panel.style.display = panel.style.display === "none" ? "block" : "none";
+    });
+    document.getElementById("projectInviteCancelBtn")?.addEventListener("click", () => {
+        const panel = document.getElementById("projectInvitePanel");
+        if (panel) panel.style.display = "none";
+    });
+
+    // Send project-level invite
+    document.getElementById("projectInviteConfirmBtn")?.addEventListener("click", async () => {
+        const email = document.getElementById("projectInviteEmail")?.value.trim();
+        const role  = document.getElementById("projectInviteRole")?.value || "viewer";
+        if (!email) { showToast("Please enter an email address", "error"); return; }
+        const res = await apiCall(`/api/v1/settings/teams/${currentTeamId}/invites`, "POST", { email, role });
+        if (res) {
+            showToast(res.message || "Invite sent!", "success");
+            document.getElementById("projectInviteEmail").value = "";
+            document.getElementById("projectInvitePanel").style.display = "none";
+            await loadProjectInviteInfo();
+        }
+    });
+
+    // Copy project invite code
+    document.getElementById("copyProjectCodeBtn")?.addEventListener("click", () => {
+        const code = document.getElementById("projectInviteCode")?.textContent || "";
+        navigator.clipboard.writeText(code).then(() => showToast("Invite code copied!", "success"));
+    });
+
+    // Regenerate project invite code (owner only)
+    document.getElementById("regenerateProjectCodeBtn")?.addEventListener("click", async () => {
+        if (!confirm("Generate a new invite code? The old code will stop working.")) return;
+        const res = await apiCall(`/api/v1/settings/teams/${currentTeamId}/regenerate-invite`, "POST");
+        if (res) {
+            const codeEl = document.getElementById("projectInviteCode");
+            if (codeEl) codeEl.textContent = res.invite_code;
+            showToast("Invite code regenerated", "success");
+        }
+    });
 
     /* ═══════════════════ NOTIFICATION TOGGLES ═══════════════════ */
 
@@ -280,9 +388,14 @@ document.addEventListener("DOMContentLoaded", () => {
         managingSubteamId   = subteamId;
         managingSubteamName = subteamName;
 
-        document.getElementById("manageMembersTitle").textContent   = subteamName;
+        document.getElementById("manageMembersTitle").textContent    = subteamName;
         document.getElementById("manageMembersSubtitle").textContent = "Manage team members within this project.";
-        document.getElementById("addMemberPanel").style.display = "none";
+        document.getElementById("addMemberPanel").style.display      = "none";
+        document.getElementById("inviteSubteamPanel").style.display  = "none";
+
+        // Show the project's invite code in the subteam modal
+        const codeEl = document.getElementById("subteamProjectInviteCode");
+        if (codeEl) codeEl.textContent = document.getElementById("projectInviteCode")?.textContent || "—";
 
         await refreshMembersList();
         openModal("manageMembersOverlay");
@@ -393,6 +506,40 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("addMemberToTeamBtn")?.addEventListener("click", () => {
         const panel = document.getElementById("addMemberPanel");
         if (panel) panel.style.display = panel.style.display === "none" ? "flex" : "none";
+        document.getElementById("inviteSubteamPanel").style.display = "none";
+    });
+
+    // Toggle invite-by-email panel in subteam modal
+    document.getElementById("inviteToSubteamBtn")?.addEventListener("click", () => {
+        const panel = document.getElementById("inviteSubteamPanel");
+        if (panel) panel.style.display = panel.style.display === "none" ? "flex" : "none";
+        document.getElementById("addMemberPanel").style.display = "none";
+    });
+
+    // Send subteam invite by email
+    document.getElementById("subteamInviteConfirmBtn")?.addEventListener("click", async () => {
+        const email = document.getElementById("subteamInviteEmail")?.value.trim();
+        const role  = document.getElementById("subteamInviteRole")?.value || "viewer";
+        if (!email) { showToast("Please enter an email address", "error"); return; }
+        const res = await apiCall(
+            `/api/v1/settings/teams/${currentTeamId}/subteams/${managingSubteamId}/invite`,
+            "POST",
+            { email, role }
+        );
+        if (res) {
+            showToast(res.message || "Invite sent!", "success");
+            document.getElementById("subteamInviteEmail").value = "";
+            document.getElementById("inviteSubteamPanel").style.display = "none";
+            await refreshMembersList();
+            await loadSubteams();
+            await loadProjectInviteInfo();
+        }
+    });
+
+    // Copy subteam project code
+    document.getElementById("copySubteamCodeBtn")?.addEventListener("click", () => {
+        const code = document.getElementById("subteamProjectInviteCode")?.textContent || "";
+        navigator.clipboard.writeText(code).then(() => showToast("Invite code copied!", "success"));
     });
 
     document.getElementById("addMemberConfirmBtn")?.addEventListener("click", async () => {
@@ -591,6 +738,98 @@ document.addEventListener("DOMContentLoaded", () => {
                 showToast("Invite sent!", "success");
                 closeModal("inviteModalOverlay");
                 inviteForm.reset();
+            }
+        });
+    }
+
+    /* ═══════════════════ CREATE PROJECT ═══════════════════ */
+
+    const createProjectForm = document.getElementById("createProjectForm");
+
+    // Pre-fill full name from profile on tab activation
+    document.querySelector('.stg-nav__link[data-target="create-project"]')?.addEventListener("click", async () => {
+        const nameInput = document.getElementById("cp_fullName");
+        if (nameInput && !nameInput.value) {
+            try {
+                const r = await window.__lp.authFetch("/api/v1/auth/me");
+                if (r && r.ok) {
+                    const d = await r.json();
+                    if (d.full_name) nameInput.value = d.full_name;
+                    const jobInput = document.getElementById("cp_jobTitle");
+                    if (jobInput && !jobInput.value && d.job_title) jobInput.value = d.job_title;
+                }
+            } catch { /* ignore */ }
+        }
+    });
+
+    if (createProjectForm) {
+        createProjectForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+
+            const btn = document.getElementById("createProjectBtn");
+            const statusEl = document.getElementById("createProjectStatus");
+
+            const teamName   = document.getElementById("cp_teamName").value.trim();
+            const teamDesc   = document.getElementById("cp_teamDesc").value.trim();
+            const fullName   = document.getElementById("cp_fullName").value.trim();
+            const jobTitle   = document.getElementById("cp_jobTitle").value.trim();
+            const stage      = document.getElementById("cp_projectStage").value;
+            const projectInfo = document.getElementById("cp_projectInfo").value.trim();
+
+            if (!teamName || !fullName || !jobTitle) {
+                statusEl.textContent = "Please fill in all required fields.";
+                statusEl.className = "stg-create-status stg-create-status--error";
+                return;
+            }
+
+            btn.disabled = true;
+            statusEl.textContent = "Creating project…";
+            statusEl.className = "stg-create-status";
+
+            try {
+                // Step 1: create the team
+                const step1Res = await window.__lp.authFetch("/api/v1/onboarding/create-team-full", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ team_name: teamName, description: teamDesc })
+                });
+                if (!step1Res || !step1Res.ok) {
+                    const err = await step1Res?.json().catch(() => ({}));
+                    statusEl.textContent = err.detail || "Failed to create project.";
+                    statusEl.className = "stg-create-status stg-create-status--error";
+                    btn.disabled = false;
+                    return;
+                }
+                const step1Data = await step1Res.json();
+                const newTeamId = step1Data.team_id || step1Data.id;
+
+                // Step 2: save owner details
+                await window.__lp.authFetch("/api/v1/onboarding/save-owner-details", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        full_name: fullName,
+                        job_title: jobTitle,
+                        project_stage: stage || null,
+                        project_info: projectInfo || null
+                    })
+                });
+
+                // Switch to the new project
+                if (newTeamId) {
+                    localStorage.setItem("selected_team_id", newTeamId);
+                }
+
+                showToast("Project \"" + teamName + "\" created!", "success");
+                statusEl.textContent = "Project created successfully! Reloading…";
+                statusEl.className = "stg-create-status stg-create-status--success";
+
+                setTimeout(() => window.location.reload(), 1200);
+
+            } catch (err) {
+                statusEl.textContent = "Network error. Please try again.";
+                statusEl.className = "stg-create-status stg-create-status--error";
+                btn.disabled = false;
             }
         });
     }

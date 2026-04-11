@@ -74,6 +74,11 @@
     document.getElementById('navbarLogoutBtn')?.addEventListener('click', () => forceLogout());
     document.getElementById('logoutBtn')?.addEventListener('click', () => forceLogout());
 
+    // ── Create Project (navbar) ──
+    document.getElementById('navCreateProjectBtn')?.addEventListener('click', function() {
+        window.location.href = '/settings?section=create-project';
+    });
+
     // ── Mobile Sidebar Toggle ──
     const toggle  = document.getElementById('mobileToggle');
     const sidebar = document.getElementById('mainSidebar');
@@ -270,15 +275,24 @@
             .replace(/"/g, '&quot;');
     }
 
-    // ── Load user info → set initials, then load teams ──
+    // ── Load user info → set initials + dropdown name/email ──
     authFetch('/api/v1/auth/me')
         .then(function(r) { return r && r.ok ? r.json() : null; })
         .then(function(d) {
             if (!d) return;
-            var name = d.full_name || d.email || '';
-            var initials = name.trim().split(/\s+/).slice(0, 2).map(function(p) { return p[0].toUpperCase(); }).join('') || 'U';
+            var name = d.full_name || '';
+            var email = d.email || '';
+            var displayName = name || email;
+            var initials = displayName.trim().split(/\s+/).slice(0, 2).map(function(p) { return p[0].toUpperCase(); }).join('') || 'U';
             var avatarEl = document.getElementById('avatarInitials');
             if (avatarEl) avatarEl.textContent = initials;
+            var nameEl = document.getElementById('navUserName');
+            if (nameEl) nameEl.textContent = name || email;
+            var emailEl = document.getElementById('navUserEmail');
+            if (emailEl) {
+                emailEl.textContent = email;
+                emailEl.style.display = name && email ? '' : 'none';
+            }
         })
         .catch(function() {});
 

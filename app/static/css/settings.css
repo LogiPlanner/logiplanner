@@ -72,6 +72,30 @@
 .stg-nav__link--danger:hover { background: rgba(239,68,68,0.06); color: var(--color-error); }
 .stg-nav__link--danger svg { color: var(--color-error); }
 
+.stg-nav__link--create { color: var(--color-primary); }
+.stg-nav__link--create:hover { background: rgba(79,70,229,0.06); color: var(--color-primary); }
+.stg-nav__link--create svg { color: var(--color-primary); }
+
+/* Two-column field row */
+.stg-field-row-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+@media (max-width: 600px) {
+    .stg-field-row-2 { grid-template-columns: 1fr; }
+}
+
+/* Create project status text */
+.stg-create-status {
+    font-size: 0.82rem;
+    color: var(--color-text-muted, #6b7280);
+    flex: 1;
+    min-height: 1.2em;
+}
+.stg-create-status--error { color: var(--color-error); }
+.stg-create-status--success { color: var(--color-success, #059669); }
+
 /* Mobile: horizontal tabs */
 @media (max-width: 767px) {
     .stg-body { flex-direction: column; }
@@ -1309,3 +1333,207 @@
 
 .stg-modal__status--loading { color: var(--color-primary); }
 .stg-modal__status--error   { color: var(--color-error); }
+
+
+/* ═══════════════════════════════════════
+   MEMBER MANAGEMENT & INVITE CODE STYLES
+   ═══════════════════════════════════════ */
+
+/* Members card header row */
+.stg-members-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px 12px;
+    gap: 12px;
+}
+.stg-card__subdesc {
+    font-size: 0.78rem;
+    color: var(--color-text-muted, #6b7280);
+    margin-top: 2px;
+}
+
+/* Small button variant */
+.stg-btn--sm {
+    padding: 5px 12px;
+    font-size: 0.8rem;
+    gap: 5px;
+}
+
+/* Inline invite panel */
+.stg-inline-invite {
+    margin: 0 24px 8px;
+    padding: 12px 16px;
+    background: var(--color-page-bg);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border-lt);
+}
+.stg-inline-invite__row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+.stg-inline-invite__row .stg-field__input {
+    flex: 1;
+    min-width: 160px;
+}
+.stg-inline-invite__hint {
+    font-size: 0.75rem;
+    color: var(--color-text-muted, #6b7280);
+    margin-top: 8px;
+    margin-bottom: 0;
+}
+
+/* Project member list rows */
+.stg-member-list {
+    padding: 0 24px 8px;
+}
+.stg-member-list__empty {
+    font-size: 0.85rem;
+    color: var(--color-text-muted, #6b7280);
+    padding: 12px 0;
+    text-align: center;
+}
+.stg-member-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--color-border-lt);
+}
+.stg-member-row:last-child { border-bottom: none; }
+.stg-member-row__avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+.stg-member-row__info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+.stg-member-row__name {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--color-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.stg-member-row__email {
+    font-size: 0.73rem;
+    color: var(--color-text-muted, #6b7280);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.stg-member-row__badge {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--color-page-bg);
+    color: var(--color-text-muted);
+    border: 1px solid var(--color-border-lt);
+    white-space: nowrap;
+}
+.stg-member-row__badge--owner  { background:#ede9fe; color:#6d28d9; border-color:#c4b5fd; }
+.stg-member-row__badge--admin  { background:#e0e7ff; color:#4338ca; border-color:#a5b4fc; }
+.stg-member-row__badge--editor { background:#d1fae5; color:#065f46; border-color:#6ee7b7; }
+.stg-member-row__badge--viewer { background:#f3f4f6; color:#374151; border-color:#d1d5db; }
+.stg-member-row__remove {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--color-text-muted, #9ca3af);
+    padding: 4px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    transition: color .15s, background .15s;
+}
+.stg-member-row__remove:hover { color: var(--color-error); background: rgba(239,68,68,.08); }
+
+/* Invite code block */
+.stg-invite-code-block {
+    margin: 12px 24px 20px;
+    padding: 12px 16px;
+    background: var(--color-page-bg);
+    border: 1px solid var(--color-border-lt);
+    border-radius: var(--radius-md);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.stg-invite-code-block--subteam {
+    margin: 12px 0 0;
+    border-top: 1px solid var(--color-border-lt);
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    border-radius: 0;
+    background: none;
+    padding: 12px 0 0;
+}
+.stg-invite-code-block__info {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    color: var(--color-text-muted, #6b7280);
+}
+.stg-invite-code-block__info svg { flex-shrink: 0; margin-top: 2px; }
+.stg-invite-code-block__label {
+    display: block;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--color-text);
+}
+.stg-invite-code-block__hint {
+    display: block;
+    font-size: 0.73rem;
+    color: var(--color-text-muted, #6b7280);
+    margin-top: 1px;
+}
+.stg-invite-code-block__code-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.stg-invite-code {
+    font-family: 'Courier New', monospace;
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: .12em;
+    background: var(--color-surface, #fff);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 4px 12px;
+    color: var(--color-primary);
+    user-select: all;
+}
+
+/* Subteam modal — invite-by-email panel */
+.stg-add-member-panel {
+    margin-top: 12px;
+    padding: 12px 16px;
+    background: var(--color-page-bg);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border-lt);
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+.stg-add-member-panel .stg-field__input { flex: 1; min-width: 140px; }

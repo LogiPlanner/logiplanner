@@ -48,6 +48,10 @@
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z"/></svg>
                 Integrations
             </a>
+            <a href="#" class="stg-nav__link stg-nav__link--create" data-target="create-project">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                Create Project
+            </a>
             <a href="#" class="stg-nav__link stg-nav__link--danger" data-target="danger">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
                 Danger Zone
@@ -91,6 +95,61 @@
                             <button type="submit" class="stg-btn stg-btn--primary" id="projectSaveBtn">Save Changes</button>
                         </div>
                     </form>
+
+                    <!-- ── Project Members & Invite ── -->
+                    <div class="stg-card" id="projectMembersCard">
+                        <div class="stg-members-header">
+                            <div>
+                                <h3 class="stg-card__subtitle">Project Members</h3>
+                                <p class="stg-card__subdesc">People with access to this project.</p>
+                            </div>
+                            <button type="button" class="stg-btn stg-btn--primary stg-btn--sm" id="openProjectInviteBtn">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                                Invite Member
+                            </button>
+                        </div>
+
+                        <!-- Inline invite form (hidden by default) -->
+                        <div class="stg-inline-invite" id="projectInvitePanel" style="display:none;">
+                            <div class="stg-inline-invite__row">
+                                <input type="email" id="projectInviteEmail" class="stg-field__input" placeholder="colleague@company.com">
+                                <select id="projectInviteRole" class="stg-field__input stg-field__input--select">
+                                    <option value="editor">Editor</option>
+                                    <option value="viewer" selected>Viewer</option>
+                                </select>
+                                <button type="button" class="stg-btn stg-btn--primary stg-btn--sm" id="projectInviteConfirmBtn">Send Invite</button>
+                                <button type="button" class="stg-btn stg-btn--ghost stg-btn--sm" id="projectInviteCancelBtn">Cancel</button>
+                            </div>
+                            <p class="stg-inline-invite__hint">Existing users are added instantly. New users receive an invitation link.</p>
+                        </div>
+
+                        <!-- Members list -->
+                        <div class="stg-member-list" id="projectMemberList">
+                            <div class="stg-member-list__empty">Loading members…</div>
+                        </div>
+
+                        <!-- Invite code section -->
+                        <div class="stg-invite-code-block" id="projectInviteCodeBlock">
+                            <div class="stg-invite-code-block__info">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                                <div>
+                                    <span class="stg-invite-code-block__label">Project Invite Code</span>
+                                    <span class="stg-invite-code-block__hint">Share this code with members to let them join the project.</span>
+                                </div>
+                            </div>
+                            <div class="stg-invite-code-block__code-row">
+                                <code class="stg-invite-code" id="projectInviteCode">—</code>
+                                <button type="button" class="stg-btn stg-btn--ghost stg-btn--sm" id="copyProjectCodeBtn" title="Copy code">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                                    Copy
+                                </button>
+                                <button type="button" class="stg-btn stg-btn--ghost stg-btn--sm stg-btn--owner-only" id="regenerateProjectCodeBtn" title="Generate new code">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                                    Regenerate
+                                </button>
+                            </div>
+                        </div>
+                    </div>
 
                 </section>
 
@@ -347,6 +406,65 @@
                     </div>
                 </section>
 
+                <!-- ═══ CREATE PROJECT ═══ -->
+                <section class="stg-section" id="section-create-project">
+                    <div class="stg-section__header">
+                        <div>
+                            <h2 class="stg-section__title">Create New Project</h2>
+                            <p class="stg-section__desc">Set up a new project workspace for your team.</p>
+                        </div>
+                    </div>
+
+                    <form class="stg-card" id="createProjectForm">
+                        <!-- Step 1: Project Info -->
+                        <h3 class="stg-card__subtitle">Project Info</h3>
+                        <div class="stg-field">
+                            <label class="stg-field__label" for="cp_teamName">Project Name <span style="color:var(--color-error)">*</span></label>
+                            <input type="text" id="cp_teamName" class="stg-field__input" required placeholder="e.g. Marketing Launch">
+                        </div>
+                        <div class="stg-field">
+                            <label class="stg-field__label" for="cp_teamDesc">Description</label>
+                            <textarea id="cp_teamDesc" class="stg-field__input stg-field__input--textarea" rows="3" placeholder="What is this project about?"></textarea>
+                        </div>
+
+                        <!-- Step 2: Owner Details -->
+                        <h3 class="stg-card__subtitle" style="margin-top:1.5rem;">Your Role in This Project</h3>
+                        <div class="stg-field-row-2">
+                            <div class="stg-field">
+                                <label class="stg-field__label" for="cp_fullName">Full Name <span style="color:var(--color-error)">*</span></label>
+                                <input type="text" id="cp_fullName" class="stg-field__input" required placeholder="Jane Doe">
+                            </div>
+                            <div class="stg-field">
+                                <label class="stg-field__label" for="cp_jobTitle">Job Title <span style="color:var(--color-error)">*</span></label>
+                                <input type="text" id="cp_jobTitle" class="stg-field__input" required placeholder="e.g. Project Lead">
+                            </div>
+                        </div>
+                        <div class="stg-field">
+                            <label class="stg-field__label" for="cp_projectStage">Current Project Stage</label>
+                            <select id="cp_projectStage" class="stg-field__input stg-field__input--select">
+                                <option value="">Select a stage…</option>
+                                <option value="Ideation">Ideation</option>
+                                <option value="Planning">Planning</option>
+                                <option value="In Progress">In Progress</option>
+                                <option value="Late Stage">Late Stage</option>
+                                <option value="Maintenance">Maintenance</option>
+                            </select>
+                        </div>
+                        <div class="stg-field">
+                            <label class="stg-field__label" for="cp_projectInfo">Short Project Description</label>
+                            <textarea id="cp_projectInfo" class="stg-field__input stg-field__input--textarea" rows="2" placeholder="Briefly describe your project goals…"></textarea>
+                        </div>
+
+                        <div class="stg-card__footer">
+                            <p class="stg-create-status" id="createProjectStatus"></p>
+                            <button type="submit" class="stg-btn stg-btn--primary" id="createProjectBtn">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                                Create Project
+                            </button>
+                        </div>
+                    </form>
+                </section>
+
                 <!-- ═══ DANGER ZONE ═══ -->
                 <section class="stg-section" id="section-danger">
                     <div class="stg-section__header">
@@ -467,19 +585,53 @@
         </div>
 
         <div class="stg-modal__actions stg-modal__actions--between">
-            <button type="button" class="stg-btn stg-btn--ghost" id="addMemberToTeamBtn">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                Add Member
-            </button>
+            <div style="display:flex;gap:8px;">
+                <button type="button" class="stg-btn stg-btn--ghost" id="addMemberToTeamBtn">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                    Add from Project
+                </button>
+                <button type="button" class="stg-btn stg-btn--ghost" id="inviteToSubteamBtn">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                    Invite by Email
+                </button>
+            </div>
             <button type="button" class="stg-btn stg-btn--primary" id="manageMembersDone">Done</button>
         </div>
 
-        <!-- Add member sub-panel -->
+        <!-- Add member from project sub-panel -->
         <div class="stg-add-member-panel" id="addMemberPanel" style="display:none;">
             <select class="stg-field__input stg-field__input--select" id="addMemberSelect">
                 <option value="">Select a project member…</option>
             </select>
             <button type="button" class="stg-btn stg-btn--primary" id="addMemberConfirmBtn">Add</button>
+        </div>
+
+        <!-- Invite by email sub-panel -->
+        <div class="stg-add-member-panel" id="inviteSubteamPanel" style="display:none;">
+            <input type="email" id="subteamInviteEmail" class="stg-field__input" placeholder="colleague@company.com">
+            <select id="subteamInviteRole" class="stg-field__input stg-field__input--select">
+                <option value="editor">Editor</option>
+                <option value="viewer" selected>Viewer</option>
+            </select>
+            <button type="button" class="stg-btn stg-btn--primary" id="subteamInviteConfirmBtn">Send Invite</button>
+        </div>
+
+        <!-- Subteam invite code block -->
+        <div class="stg-invite-code-block stg-invite-code-block--subteam">
+            <div class="stg-invite-code-block__info">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                <div>
+                    <span class="stg-invite-code-block__label">Project Invite Code</span>
+                    <span class="stg-invite-code-block__hint">Members who join with this code are added to this team automatically.</span>
+                </div>
+            </div>
+            <div class="stg-invite-code-block__code-row">
+                <code class="stg-invite-code" id="subteamProjectInviteCode">—</code>
+                <button type="button" class="stg-btn stg-btn--ghost stg-btn--sm" id="copySubteamCodeBtn" title="Copy code">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    Copy
+                </button>
+            </div>
         </div>
     </div>
 </div>

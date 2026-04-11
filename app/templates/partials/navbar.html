@@ -31,12 +31,19 @@
         <div class="topbar__avatar" id="userAvatarBtn">
             <span id="avatarInitials">U</span>
             <div class="topbar__dropdown topbar__dropdown--wide" id="userDropdown">
-                <a href="/settings" class="topbar__dropdown-item">User Profile</a>
+                <a href="/settings" class="topbar__dropdown-item topbar__dropdown-item--user">
+                    <span class="topbar__user-name" id="navUserName">Loading…</span>
+                    <span class="topbar__user-email" id="navUserEmail"></span>
+                </a>
                 <div class="topbar__dropdown-divider"></div>
                 <div class="topbar__dropdown-group-label">PROJECTS</div>
                 <div id="navProjectsList">
                     <!-- JS renders project (team) buttons here -->
                 </div>
+                <button type="button" class="topbar__project-btn topbar__project-btn--create" id="navCreateProjectBtn">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                    Create Project
+                </button>
                 <div class="topbar__dropdown-divider"></div>
                 <button type="button" id="navbarLogoutBtn" class="topbar__dropdown-item topbar__dropdown-item--danger">Logout</button>
             </div>
