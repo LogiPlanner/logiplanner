@@ -329,6 +329,13 @@
     line-height: 1.6;
 }
 
+.char-counter {
+    margin-top: 4px;
+    font-size: 0.78rem;
+    color: var(--color-text-muted);
+    text-align: right;
+}
+
 .form-row-2col {
     display: grid;
     grid-template-columns: 1fr 1fr;

@@ -485,6 +485,54 @@
 }
 
 
+/* ── Already-Logged-In Banner ── */
+.already-logged-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    margin-bottom: 20px;
+    border-radius: 12px;
+    background: rgba(99, 102, 241, 0.08);
+    border: 1px solid rgba(99, 102, 241, 0.25);
+    animation: bannerSlideIn 0.35s ease;
+}
+@keyframes bannerSlideIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+
+.already-logged-banner__avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--color-primary), #7c3aed);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+.already-logged-banner__body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.already-logged-banner__body strong {
+    font-size: 0.92rem;
+    color: var(--color-text);
+}
+.already-logged-banner__hint {
+    font-size: 0.78rem;
+    color: var(--color-muted);
+}
+.already-logged-banner .btn--sm {
+    padding: 6px 14px;
+    font-size: 0.82rem;
+    white-space: nowrap;
+}
+
+
 /* â”€â”€â”€ Password Strength â”€â”€â”€ */
 .password-strength {
     display: flex;

@@ -45,6 +45,17 @@
         </a>
         <h2 class="auth-form-container__heading">Welcome back</h2>
         <p class="auth-form-container__subtext">Sign in to access your team's project memory.</p>
+
+        <!-- Already logged-in banner (shown by JS when session exists) -->
+        <div id="alreadyLoggedInBanner" class="already-logged-banner" style="display:none;">
+            <div class="already-logged-banner__avatar" id="loggedInAvatar">U</div>
+            <div class="already-logged-banner__body">
+                <strong id="loggedInName">Welcome back</strong>
+                <span class="already-logged-banner__hint">You're already signed in</span>
+            </div>
+            <a href="/dashboard" class="btn btn--primary btn--sm" id="goToDashboardBtn">Go to Dashboard →</a>
+        </div>
+
         <form id="loginForm">
             <div class="form-group">
                 <label for="email">Email address<span class="form-required" aria-label="required">*</span></label>
