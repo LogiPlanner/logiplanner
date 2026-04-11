@@ -446,6 +446,11 @@ async def upload_audio_recording(
 ):
     _verify_team_access(current_user, team_id, db)
 
+    # Validate file type
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if ext != ".mp4":
+        raise HTTPException(status_code=400, detail="Only MP4 audio files are supported.")
+
     os.makedirs(UPLOAD_DIR, exist_ok=True)
     # Strip any path components from the client-supplied filename to prevent
     # path traversal, then further restrict to safe characters only.
@@ -454,6 +459,12 @@ async def upload_audio_recording(
     file_path = os.path.join(UPLOAD_DIR, safe_name)
     
     content = await file.read()
+
+    # Validate file size (15 MB limit)
+    MAX_SIZE = 15 * 1024 * 1024
+    if len(content) > MAX_SIZE:
+        raise HTTPException(status_code=400, detail="Audio file exceeds 15 MB limit.")
+
     with open(file_path, "wb") as out:
         out.write(content)
         

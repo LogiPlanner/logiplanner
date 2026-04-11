@@ -1424,7 +1424,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     audioFileInput.addEventListener('change', (e) => {
         if (e.target.files.length > 0) {
-            uploadAudio(e.target.files[0]);
+            const file = e.target.files[0];
+            audioFileInput.value = ''; // reset so re-selecting same file triggers change
+
+            const MAX_SIZE_MB = 15;
+
+            if (!file.name.match(/\.mp4$/i) && file.type !== 'video/mp4' && file.type !== 'audio/mp4') {
+                showToast('Only MP4 files are supported.', 'error');
+                return;
+            }
+            if (file.size > MAX_SIZE_MB * 1024 * 1024) {
+                showToast(`File too large. Maximum size is ${MAX_SIZE_MB} MB.`, 'error');
+                return;
+            }
+            uploadAudio(file);
         }
     });
 
@@ -1511,18 +1524,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 showToast("Audio safely uploaded. AI is transcribing and summarizing — this may take up to a minute.", "success");
 
-                // Poll for the AI-generated note to appear
+                // Snapshot current note count so we can detect when a new one appears
+                let baselineNoteCount = null;
+                fetch(`/api/v1/meetings/notes/${teamId}`)
+                    .then(r => r.ok ? r.json() : [])
+                    .then(notes => { baselineNoteCount = notes.length; })
+                    .catch(() => { baselineNoteCount = -1; });
+
+                // Poll for a NEW note to appear (handles both first upload and subsequent ones)
                 let pollAttempts = 0;
                 const maxPollAttempts = 30; // ~60 seconds total
                 const pollInterval = 2000;
 
                 const pollTimer = setInterval(() => {
                     pollAttempts++;
-                    fetch(`/api/v1/meetings/folders/${teamId}`)
+                    if (baselineNoteCount === null) return; // baseline not ready yet
+
+                    fetch(`/api/v1/meetings/notes/${teamId}`)
                         .then(r => r.ok ? r.json() : [])
-                        .then(folders => {
-                            const aiFolder = folders.find(f => f.name === 'AI Generated');
-                            if (aiFolder) {
+                        .then(notes => {
+                            if (notes.length > baselineNoteCount) {
                                 clearInterval(pollTimer);
                                 uploadProgress.style.display = 'none';
                                 document.getElementById('aiResults').style.display = 'block';
@@ -1538,6 +1559,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                 uploadProgress.style.display = 'none';
                                 aiStatusBadge.innerText = "TIMEOUT";
                                 showToast("AI processing is taking longer than expected. Check back shortly.", "info");
+                                loadFolders();
+                                loadNotes();
                             }
                         })
                         .catch(() => {});
@@ -1547,6 +1570,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 uploadProgress.style.display = 'none';
                 aiStatusBadge.innerText = "ERROR";
             }
+        };
+
+        xhr.onerror = function() {
+            showToast("Network error uploading audio.", "error");
+            uploadProgress.style.display = 'none';
+            aiStatusBadge.innerText = "ERROR";
         };
 
         xhr.send(formData);
