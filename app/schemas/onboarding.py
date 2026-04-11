@@ -78,10 +78,10 @@ class OnboardingBriefResponse(BaseModel):
     message: str = "Welcome aboard! Here's what you need to know."
 
 
-# ── Deferred Setup (called from Dashboard welcome screen) ──
+# ── Deferred Setup (single POST from dashboard) ──
 
 class SetupProjectRequest(BaseModel):
-    """All-in-one project setup payload — collected by onboarding wizard, submitted by dashboard."""
+    """All wizard data sent in one shot after redirect to dashboard."""
     team_name: str
     description: Optional[str] = None
     full_name: Optional[str] = None
