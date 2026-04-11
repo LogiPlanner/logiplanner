@@ -163,8 +163,20 @@
                 await new Promise(r => setTimeout(r, 1200));
             } else {
                 const err = await res?.json().catch(() => null);
+                const isNonRetryableSetupError = !!(res && [400, 409, 422].includes(res.status));
                 console.error('Setup project failed:', err);
-                if (msgEl) msgEl.textContent = err?.detail || 'Setup had an issue. We will retry automatically when you reopen your dashboard.';
+
+                if (isNonRetryableSetupError) {
+                    sessionStorage.removeItem('lp_pending_setup');
+                    if (msgEl) {
+                        msgEl.textContent =
+                            err?.detail ||
+                            'We could not create your project with the saved setup details. Please re-run onboarding and choose a different project name if needed.';
+                    }
+                } else if (msgEl) {
+                    msgEl.textContent =
+                        err?.detail || 'Setup had an issue. We will retry automatically when you reopen your dashboard.';
+                }
                 await new Promise(r => setTimeout(r, 2000));
             }
         } catch (e) {
