@@ -181,7 +181,13 @@
             }
         } catch (e) {
             console.error('handlePendingSetup error:', e);
-            if (msgEl) msgEl.textContent = 'Something went wrong. We will retry setup automatically when you reopen your dashboard.';
+            if (e instanceof SyntaxError) {
+                // Malformed JSON — clear it immediately to prevent an infinite retry loop
+                sessionStorage.removeItem('lp_pending_setup');
+                if (msgEl) msgEl.textContent = 'Setup data was corrupted. Please re-run onboarding.';
+            } else {
+                if (msgEl) msgEl.textContent = 'Something went wrong. We will retry setup automatically when you reopen your dashboard.';
+            }
             await new Promise(r => setTimeout(r, 1500));
         }
 
