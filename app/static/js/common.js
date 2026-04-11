@@ -9,8 +9,7 @@
     function forceLogout() {
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
-        localStorage.removeItem('selected_team_id');
-        localStorage.removeItem('selected_subteam_id');
+        sessionStorage.removeItem('lp_pending_setup');
         window.location.href = '/login';
     }
 

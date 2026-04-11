@@ -9,6 +9,20 @@
 {% from "partials/navbar.html" import topbar %}
 {% block content %}
     <main class="dashboard-main">
+
+        <!-- Welcome Overlay (shown while deferred project setup runs) -->
+        <div class="welcome-overlay" id="welcomeOverlay" style="display:none;">
+            <div class="welcome-overlay__card">
+                <div class="welcome-overlay__icon">🚀</div>
+                <h2 class="welcome-overlay__title">Welcome to LogiPlanner!</h2>
+                <p class="welcome-overlay__subtitle" id="welcomeOverlayMsg">Setting up your project…</p>
+                <div class="welcome-overlay__loader">
+                    <div class="welcome-overlay__spinner"></div>
+                </div>
+                <p class="welcome-overlay__hint">This will only take a moment</p>
+            </div>
+        </div>
+
         {% call topbar() %}
             <div class="topbar__page-title">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"/></svg>

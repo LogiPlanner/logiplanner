@@ -138,8 +138,74 @@
         return local.toISOString().slice(0, 16);
     }
 
+    // ── Deferred Project Setup (called from onboarding wizard) ──
+    async function handlePendingSetup(rawPayload) {
+        const overlay = document.getElementById('welcomeOverlay');
+        const msgEl = document.getElementById('welcomeOverlayMsg');
+        if (overlay) overlay.style.display = 'flex';
+
+        try {
+            const payload = JSON.parse(rawPayload);
+
+            if (msgEl) msgEl.textContent = 'Creating your project "' + (payload.team_name || '') + '"…';
+
+            const res = await window.__lp.authFetch(API + '/onboarding/setup-project', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+
+            if (res && res.ok) {
+                sessionStorage.removeItem('lp_pending_setup');
+                if (msgEl) msgEl.textContent = 'Project created! Loading your dashboard…';
+                if (overlay) overlay.classList.add('welcome-overlay--success');
+                // Brief pause so user sees the success state
+                await new Promise(r => setTimeout(r, 1200));
+            } else {
+                const err = await res?.json().catch(() => null);
+                const isNonRetryableSetupError = !!(res && [400, 409, 422].includes(res.status));
+                console.error('Setup project failed:', err);
+
+                if (isNonRetryableSetupError) {
+                    sessionStorage.removeItem('lp_pending_setup');
+                    if (msgEl) {
+                        msgEl.textContent =
+                            err?.detail ||
+                            'We could not create your project with the saved setup details. Please re-run onboarding and choose a different project name if needed.';
+                    }
+                } else if (msgEl) {
+                    msgEl.textContent =
+                        err?.detail || 'Setup had an issue. We will retry automatically when you reopen your dashboard.';
+                }
+                await new Promise(r => setTimeout(r, 2000));
+            }
+        } catch (e) {
+            console.error('handlePendingSetup error:', e);
+            if (e instanceof SyntaxError) {
+                // Malformed JSON — clear it immediately to prevent an infinite retry loop
+                sessionStorage.removeItem('lp_pending_setup');
+                if (msgEl) msgEl.textContent = 'Setup data was corrupted. Please re-run onboarding.';
+            } else {
+                if (msgEl) msgEl.textContent = 'Something went wrong. We will retry setup automatically when you reopen your dashboard.';
+            }
+            await new Promise(r => setTimeout(r, 1500));
+        }
+
+        if (overlay) {
+            overlay.style.opacity = '0';
+            overlay.style.transition = 'opacity 0.4s ease';
+            setTimeout(() => { overlay.style.display = 'none'; }, 400);
+        }
+    }
+
     // ── Initialize ──
     async function init() {
+        // ── Deferred Project Setup ──
+        const pendingSetup = sessionStorage.getItem('lp_pending_setup');
+        if (pendingSetup) {
+            await handlePendingSetup(pendingSetup);
+        }
+
         const [profile, teamsData] = await Promise.all([
             api('/profile-status'),
             api('/user-teams'),
