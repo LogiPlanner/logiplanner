@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from app.core.dependencies import get_current_user
 from app.core.database import get_db
 from app.models.user import User, Team, Role, UserRole, SubTeam
-from app.schemas.settings import ProfileUpdateReq, TeamUpdateReq, RoleUpdateReq, InviteMemberReq, SubTeamCreateReq, SubTeamUpdateReq
+from app.schemas.settings import ProfileUpdateReq, TeamUpdateReq, RoleUpdateReq, InviteMemberReq, SubTeamCreateReq, SubTeamUpdateReq, AddSubTeamMemberReq
 
 router = APIRouter()
 
@@ -174,7 +174,7 @@ async def assign_role(
         
     _require_owner(db, current_user.id, team_id)
     
-    if req.role_name.lower() not in ["owner", "editor", "viewer"]:
+    if req.role_name.lower() not in ["owner", "admin", "editor", "viewer"]:
         raise HTTPException(status_code=400, detail="Invalid role type.")
         
     target_user = db.query(User).filter(User.id == user_id).first()
@@ -324,6 +324,114 @@ async def delete_subteam(
     db.delete(subteam)
     db.commit()
     return {"message": "Team deleted successfully."}
+
+
+# --- SUBTEAM MEMBERS ---
+
+@router.get("/teams/{team_id}/subteams/{subteam_id}/members")
+async def list_subteam_members(
+    team_id: int,
+    subteam_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    team = db.query(Team).filter(Team.id == team_id).first()
+    if not team or current_user not in team.users:
+        raise HTTPException(status_code=404, detail="Project not found.")
+
+    subteam = db.query(SubTeam).filter(SubTeam.id == subteam_id, SubTeam.team_id == team_id).first()
+    if not subteam:
+        raise HTTPException(status_code=404, detail="Team not found.")
+
+    members = []
+    for member in subteam.users:
+        role_name = "viewer"
+        user_roles = db.query(UserRole).filter(
+            UserRole.user_id == member.id,
+            UserRole.team_id == team_id
+        ).all()
+        for ur in user_roles:
+            if ur.role:
+                role_name = ur.role.name.lower()
+                break
+        initials = "".join(w[0] for w in (member.full_name or member.email.split("@")[0]).split())[:2].upper()
+        members.append({
+            "id": member.id,
+            "full_name": member.full_name or member.email.split("@")[0],
+            "email": member.email,
+            "role": role_name,
+            "initials": initials or "U",
+        })
+
+    # Also return all project members not yet in this subteam, for the add-member dropdown
+    subteam_ids = {m.id for m in subteam.users}
+    available = []
+    for member in team.users:
+        if member.id not in subteam_ids:
+            available.append({
+                "id": member.id,
+                "full_name": member.full_name or member.email.split("@")[0],
+                "email": member.email,
+            })
+
+    return {"members": members, "available": available}
+
+
+@router.post("/teams/{team_id}/subteams/{subteam_id}/members", status_code=201)
+async def add_subteam_member(
+    team_id: int,
+    subteam_id: int,
+    req: AddSubTeamMemberReq,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    team = db.query(Team).filter(Team.id == team_id).first()
+    if not team or current_user not in team.users:
+        raise HTTPException(status_code=404, detail="Project not found.")
+
+    _require_owner_or_admin(db, current_user.id, team_id)
+
+    subteam = db.query(SubTeam).filter(SubTeam.id == subteam_id, SubTeam.team_id == team_id).first()
+    if not subteam:
+        raise HTTPException(status_code=404, detail="Team not found.")
+
+    target = db.query(User).filter(User.id == req.user_id).first()
+    if not target or target not in team.users:
+        raise HTTPException(status_code=404, detail="User is not a project member.")
+
+    if target in subteam.users:
+        raise HTTPException(status_code=400, detail="User is already in this team.")
+
+    subteam.users.append(target)
+    db.commit()
+    return {"message": "Member added to team."}
+
+
+@router.delete("/teams/{team_id}/subteams/{subteam_id}/members/{user_id}")
+async def remove_subteam_member(
+    team_id: int,
+    subteam_id: int,
+    user_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    team = db.query(Team).filter(Team.id == team_id).first()
+    if not team or current_user not in team.users:
+        raise HTTPException(status_code=404, detail="Project not found.")
+
+    _require_owner_or_admin(db, current_user.id, team_id)
+
+    subteam = db.query(SubTeam).filter(SubTeam.id == subteam_id, SubTeam.team_id == team_id).first()
+    if not subteam:
+        raise HTTPException(status_code=404, detail="Team not found.")
+
+    target = db.query(User).filter(User.id == user_id).first()
+    if not target or target not in subteam.users:
+        raise HTTPException(status_code=404, detail="User is not in this team.")
+
+    subteam.users.remove(target)
+    db.commit()
+    return {"message": "Member removed from team."}
 
 
 # --- PROJECT SETTINGS INFO ---

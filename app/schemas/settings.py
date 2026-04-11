@@ -31,6 +31,9 @@ class SubTeamUpdateReq(BaseModel):
     description: Optional[str] = None
     color: Optional[str] = None
 
+class AddSubTeamMemberReq(BaseModel):
+    user_id: int
+
 class SubTeamResponse(BaseModel):
     id: int
     name: str

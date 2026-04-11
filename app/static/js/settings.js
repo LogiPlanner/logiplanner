@@ -5,8 +5,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const sections     = document.querySelectorAll(".stg-section");
 
     const projectForm       = document.getElementById("projectForm");
-    const sensitivitySlider = document.getElementById("sensitivitySlider");
-    const sensitivityValue  = document.getElementById("sensitivityValue");
 
     const toggleEmail     = document.getElementById("toggleEmail");
     const toggleDashboard = document.getElementById("toggleDashboard");
@@ -51,12 +49,6 @@ document.addEventListener("DOMContentLoaded", () => {
             // Subtitle
             const subtitle = document.getElementById("settingsSubtitle");
             if (subtitle) subtitle.textContent = (activeTeam.team_name || "Project") + " Configuration";
-
-            // AI Sensitivity
-            if (sensitivitySlider && activeTeam.ai_sensitivity !== undefined) {
-                sensitivitySlider.value = activeTeam.ai_sensitivity;
-                if (sensitivityValue) sensitivityValue.textContent = activeTeam.ai_sensitivity + "%";
-            }
 
             // Enable delete button only for owner
             const deleteBtn = document.getElementById("deleteProjectBtn");
@@ -113,18 +105,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 const subtitle = document.getElementById("settingsSubtitle");
                 if (subtitle) subtitle.textContent = (payload.team_name || "Project") + " Configuration";
             }
-        });
-    }
-
-    /* ═══════════════════ AI SENSITIVITY ═══════════════════ */
-
-    if (sensitivitySlider) {
-        sensitivitySlider.addEventListener("input", (e) => {
-            if (sensitivityValue) sensitivityValue.textContent = e.target.value + "%";
-        });
-        sensitivitySlider.addEventListener("change", async (e) => {
-            if (!currentTeamId) return;
-            await apiCall(`/api/v1/settings/teams/${currentTeamId}`, "PUT", { ai_sensitivity: parseInt(e.target.value) });
         });
     }
 
@@ -218,7 +198,7 @@ document.addEventListener("DOMContentLoaded", () => {
             });
 
             card.querySelector(".stg-subteam-card__manage").addEventListener("click", () => {
-                showToast("Member management for teams coming soon", "success");
+                openManageMembers(st.id, st.name);
             });
 
             list.appendChild(card);
@@ -290,6 +270,285 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     document.getElementById("deleteSubteamClose")?.addEventListener("click", () => closeModal("deleteSubteamOverlay"));
     document.getElementById("deleteSubteamCancel")?.addEventListener("click", () => closeModal("deleteSubteamOverlay"));
+
+    /* ═══════════════════ MANAGE MEMBERS ═══════════════════ */
+
+    let managingSubteamId   = null;
+    let managingSubteamName = null;
+
+    async function openManageMembers(subteamId, subteamName) {
+        managingSubteamId   = subteamId;
+        managingSubteamName = subteamName;
+
+        document.getElementById("manageMembersTitle").textContent   = subteamName;
+        document.getElementById("manageMembersSubtitle").textContent = "Manage team members within this project.";
+        document.getElementById("addMemberPanel").style.display = "none";
+
+        await refreshMembersList();
+        openModal("manageMembersOverlay");
+    }
+
+    async function refreshMembersList() {
+        const res = await apiCall(
+            `/api/v1/settings/teams/${currentTeamId}/subteams/${managingSubteamId}/members`,
+            "GET"
+        );
+        if (!res) return;
+        renderMembersList(res.members || []);
+        renderAddMemberOptions(res.available || []);
+    }
+
+    const roleAccessMap = {
+        owner:  "Full Access",
+        admin:  "Full Access",
+        editor: "Edit Content",
+        member: "Edit Content",
+        viewer: "View Only",
+    };
+
+    function renderMembersList(members) {
+        const list = document.getElementById("manageMembersList");
+        if (!list) return;
+        list.innerHTML = "";
+
+        if (members.length === 0) {
+            list.innerHTML = `<div class="stg-members-empty">No members in this team yet.</div>`;
+            return;
+        }
+
+        members.forEach(m => {
+            const initials = m.initials || (m.full_name || "U").split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
+            const currentRole = m.role || "member";
+            const access = roleAccessMap[currentRole] || "Edit Content";
+
+            const row = document.createElement("div");
+            row.className = "stg-members-table__row";
+            row.innerHTML = `
+                <div class="stg-member__user">
+                    <div class="stg-member__avatar" style="background:#e0e7ff;color:#4f46e5;">${escapeHtml(initials)}</div>
+                    <div>
+                        <div class="stg-member__name">${escapeHtml(m.full_name)}</div>
+                        <div class="stg-member__email">${escapeHtml(m.email)}</div>
+                    </div>
+                </div>
+                <div class="stg-member__role-cell">
+                    <select class="stg-member__role-select" data-uid="${m.id}">
+                        <option value="admin"  ${currentRole === "admin"  ? "selected" : ""}>Admin</option>
+                        <option value="editor" ${currentRole === "editor" ? "selected" : ""}>Member</option>
+                        <option value="viewer" ${currentRole === "viewer" ? "selected" : ""}>Viewer</option>
+                    </select>
+                </div>
+                <div class="stg-member__access">${escapeHtml(access)}</div>
+                <div class="stg-member__actions">
+                    <button class="stg-member__remove" data-uid="${m.id}" title="Remove from team">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+            `;
+
+            // Role change
+            row.querySelector(".stg-member__role-select").addEventListener("change", async (e) => {
+                const roleMap = { admin: "admin", editor: "editor", viewer: "viewer" };
+                const roleName = roleMap[e.target.value] || "viewer";
+                const result = await apiCall(
+                    `/api/v1/settings/teams/${currentTeamId}/roles/${m.id}`,
+                    "PUT",
+                    { role_name: roleName }
+                );
+                if (result) {
+                    showToast("Role updated", "success");
+                    await refreshMembersList();
+                }
+            });
+
+            // Remove from subteam
+            row.querySelector(".stg-member__remove").addEventListener("click", async () => {
+                const result = await apiCall(
+                    `/api/v1/settings/teams/${currentTeamId}/subteams/${managingSubteamId}/members/${m.id}`,
+                    "DELETE"
+                );
+                if (result) {
+                    showToast("Member removed", "success");
+                    await refreshMembersList();
+                    await loadSubteams();
+                }
+            });
+
+            list.appendChild(row);
+        });
+    }
+
+    function renderAddMemberOptions(available) {
+        const sel = document.getElementById("addMemberSelect");
+        if (!sel) return;
+        sel.innerHTML = `<option value="">Select a project member…</option>`;
+        available.forEach(u => {
+            const opt = document.createElement("option");
+            opt.value = u.id;
+            opt.textContent = `${u.full_name} (${u.email})`;
+            sel.appendChild(opt);
+        });
+    }
+
+    document.getElementById("addMemberToTeamBtn")?.addEventListener("click", () => {
+        const panel = document.getElementById("addMemberPanel");
+        if (panel) panel.style.display = panel.style.display === "none" ? "flex" : "none";
+    });
+
+    document.getElementById("addMemberConfirmBtn")?.addEventListener("click", async () => {
+        const sel = document.getElementById("addMemberSelect");
+        const userId = parseInt(sel?.value);
+        if (!userId) { showToast("Please select a member", "error"); return; }
+        const result = await apiCall(
+            `/api/v1/settings/teams/${currentTeamId}/subteams/${managingSubteamId}/members`,
+            "POST",
+            { user_id: userId }
+        );
+        if (result) {
+            showToast("Member added", "success");
+            document.getElementById("addMemberPanel").style.display = "none";
+            await refreshMembersList();
+            await loadSubteams();
+        }
+    });
+
+    document.getElementById("manageMembersClose")?.addEventListener("click", () => closeModal("manageMembersOverlay"));
+    document.getElementById("manageMembersDone")?.addEventListener("click", () => closeModal("manageMembersOverlay"));
+
+    /* ═══════════════════ INTEGRATIONS ═══════════════════ */
+
+    async function loadIntegrationCounts() {
+        if (!currentTeamId) return;
+        try {
+            const res = await window.__lp.authFetch(`/api/v1/rag/documents/${currentTeamId}`);
+            if (!res.ok) return;
+            const data = await res.json();
+            const docs = data.documents || [];
+
+            const driveCount  = docs.filter(d => {
+                if (d.doc_type === "folder") return true;
+                return d.source_url && d.source_url.includes("drive.google.com");
+            }).length;
+            const githubCount = docs.filter(d =>
+                d.source_url && (d.source_url.includes("github.com") || d.source_url.includes("raw.githubusercontent.com"))
+            ).length;
+
+            const driveEl  = document.getElementById("intDriveCount");
+            const githubEl = document.getElementById("intGithubCount");
+            if (driveEl)  driveEl.textContent  = driveCount;
+            if (githubEl) githubEl.textContent = githubCount;
+        } catch { /* silently ignore */ }
+    }
+
+    // Load counts when integrations tab is activated
+    document.querySelector('.stg-nav__link[data-target="integrations"]')?.addEventListener("click", () => {
+        loadIntegrationCounts();
+    });
+
+    // Drive import button
+    document.getElementById("intDriveImportBtn")?.addEventListener("click", () => {
+        document.getElementById("stgDriveUrl").value  = "";
+        document.getElementById("stgDriveName").value = "";
+        document.getElementById("stgDriveStatus").textContent = "";
+        document.getElementById("stgDriveStatus").className = "stg-modal__status";
+        openModal("stgDriveModal");
+    });
+    document.getElementById("stgDriveClose")?.addEventListener("click",   () => closeModal("stgDriveModal"));
+    document.getElementById("stgDriveCancelBtn")?.addEventListener("click", () => closeModal("stgDriveModal"));
+
+    document.getElementById("stgDriveImportBtn")?.addEventListener("click", async () => {
+        const url  = document.getElementById("stgDriveUrl").value.trim();
+        const name = document.getElementById("stgDriveName").value.trim() || null;
+        const refreshVal = document.getElementById("stgDriveRefresh").value;
+        const statusEl = document.getElementById("stgDriveStatus");
+        const btn = document.getElementById("stgDriveImportBtn");
+
+        if (!url) { showToast("Please enter a Google Drive URL", "error"); return; }
+        if (!currentTeamId) { showToast("No project selected", "error"); return; }
+
+        statusEl.textContent = "Importing…";
+        statusEl.className = "stg-modal__status stg-modal__status--loading";
+        btn.disabled = true;
+
+        const body = { team_id: currentTeamId, drive_url: url, custom_name: name };
+        if (refreshVal) body.refresh_interval_hours = parseInt(refreshVal);
+
+        const opts = {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+        };
+        try {
+            const res = await window.__lp.authFetch("/api/v1/rag/ingest-drive", opts);
+            if (res.ok) {
+                closeModal("stgDriveModal");
+                showToast("Drive import queued — processing in background", "success");
+                loadIntegrationCounts();
+            } else {
+                const err = await res.json().catch(() => ({}));
+                statusEl.textContent = err.detail || "Import failed";
+                statusEl.className = "stg-modal__status stg-modal__status--error";
+                btn.disabled = false;
+            }
+        } catch {
+            statusEl.textContent = "Network error";
+            statusEl.className = "stg-modal__status stg-modal__status--error";
+            btn.disabled = false;
+        }
+    });
+
+    // GitHub import button
+    document.getElementById("intGithubImportBtn")?.addEventListener("click", () => {
+        document.getElementById("stgGithubUrl").value  = "";
+        document.getElementById("stgGithubName").value = "";
+        document.getElementById("stgGithubStatus").textContent = "";
+        document.getElementById("stgGithubStatus").className = "stg-modal__status";
+        openModal("stgGithubModal");
+    });
+    document.getElementById("stgGithubClose")?.addEventListener("click",    () => closeModal("stgGithubModal"));
+    document.getElementById("stgGithubCancelBtn")?.addEventListener("click", () => closeModal("stgGithubModal"));
+
+    document.getElementById("stgGithubImportBtn")?.addEventListener("click", async () => {
+        const url  = document.getElementById("stgGithubUrl").value.trim();
+        const name = document.getElementById("stgGithubName").value.trim() || null;
+        const statusEl = document.getElementById("stgGithubStatus");
+        const btn = document.getElementById("stgGithubImportBtn");
+
+        if (!url) { showToast("Please enter a GitHub URL", "error"); return; }
+        if (!url.startsWith("http")) {
+            statusEl.textContent = "GitHub URL must start with http:// or https://";
+            statusEl.className = "stg-modal__status stg-modal__status--error";
+            return;
+        }
+        if (!currentTeamId) { showToast("No project selected", "error"); return; }
+
+        statusEl.textContent = "Importing…";
+        statusEl.className = "stg-modal__status stg-modal__status--loading";
+        btn.disabled = true;
+
+        const opts = {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ team_id: currentTeamId, github_url: url, custom_name: name }),
+        };
+        try {
+            const res = await window.__lp.authFetch("/api/v1/rag/ingest-github", opts);
+            if (res.ok) {
+                closeModal("stgGithubModal");
+                showToast("GitHub file imported successfully", "success");
+                loadIntegrationCounts();
+            } else {
+                const err = await res.json().catch(() => ({}));
+                statusEl.textContent = err.detail || "Import failed";
+                statusEl.className = "stg-modal__status stg-modal__status--error";
+                btn.disabled = false;
+            }
+        } catch {
+            statusEl.textContent = "Network error";
+            statusEl.className = "stg-modal__status stg-modal__status--error";
+            btn.disabled = false;
+        }
+    });
 
     /* ═══════════════════ SECURITY ═══════════════════ */
 

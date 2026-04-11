@@ -92,21 +92,6 @@
                         </div>
                     </form>
 
-                    <!-- AI Sensitivity -->
-                    <div class="stg-card" style="margin-top:16px;">
-                        <h3 class="stg-card__subtitle">AI Response Style</h3>
-                        <div class="stg-field">
-                            <div class="stg-field__label-row">
-                                <label class="stg-field__label" for="sensitivitySlider">AI sensitivity</label>
-                                <span class="stg-field__value" id="sensitivityValue">84%</span>
-                            </div>
-                            <input type="range" id="sensitivitySlider" class="stg-range" min="0" max="100" value="84">
-                            <div class="stg-range__labels">
-                                <span>Conservative</span>
-                                <span>Creative</span>
-                            </div>
-                        </div>
-                    </div>
                 </section>
 
                 <!-- ═══ TEAM MANAGEMENT (UI: Teams = DB: SubTeams) ═══ -->
@@ -273,12 +258,92 @@
                     <div class="stg-section__header">
                         <div>
                             <h2 class="stg-section__title">Integrations</h2>
-                            <p class="stg-section__desc">Connect external tools and services.</p>
+                            <p class="stg-section__desc">Manage connected tools and services for this project.</p>
                         </div>
                     </div>
 
-                    <div class="stg-card stg-card--placeholder">
-                        <p>This section is under development.</p>
+                    <!-- Google Drive -->
+                    <div class="stg-card stg-integration-card" id="intCard-drive">
+                        <div class="stg-integration-card__header">
+                            <div class="stg-integration-card__icon stg-integration-card__icon--drive">
+                                <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M7.71 3.5L1.15 15l3.43 5.97L11.14 9.47 7.71 3.5zm1.14 0l6.86 11.93H22.86L16 3.5H8.85zM16.57 16.5H3.43L0 22.5h24l-3.43-6H16.57z"/></svg>
+                            </div>
+                            <div class="stg-integration-card__info">
+                                <h4 class="stg-integration-card__name">Google Drive</h4>
+                                <p class="stg-integration-card__desc">Import documents and folders from Google Drive into the knowledge base.</p>
+                            </div>
+                            <span class="stg-integration-badge stg-integration-badge--connected">Connected</span>
+                        </div>
+                        <div class="stg-integration-card__body">
+                            <div class="stg-integration-stat">
+                                <span class="stg-integration-stat__label">Documents imported</span>
+                                <span class="stg-integration-stat__value" id="intDriveCount">—</span>
+                            </div>
+                            <div class="stg-integration-card__actions">
+                                <button type="button" class="stg-btn stg-btn--primary" id="intDriveImportBtn">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="15" height="15"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                                    Import from Drive
+                                </button>
+                                <a href="/studio" class="stg-btn stg-btn--ghost">View in Studio</a>
+                            </div>
+                            <p class="stg-integration-card__hint">Paste a Google Drive file or folder URL in the Studio to import documents. Supports Docs, Sheets, PDFs, and more.</p>
+                        </div>
+                    </div>
+
+                    <!-- GitHub -->
+                    <div class="stg-card stg-integration-card" id="intCard-github">
+                        <div class="stg-integration-card__header">
+                            <div class="stg-integration-card__icon stg-integration-card__icon--github">
+                                <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                            </div>
+                            <div class="stg-integration-card__info">
+                                <h4 class="stg-integration-card__name">GitHub</h4>
+                                <p class="stg-integration-card__desc">Import code files and documentation directly from GitHub repositories.</p>
+                            </div>
+                            <span class="stg-integration-badge stg-integration-badge--connected">Connected</span>
+                        </div>
+                        <div class="stg-integration-card__body">
+                            <div class="stg-integration-stat">
+                                <span class="stg-integration-stat__label">Files imported</span>
+                                <span class="stg-integration-stat__value" id="intGithubCount">—</span>
+                            </div>
+                            <div class="stg-integration-card__actions">
+                                <button type="button" class="stg-btn stg-btn--primary" id="intGithubImportBtn">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="15" height="15"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                                    Import from GitHub
+                                </button>
+                                <a href="/studio" class="stg-btn stg-btn--ghost">View in Studio</a>
+                            </div>
+                            <p class="stg-integration-card__hint">Paste a GitHub repository or file URL in the Studio to import source code and documentation.</p>
+                        </div>
+                    </div>
+
+                    <!-- Notion (coming soon) -->
+                    <div class="stg-card stg-integration-card stg-integration-card--unavailable">
+                        <div class="stg-integration-card__header">
+                            <div class="stg-integration-card__icon stg-integration-card__icon--notion">
+                                <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M4.459 4.208c.746.606 1.026.56 2.428.466l13.215-.793c.28 0 .047-.28-.046-.326L17.86 1.968c-.42-.326-.98-.7-2.055-.607L2.543 2.573c-.466.046-.56.28-.374.466l2.29 1.169zm.793 3.172v13.947c0 .746.373 1.027 1.214.98l14.523-.84c.84-.046.933-.56.933-1.167V6.354c0-.606-.233-.933-.746-.886l-15.177.886c-.56.047-.747.327-.747.886v.14zm14.337.42c.094.42 0 .84-.42.886l-.7.14v10.264c-.607.327-1.167.514-1.634.514-.746 0-.933-.234-1.493-.933l-4.572-7.186v6.953l1.446.327s0 .84-1.167.84l-3.22.187c-.093-.187 0-.653.327-.746l.84-.233V9.854L7.822 9.76c-.094-.42.14-1.026.793-1.073l3.453-.233 4.759 7.279V9.107l-1.213-.14c-.094-.514.28-.886.746-.933l3.22-.234h.009z"/></svg>
+                            </div>
+                            <div class="stg-integration-card__info">
+                                <h4 class="stg-integration-card__name">Notion</h4>
+                                <p class="stg-integration-card__desc">Sync pages and databases from your Notion workspace.</p>
+                            </div>
+                            <span class="stg-integration-badge stg-integration-badge--soon">Coming soon</span>
+                        </div>
+                    </div>
+
+                    <!-- Jira (coming soon) -->
+                    <div class="stg-card stg-integration-card stg-integration-card--unavailable">
+                        <div class="stg-integration-card__header">
+                            <div class="stg-integration-card__icon stg-integration-card__icon--jira">
+                                <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M11.975 0C9.472 0 7.5 1.972 7.5 4.475v2.025H3.975C1.472 6.5 0 8.178 0 10.425c0 .003 0 .006.001.01l.044 9.09C.046 21.718 1.581 23 3.5 23H3.975v-9.025c0-2.503 1.472-4.475 3.975-4.475H12V4.475C12 4.475 12 0 11.975 0zM16 7H12.025v5.5H16c2.503 0 3.975 1.972 3.975 4.475V23h.5c1.92 0 3.5-1.582 3.5-3.5L24 10.5c0-1.97-1.472-3.5-3.975-3.5H16z"/></svg>
+                            </div>
+                            <div class="stg-integration-card__info">
+                                <h4 class="stg-integration-card__name">Jira</h4>
+                                <p class="stg-integration-card__desc">Connect your Jira project to track issues and sync documentation.</p>
+                            </div>
+                            <span class="stg-integration-badge stg-integration-badge--soon">Coming soon</span>
+                        </div>
                     </div>
                 </section>
 
@@ -377,6 +442,48 @@
     </div>
 </div>
 
+<!-- Manage Members Modal -->
+<div class="stg-overlay" id="manageMembersOverlay" style="display:none;">
+    <div class="stg-modal stg-modal--wide">
+        <div class="stg-modal__header">
+            <div>
+                <h3 class="stg-modal__title" id="manageMembersTitle">Manage Members</h3>
+                <p class="stg-modal__subtitle" id="manageMembersSubtitle"></p>
+            </div>
+            <button type="button" class="stg-modal__close" id="manageMembersClose">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+
+        <!-- Member table -->
+        <div class="stg-members-table" id="manageMembersTable">
+            <div class="stg-members-table__head">
+                <span>MEMBER</span>
+                <span>ROLE</span>
+                <span>ACCESS</span>
+                <span>ACTIONS</span>
+            </div>
+            <div id="manageMembersList"></div>
+        </div>
+
+        <div class="stg-modal__actions stg-modal__actions--between">
+            <button type="button" class="stg-btn stg-btn--ghost" id="addMemberToTeamBtn">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                Add Member
+            </button>
+            <button type="button" class="stg-btn stg-btn--primary" id="manageMembersDone">Done</button>
+        </div>
+
+        <!-- Add member sub-panel -->
+        <div class="stg-add-member-panel" id="addMemberPanel" style="display:none;">
+            <select class="stg-field__input stg-field__input--select" id="addMemberSelect">
+                <option value="">Select a project member…</option>
+            </select>
+            <button type="button" class="stg-btn stg-btn--primary" id="addMemberConfirmBtn">Add</button>
+        </div>
+    </div>
+</div>
+
 <!-- Invite Modal (members) -->
 <div class="stg-overlay" id="inviteModalOverlay" style="display:none;">
     <div class="stg-modal">
@@ -404,6 +511,68 @@
                 <button type="submit" class="stg-btn stg-btn--primary" id="inviteSubmitBtn">Send invite</button>
             </div>
         </form>
+    </div>
+</div>
+
+<!-- Settings: Google Drive Import Modal -->
+<div class="stg-overlay" id="stgDriveModal" style="display:none;">
+    <div class="stg-modal">
+        <div class="stg-modal__header">
+            <h3 class="stg-modal__title">Import from Google Drive</h3>
+            <button type="button" class="stg-modal__close" id="stgDriveClose">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+        <div class="stg-field">
+            <label class="stg-field__label" for="stgDriveUrl">Google Drive URL</label>
+            <input type="url" id="stgDriveUrl" class="stg-field__input" placeholder="https://docs.google.com/document/d/… or /drive/folders/…">
+        </div>
+        <div class="stg-field">
+            <label class="stg-field__label" for="stgDriveName">Display name <span style="opacity:.5;font-weight:400;">(optional)</span></label>
+            <input type="text" id="stgDriveName" class="stg-field__input" placeholder="e.g. Q2 Marketing Plan" maxlength="200">
+        </div>
+        <div class="stg-field">
+            <label class="stg-field__label" for="stgDriveRefresh">Auto-refresh</label>
+            <select id="stgDriveRefresh" class="stg-field__input stg-field__input--select">
+                <option value="">Off</option>
+                <option value="1">Every hour</option>
+                <option value="6">Every 6 hours</option>
+                <option value="24" selected>Every 24 hours</option>
+                <option value="168">Weekly</option>
+            </select>
+        </div>
+        <p class="stg-modal__hint">Make sure sharing is set to <strong>Anyone with the link → Viewer</strong>. Max file size: 100 MB.</p>
+        <p class="stg-modal__status" id="stgDriveStatus"></p>
+        <div class="stg-modal__actions">
+            <button type="button" class="stg-btn stg-btn--ghost" id="stgDriveCancelBtn">Cancel</button>
+            <button type="button" class="stg-btn stg-btn--primary" id="stgDriveImportBtn">Import from Drive</button>
+        </div>
+    </div>
+</div>
+
+<!-- Settings: GitHub Import Modal -->
+<div class="stg-overlay" id="stgGithubModal" style="display:none;">
+    <div class="stg-modal">
+        <div class="stg-modal__header">
+            <h3 class="stg-modal__title">Import from GitHub</h3>
+            <button type="button" class="stg-modal__close" id="stgGithubClose">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+        <div class="stg-field">
+            <label class="stg-field__label" for="stgGithubUrl">GitHub repository or file URL</label>
+            <input type="url" id="stgGithubUrl" class="stg-field__input" placeholder="https://github.com/owner/repo or /blob/main/file.py">
+        </div>
+        <div class="stg-field">
+            <label class="stg-field__label" for="stgGithubName">Display name <span style="opacity:.5;font-weight:400;">(optional)</span></label>
+            <input type="text" id="stgGithubName" class="stg-field__input" placeholder="e.g. API contract" maxlength="200">
+        </div>
+        <p class="stg-modal__hint">Public repos only. Supports .py, .md, .txt, .json, .yaml files. Private repos not supported yet.</p>
+        <p class="stg-modal__status" id="stgGithubStatus"></p>
+        <div class="stg-modal__actions">
+            <button type="button" class="stg-btn stg-btn--ghost" id="stgGithubCancelBtn">Cancel</button>
+            <button type="button" class="stg-btn stg-btn--primary" id="stgGithubImportBtn">Import from GitHub</button>
+        </div>
     </div>
 </div>
 
