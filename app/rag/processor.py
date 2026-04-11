@@ -2,6 +2,7 @@ import os
 import re
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional, Tuple
+from urllib.parse import urlparse, urlunparse
 
 import httpx
 from langchain_community.document_loaders import (
@@ -638,32 +639,39 @@ def process_url(
 def normalize_github_url(url: str) -> tuple[str, str]:
     """Convert a GitHub file page URL into a raw content URL and return a filename."""
     github_url = url.strip()
-    if not github_url.startswith(("http://", "https://")):
-        raise ValueError("GitHub URL must start with http:// or https://")
+    parsed = urlparse(github_url)
+    host = (parsed.hostname or "").lower()
+    allowed_hosts = {"github.com", "raw.githubusercontent.com"}
 
-    if github_url.startswith("https://github.com/") or github_url.startswith("http://github.com/"):
-        if "/blob/" not in github_url:
+    if parsed.scheme != "https":
+        raise ValueError("GitHub URL must use https://")
+    if host not in allowed_hosts:
+        raise ValueError(
+            "Only public GitHub file URLs are supported. Use a GitHub file page ending with /blob/<branch>/<file> "
+            "or a raw.githubusercontent.com URL."
+        )
+
+    if host == "github.com":
+        if "/blob/" not in parsed.path:
             raise ValueError(
                 "GitHub URL must point to a file page, e.g. "
                 "https://github.com/<owner>/<repo>/blob/<branch>/path/to/file"
             )
-        raw_path = github_url.split("github.com/", 1)[1].replace("/blob/", "/")
-        raw_url = "https://raw.githubusercontent.com/" + raw_path
-        filename = os.path.basename(raw_url.split("?", 1)[0])
+        raw_path = parsed.path.lstrip("/").replace("/blob/", "/", 1)
+        raw_url = urlunparse(("https", "raw.githubusercontent.com", f"/{raw_path}", "", parsed.query, ""))
+        raw_parsed = urlparse(raw_url)
+        if (raw_parsed.hostname or "").lower() != "raw.githubusercontent.com" or raw_parsed.scheme != "https":
+            raise ValueError("Invalid normalized GitHub raw URL.")
+        filename = os.path.basename(raw_parsed.path)
         if not filename:
             raise ValueError("GitHub file URL must include a filename.")
         return raw_url, filename
 
-    if github_url.startswith("https://raw.githubusercontent.com/") or github_url.startswith("http://raw.githubusercontent.com/"):
-        filename = os.path.basename(github_url.split("?", 1)[0])
-        if not filename:
-            raise ValueError("GitHub raw URL must include a filename.")
-        return github_url, filename
-
-    raise ValueError(
-        "Only public GitHub file URLs are supported. Use a GitHub file page ending with /blob/<branch>/<file> "
-        "or a raw.githubusercontent.com URL."
-    )
+    filename = os.path.basename(parsed.path)
+    if not filename:
+        raise ValueError("GitHub raw URL must include a filename.")
+    normalized_raw_url = urlunparse(("https", "raw.githubusercontent.com", parsed.path, "", parsed.query, ""))
+    return normalized_raw_url, filename
 
 
 def process_github_url(
@@ -676,7 +684,7 @@ def process_github_url(
     raw_url, filename = normalize_github_url(github_url)
 
     try:
-        with httpx.Client(follow_redirects=True, timeout=30.0) as client:
+        with httpx.Client(follow_redirects=False, timeout=30.0) as client:
             resp = client.get(raw_url, headers={"User-Agent": "LogiPlanner/1.0"})
     except httpx.TimeoutException:
         raise ValueError("Request timed out when fetching the GitHub file.")
