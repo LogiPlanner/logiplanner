@@ -24,6 +24,7 @@ from app.schemas.onboarding import (
     OnboardingBriefResponse,
     SetupProjectRequest,
     SetupProjectResponse,
+    TeamNameCheckResponse,
 )
 
 router = APIRouter()
@@ -48,7 +49,7 @@ def _get_or_create_role(db: Session, role_name: str) -> Role:
 # CREATE TEAM FLOW
 # ──────────────────────────────────────────────
 
-@router.get("/check-team-name")
+@router.get("/check-team-name", response_model=TeamNameCheckResponse)
 async def check_team_name(
     name: str,
     current_user: User = Depends(get_current_user),

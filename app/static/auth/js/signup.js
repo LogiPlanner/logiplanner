@@ -11,13 +11,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const token = localStorage.getItem('access_token');
         if (!token) return;
         try {
-            const status = await window.AuthUI.getJson('/api/v1/profile-status');
-            if (status.response.ok && status.data.full_name) {
+            const res = await fetch('/api/v1/profile-status', {
+                headers: { 'Authorization': 'Bearer ' + token },
+            });
+            if (!res.ok) return;
+            const data = await res.json();
+            if (data.full_name) {
                 const banner = document.getElementById('alreadyLoggedInBanner');
                 const nameEl = document.getElementById('loggedInName');
                 const avatarEl = document.getElementById('loggedInAvatar');
                 if (banner) {
-                    const name = status.data.full_name;
+                    const name = data.full_name;
                     if (nameEl) nameEl.textContent = name;
                     if (avatarEl) avatarEl.textContent = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
                     banner.style.display = 'flex';

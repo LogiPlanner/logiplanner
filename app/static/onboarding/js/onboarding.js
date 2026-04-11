@@ -79,23 +79,28 @@ function updateProgress(activeStepId) {
     }).join('');
 }
 
+function buildDeferredSetupPayload() {
+    const teamName = document.getElementById('c_teamName')?.value.trim() || '';
+    if (!teamName || currentFlow !== 'create') return null;
+    return {
+        team_name: teamName,
+        description: document.getElementById('c_teamDesc')?.value.trim() || null,
+        full_name: document.getElementById('c_fullName')?.value.trim() || null,
+        job_title: document.getElementById('c_jobTitle')?.value.trim() || null,
+        role_preference: null,
+        project_stage: document.getElementById('c_projectStage')?.value || null,
+        project_info: document.getElementById('c_projectInfo')?.value.trim() || null,
+        links: collectLinks(),
+        notes: (document.getElementById('c_notes')?.value.trim() || '').slice(0, 5000) || null,
+        uploaded_files: [],
+        invites: [],
+    };
+}
+
 function finishOnboarding() {
     // If we have wizard data collected so far, store it for deferred setup
-    const teamName = document.getElementById('c_teamName')?.value.trim() || '';
-    if (teamName && currentFlow === 'create') {
-        const payload = {
-            team_name: teamName,
-            description: document.getElementById('c_teamDesc')?.value.trim() || null,
-            full_name: document.getElementById('c_fullName')?.value.trim() || null,
-            job_title: document.getElementById('c_jobTitle')?.value.trim() || null,
-            role_preference: null,
-            project_stage: document.getElementById('c_projectStage')?.value || null,
-            project_info: document.getElementById('c_projectInfo')?.value.trim() || null,
-            links: [],
-            notes: null,
-            uploaded_files: [],
-            invites: [],
-        };
+    const payload = buildDeferredSetupPayload();
+    if (payload) {
         sessionStorage.setItem('lp_pending_setup', JSON.stringify(payload));
     }
     window.location.href = '/dashboard';
@@ -143,22 +148,6 @@ async function authGet(url) {
     return { response: res, data };
 }
 
-/** Collect link rows from Step 3 into an array of {url, source_type, label} */
-function collectLinks() {
-    const links = [];
-    document.querySelectorAll('#linkRows .link-row').forEach(row => {
-        const url = row.querySelector('.link-url')?.value.trim();
-        if (!url) return;
-        links.push({
-            url,
-            source_type: row.querySelector('.link-type')?.value || 'google_drive',
-            label: row.querySelector('.link-label')?.value.trim() || null,
-        });
-    });
-    return links;
-}
-
-
 // ──────────────────────────────────────────────
 // CREATE FLOW — Step 1: Team Name
 // ──────────────────────────────────────────────
@@ -178,6 +167,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const input = document.getElementById('c_fullName');
                 if (group && input) {
                     input.value = result.data.full_name;
+                    input.removeAttribute('required');
+                    input.removeAttribute('aria-required');
                     group.style.display = 'none';
                 }
             }
@@ -563,6 +554,10 @@ async function sendInvitesAndFinish() {
             if (uploadRes.ok) {
                 const uploadData = await uploadRes.json();
                 uploadedFileNames = (uploadData.files || []).map(f => f.stored_as);
+            } else {
+                const uploadErr = await uploadRes.json().catch(() => ({}));
+                window.AuthUI.setMessage(msg, 'error', uploadErr.detail || 'File upload failed. Please try again.');
+                return;
             }
         }
 
@@ -621,8 +616,11 @@ function addLinkRow() {
     row.dataset.index = idx;
     row.innerHTML = `
         <select class="form-select link-type" style="width:140px;">
+            <option value="link">🔗 Link</option>
             <option value="google_drive">📁 Google Drive</option>
+            <option value="miro">🎨 Miro</option>
             <option value="github">💻 GitHub</option>
+            <option value="notion">📝 Notion</option>
         </select>
         <input type="url" class="form-input link-url" placeholder="https://...">
         <input type="text" class="form-input link-label" placeholder="Label (optional)" style="width:140px;">
@@ -634,9 +632,10 @@ function addLinkRow() {
 
 function updateAddLinkBtn() {
     const container = document.getElementById('linksList');
-    const btn = document.getElementById('addLinkBtn');
+    const btn = document.getElementById('addLinkBtn')
+        || document.querySelector('button[onclick*="addLinkRow()"]');
     if (btn) {
-        btn.disabled = container && container.children.length >= MAX_LINKS;
+        btn.disabled = !!container && container.children.length >= MAX_LINKS;
     }
 }
 

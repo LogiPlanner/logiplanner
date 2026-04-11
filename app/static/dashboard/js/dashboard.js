@@ -164,14 +164,12 @@
             } else {
                 const err = await res?.json().catch(() => null);
                 console.error('Setup project failed:', err);
-                sessionStorage.removeItem('lp_pending_setup');
-                if (msgEl) msgEl.textContent = err?.detail || 'Setup had an issue, but your dashboard is ready.';
+                if (msgEl) msgEl.textContent = err?.detail || 'Setup had an issue. We will retry automatically when you reopen your dashboard.';
                 await new Promise(r => setTimeout(r, 2000));
             }
         } catch (e) {
             console.error('handlePendingSetup error:', e);
-            sessionStorage.removeItem('lp_pending_setup');
-            if (msgEl) msgEl.textContent = 'Something went wrong. Loading dashboard…';
+            if (msgEl) msgEl.textContent = 'Something went wrong. We will retry setup automatically when you reopen your dashboard.';
             await new Promise(r => setTimeout(r, 1500));
         }
 
