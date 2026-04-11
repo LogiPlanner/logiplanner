@@ -34,11 +34,6 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone
 from collections import defaultdict
 
-import chromadb
-from chromadb.config import Settings as ChromaSettings
-from langchain_openai import ChatOpenAI
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_chroma import Chroma
 from langchain_core.documents import Document as LCDocument
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 
@@ -80,6 +75,11 @@ class RAGEngine:
         """Lazy initialization — only connects to ChromaDB and embedding/chat providers when first needed."""
         if self._initialized:
             return
+
+        import chromadb
+        from chromadb.config import Settings as ChromaSettings
+        from langchain_openai import ChatOpenAI
+        from langchain_huggingface import HuggingFaceEmbeddings
 
         # ChromaDB persistent client
         self._chroma_client = chromadb.PersistentClient(
@@ -136,9 +136,10 @@ class RAGEngine:
         """Generate a collection name for a team. Each team gets its own isolated collection."""
         return f"team_{team_id}_knowledge"
 
-    def _get_vectorstore(self, team_id: int) -> Chroma:
+    def _get_vectorstore(self, team_id: int):
         """Get or create a Chroma vectorstore for a specific team."""
         self._ensure_initialized()
+        from langchain_chroma import Chroma
         collection_name = self._get_collection_name(team_id)
 
         return Chroma(

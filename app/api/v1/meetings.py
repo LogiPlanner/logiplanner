@@ -7,7 +7,6 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect, UploadFile, File, Form, BackgroundTasks
 from jose import jwt, JWTError
 from sqlalchemy.orm import Session
-from openai import OpenAI
 
 from app.core.dependencies import get_current_user
 from app.core.database import get_db
@@ -310,6 +309,7 @@ def _process_audio_summary(file_path: str, team_id: int, user_id: int, db_url: s
     db = SessionLocal()
     try:
         # 1. Transcribe audio with Whisper
+        from openai import OpenAI
         client = OpenAI(api_key=settings.OPENAI_API_KEY)
         with open(file_path, "rb") as audio_file:
             print(f"[RAG] Transcribing audio file {file_path} for team {team_id}")

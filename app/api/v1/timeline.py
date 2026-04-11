@@ -10,14 +10,8 @@ from app.core.dependencies import get_current_user
 from app.models.user import User, Team, SubTeam, user_team
 from app.models.timeline import TimelineEntry
 from app.schemas.timeline import TimelineEntryCreate, TimelineEntryResponse, TimelineEntryUpdate, MemoryAnalyticsResponse
-
-from langchain_core.documents import Document as LCDocument
-from langchain_openai import ChatOpenAI
-from langchain_core.messages import SystemMessage, HumanMessage
 from app.core.config import settings
-from app.rag.processor import load_document, validate_file
 from pydantic import BaseModel
-from app.rag.engine import rag_engine
 
 class AutoFillResponse(BaseModel):
     title: str
@@ -62,6 +56,8 @@ def _verify_subteam_member(user: User, team_id: int, sub_team_id: int, db: Sessi
 def _ingest_timeline_entry(team_id: int, entry: TimelineEntry, user_email: str):
     """Background task to safely ingest timeline entry into RAG."""
     try:
+        from langchain_core.documents import Document as LCDocument
+        from app.rag.engine import rag_engine
         rich_content = (
             f"Project Timeline {entry.entry_type}:\n"
             f"Title: {entry.title}\n"
@@ -234,6 +230,7 @@ def delete_timeline_entry(
     db.delete(entry)
     db.commit()
 
+    from app.rag.engine import rag_engine
     background_tasks.add_task(
         rag_engine.delete_timeline_entry_chunks,
         team_id=entry.team_id,
@@ -262,6 +259,7 @@ def update_timeline_entry(
     db.commit()
     db.refresh(entry)
 
+    from app.rag.engine import rag_engine
     background_tasks.add_task(rag_engine.delete_timeline_entry_chunks, team_id=entry.team_id, timeline_entry_id=entry_id)
     background_tasks.add_task(_ingest_timeline_entry, team_id=entry.team_id, entry=entry, user_email=current_user.email)
 
@@ -281,6 +279,7 @@ async def auto_fill_from_document(
     content = await file.read()
     file_size = len(content)
 
+    from app.rag.processor import load_document, validate_file
     is_valid, error = validate_file(file.filename, file_size)
     if not is_valid:
         raise HTTPException(status_code=400, detail=error)
@@ -302,6 +301,8 @@ async def auto_fill_from_document(
                 detail="No readable text found. Please upload a document with highlightable text, or try a .txt/.docx file."
             )
 
+        from langchain_openai import ChatOpenAI
+        from langchain_core.messages import SystemMessage, HumanMessage
         llm = ChatOpenAI(
             model=settings.RAG_CHAT_MODEL,
             openai_api_key=settings.OPENAI_API_KEY,
