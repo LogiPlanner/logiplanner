@@ -87,7 +87,7 @@ async def get_team_members(
             UserRole.team_id == team_id
         ).all()
         for ur in user_roles:
-            if ur.role and ur.role.name.lower() in ("owner", "editor", "viewer"):
+            if ur.role and ur.role.name.lower() in ("owner", "admin", "editor", "viewer"):
                 role_name = ur.role.name.lower()
                 break
                 
