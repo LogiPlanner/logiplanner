@@ -1,5 +1,8 @@
 import os
 import re
+import ipaddress
+import socket
+from urllib.parse import urlparse
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional, Tuple
 from urllib.parse import urlparse, urlunparse
@@ -571,6 +574,53 @@ def process_drive_url(
     return enriched, filename, doc_type, content_bytes
 
 
+def validate_public_http_url(url: str) -> str:
+    """
+    Validate URL is HTTP(S) and resolves only to public IP addresses.
+    Raises ValueError if unsafe.
+    Returns normalized URL string on success.
+    """
+    parsed = urlparse(url.strip())
+    if parsed.scheme not in {"http", "https"}:
+        raise ValueError("URL must start with http:// or https://")
+    if not parsed.hostname:
+        raise ValueError("URL must include a valid hostname.")
+
+    host = parsed.hostname
+
+    # If host is a literal IP, validate directly.
+    try:
+        ip_literal = ipaddress.ip_address(host)
+    except ValueError:
+        # Not an IP literal — fall through to DNS resolution.
+        ip_literal = None
+
+    if ip_literal is not None:
+        if not ip_literal.is_global:
+            raise ValueError("URL host resolves to a non-public IP address.")
+        return parsed.geturl()
+
+    # Resolve DNS and ensure every resolved address is public.
+    try:
+        addrinfo = socket.getaddrinfo(host, parsed.port or (443 if parsed.scheme == "https" else 80), proto=socket.IPPROTO_TCP)
+    except socket.gaierror:
+        raise ValueError("Could not resolve URL hostname.")
+
+    resolved_ips = {ai[4][0] for ai in addrinfo}
+    if not resolved_ips:
+        raise ValueError("Could not resolve URL hostname.")
+
+    for ip_str in resolved_ips:
+        try:
+            ip_obj = ipaddress.ip_address(ip_str)
+        except ValueError:
+            raise ValueError("URL host resolves to an invalid IP address.")
+        if not ip_obj.is_global:
+            raise ValueError("URL host resolves to a non-public IP address.")
+
+    return parsed.geturl()
+
+
 def process_url(
     url: str,
     team_id: int,
@@ -584,9 +634,10 @@ def process_url(
 
     Raises ValueError on failure.
     """
+    validated_url = validate_public_http_url(url)
     try:
-        with httpx.Client(follow_redirects=True, timeout=30.0) as client:
-            resp = client.get(url, headers={"User-Agent": "LogiPlanner/1.0"})
+        with httpx.Client(follow_redirects=False, timeout=30.0) as client:
+            resp = client.get(validated_url, headers={"User-Agent": "LogiPlanner/1.0"})
     except httpx.TimeoutException:
         raise ValueError("Request timed out when fetching the URL.")
     except httpx.RequestError as e:
