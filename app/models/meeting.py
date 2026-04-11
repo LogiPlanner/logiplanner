@@ -4,14 +4,17 @@ from sqlalchemy.sql import func
 
 from app.models.user import Base
 
-class WhiteboardState(Base):
-    __tablename__ = "whiteboard_states"
+class MeetingBoard(Base):
+    __tablename__ = "meeting_boards"
 
-    team_id = Column(Integer, ForeignKey("teams.id"), primary_key=True)
-    state_json = Column(Text, nullable=True) # Serialized Fabric.js JSON
+    id = Column(Integer, primary_key=True, index=True)
+    team_id = Column(Integer, ForeignKey("teams.id"), nullable=False, index=True)
+    name = Column(String, nullable=False, default="Main Board")
+    state_json = Column(Text, nullable=True)  # Serialized Fabric.js JSON
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
-    team = relationship("Team", backref="whiteboard")
+    team = relationship("Team", backref="meeting_boards")
 
 class MeetingFolder(Base):
     __tablename__ = "meeting_folders"

@@ -65,23 +65,58 @@ document.addEventListener('DOMContentLoaded', () => {
     /* -------------------------------------------------------------------------- */
     const tabWhiteboard = document.getElementById('tabWhiteboard');
     const tabEditor = document.getElementById('tabEditor');
-    const tabHistory = document.getElementById('tabHistory');
+    const tabBoards = document.getElementById('tabBoards');
+    const tabAISummary = document.getElementById('tabAISummary');
     const whiteboardView = document.getElementById('whiteboardContainer');
     const notesView = document.getElementById('notesView');
-    const historySidebar = document.getElementById('historySidebar');
+    const rightSidebar = document.getElementById('rightSidebar');
+    const boardsSidebar = document.getElementById('boardsSidebar');
+    const summarySidebar = document.getElementById('summarySidebar');
+    const closeRightSidebarBtn = document.getElementById('closeRightSidebarBtn');
+    const closeRightSidebarBtnSummary = document.getElementById('closeRightSidebarBtnSummary');
+    let rightSidebarMode = null;
+    let currentBoardId = localStorage.getItem('meeting_notes_board_id_' + teamId);
+    let boards = [];
+
+    function resizeBoardCanvas() {
+        if (typeof canvas === 'undefined' || !canvas || !whiteboardView) return;
+        canvas.setWidth(whiteboardView.clientWidth - 70);
+        canvas.setHeight(whiteboardView.clientHeight);
+        canvas.renderAll();
+    }
+
+    function closeRightSidebar() {
+        rightSidebarMode = null;
+        if (rightSidebar) rightSidebar.classList.remove('open');
+        const workspace = document.querySelector('.meetings-workspace');
+        if (workspace) workspace.classList.remove('sidebar-open');
+        boardsSidebar?.classList.remove('active');
+        summarySidebar?.classList.remove('active');
+        resizeBoardCanvas();
+    }
+
+    function openRightSidebar(mode) {
+        rightSidebarMode = mode;
+        if (rightSidebar) rightSidebar.classList.add('open');
+        const workspace = document.querySelector('.meetings-workspace');
+        if (workspace) workspace.classList.add('sidebar-open');
+        if (mode === 'boards') {
+            boardsSidebar?.classList.add('active');
+            summarySidebar?.classList.remove('active');
+            loadBoards();
+        } else if (mode === 'summary') {
+            summarySidebar?.classList.add('active');
+            boardsSidebar?.classList.remove('active');
+        }
+        resizeBoardCanvas();
+    }
 
     function showWhiteboardView() {
         tabWhiteboard.classList.add('active');
         tabEditor.classList.remove('active');
         if (notesView) notesView.style.display = 'none';
         if (whiteboardView) whiteboardView.style.display = '';
-        historySidebar.classList.remove('open');
-        // Re-measure canvas in case container size changed while hidden
-        if (typeof canvas !== 'undefined' && canvas && whiteboardView) {
-            canvas.setWidth(whiteboardView.clientWidth - 70);
-            canvas.setHeight(whiteboardView.clientHeight);
-            canvas.renderAll();
-        }
+        closeRightSidebar();
     }
 
     function showNotesView() {
@@ -89,18 +124,22 @@ document.addEventListener('DOMContentLoaded', () => {
         tabWhiteboard.classList.remove('active');
         if (whiteboardView) whiteboardView.style.display = 'none';
         if (notesView) notesView.style.display = 'flex';
-        historySidebar.classList.remove('open');
+        closeRightSidebar();
     }
 
     tabWhiteboard.addEventListener('click', showWhiteboardView);
     tabEditor.addEventListener('click', showNotesView);
 
-    tabHistory.addEventListener('click', () => {
-        historySidebar.classList.toggle('open');
-        if(historySidebar.classList.contains('open')) {
-            loadHistory();
-        }
+    tabBoards.addEventListener('click', () => {
+        openRightSidebar('boards');
     });
+
+    tabAISummary.addEventListener('click', () => {
+        openRightSidebar('summary');
+    });
+
+    closeRightSidebarBtn?.addEventListener('click', closeRightSidebar);
+    closeRightSidebarBtnSummary?.addEventListener('click', closeRightSidebar);
 
     /* -------------------------------------------------------------------------- */
     /*                         Search & Notifications                           */
@@ -154,8 +193,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Handle Resize
     window.addEventListener('resize', () => {
-        canvas.setWidth(whiteboardContainer.clientWidth - 70);
-        canvas.setHeight(whiteboardContainer.clientHeight);
+        resizeBoardCanvas();
     });
 
     // Zoom Controls
@@ -574,23 +612,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let mySessionId = 'client-' + Math.random().toString(36).substr(2, 9);
     let myFullName = "Team Member";
     
-    // Fetch profile status securely to get user's real name
-    fetch('/api/v1/profile-status')
-        .then(res => res.json())
-        .then(data => {
-            if(data.full_name) myFullName = data.full_name;
-            // UPDATE HEADER AVATAR
-            const avatarContainer = document.getElementById('userAvatar');
-            const initialsSpan = document.getElementById('avatarInitials');
-            if(avatarContainer && initialsSpan) {
-                if(data.avatar) {
-                    initialsSpan.outerHTML = `<img src="${data.avatar}" alt="Avatar" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`;
-                } else if(data.full_name) {
-                    initialsSpan.textContent = data.full_name.charAt(0).toUpperCase();
-                }
-            }
-        }).catch(e => console.error("Could not load user name for cursors"));
-
     const wsToken = localStorage.getItem('access_token') || '';
     if (!wsToken) {
         showToast("Session expired. Please log in again.", "error");
@@ -598,6 +619,9 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
     let wsUrl = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/api/v1/meetings/ws/' + teamId + '?token=' + encodeURIComponent(wsToken);
+    if (currentBoardId) {
+        wsUrl += '&board_id=' + encodeURIComponent(currentBoardId);
+    }
     let ws = new WebSocket(wsUrl);
     let ignoreNextChange = false;
 
@@ -697,8 +721,35 @@ document.addEventListener('DOMContentLoaded', () => {
         return obj.id;
     }
 
+    function getCanvasStateJSON() {
+        return canvas ? JSON.stringify(canvas.toJSON(['id'])) : null;
+    }
+
+    function ensureBoardLoaded(board) {
+        if (!board) return;
+        currentBoardId = board.id;
+        localStorage.setItem('meeting_notes_board_id_' + teamId, String(board.id));
+        renderBoardsList();
+
+        if (!board.state_json) {
+            ignoreNextChange = true;
+            canvas.clear();
+            canvas.renderAll();
+            return;
+        }
+
+        ignoreNextChange = true;
+        canvas.loadFromJSON(board.state_json, () => {
+            canvas.backgroundColor = null;
+            canvas.renderAll();
+        });
+    }
+
     ws.onmessage = function(event) {
         const msg = JSON.parse(event.data);
+        if (msg.board_id && currentBoardId && String(msg.board_id) !== String(currentBoardId)) {
+            return;
+        }
         
         if(msg.session_id && msg.session_id !== mySessionId) {
             trackPresence(msg.session_id, msg.full_name);
@@ -706,6 +757,10 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Initial Board Load
         if (msg.type === 'init' && msg.data) {
+            currentBoardId = msg.board_id || currentBoardId;
+            if (currentBoardId) {
+                localStorage.setItem('meeting_notes_board_id_' + teamId, String(currentBoardId));
+            }
             ignoreNextChange = true;
             canvas.loadFromJSON(msg.data, () => {
                 canvas.backgroundColor = null;
@@ -785,6 +840,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 type: type,
                 id: obj.id,
                 object: typeof obj.toJSON === 'function' ? obj.toJSON(['id']) : obj,
+                board_id: currentBoardId,
                 session_id: mySessionId
             }));
             
@@ -800,10 +856,175 @@ document.addEventListener('DOMContentLoaded', () => {
             ws.send(JSON.stringify({
                 type: "save_state",
                 data: JSON.stringify(serialized),
+                board_id: currentBoardId,
                 session_id: mySessionId
             }));
         }
     }
+
+    function renderBoardsList() {
+        const boardsList = document.getElementById('boardsList');
+        if (!boardsList) return;
+
+        if (!boards || boards.length === 0) {
+            boardsList.innerHTML = '<p class="text-gray-500 text-sm">No boards found.</p>';
+            return;
+        }
+
+        boardsList.innerHTML = '';
+        boards.forEach((board) => {
+            const item = document.createElement('div');
+            item.className = 'board-item' + (String(board.id) === String(currentBoardId) ? ' active' : '');
+
+            const meta = document.createElement('div');
+            meta.className = 'board-item__meta';
+
+            const name = document.createElement('div');
+            name.className = 'board-item__name';
+            name.textContent = board.name || 'Main Board';
+
+            const updated = document.createElement('div');
+            updated.className = 'board-item__updated';
+            updated.textContent = board.updated_at ? `Updated ${new Date(board.updated_at).toLocaleString()}` : 'Unsaved changes';
+
+            meta.appendChild(name);
+            meta.appendChild(updated);
+
+            const actions = document.createElement('div');
+            actions.className = 'board-item__actions';
+
+            if (String(board.id) === String(currentBoardId)) {
+                const badge = document.createElement('span');
+                badge.className = 'board-item__badge';
+                badge.textContent = 'Current';
+                actions.appendChild(badge);
+            }
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.type = 'button';
+            deleteBtn.className = 'board-item__action board-item__action--danger';
+            deleteBtn.title = 'Delete board';
+            deleteBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 6h18M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" /></svg>';
+            deleteBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                if (!await showConfirmDelete('Delete this board permanently?')) return;
+                const res = await fetch(`/api/v1/meetings/boards/${teamId}/${board.id}`, { method: 'DELETE' });
+                if (res.ok) {
+                    showToast('Board deleted', 'success');
+                    await loadBoards();
+                } else {
+                    showToast('Failed to delete board', 'error');
+                }
+            });
+            actions.appendChild(deleteBtn);
+
+            item.appendChild(meta);
+            item.appendChild(actions);
+            item.addEventListener('click', () => selectBoard(board.id));
+            boardsList.appendChild(item);
+        });
+    }
+
+    async function loadBoards() {
+        const boardsList = document.getElementById('boardsList');
+        if (boardsList) {
+            boardsList.innerHTML = '<p class="text-gray-500 text-sm">Loading boards...</p>';
+        }
+
+        try {
+            const res = await fetch(`/api/v1/meetings/boards/${teamId}`);
+            if (!res.ok) throw new Error('Failed to load boards');
+            boards = await res.json();
+
+            if (!boards.length) {
+                boards = [];
+                renderBoardsList();
+                return;
+            }
+
+            const requestedBoard = currentBoardId && boards.find(board => String(board.id) === String(currentBoardId));
+            if (!requestedBoard) {
+                currentBoardId = boards[0].id;
+                localStorage.setItem('meeting_notes_board_id_' + teamId, String(currentBoardId));
+            }
+
+            renderBoardsList();
+            const activeBoard = boards.find(board => String(board.id) === String(currentBoardId));
+            if (activeBoard && rightSidebarMode === 'boards') {
+                ensureBoardLoaded(activeBoard);
+            }
+        } catch (error) {
+            console.error('Error loading boards:', error);
+            if (boardsList) {
+                boardsList.innerHTML = '<p class="text-red-500 text-sm">Failed to load boards.</p>';
+            }
+        }
+    }
+
+    async function selectBoard(boardId) {
+        const board = boards.find(item => String(item.id) === String(boardId));
+        if (!board) return;
+        currentBoardId = board.id;
+        localStorage.setItem('meeting_notes_board_id_' + teamId, String(board.id));
+        renderBoardsList();
+        ensureBoardLoaded(board);
+        openRightSidebar('boards');
+    }
+
+    async function createBoardFromCurrent() {
+        const boardName = window.prompt('Board name', `Board ${boards.length + 1}`);
+        if (!boardName) return;
+
+        const res = await fetch(`/api/v1/meetings/boards/${teamId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name: boardName,
+                state_json: getCanvasStateJSON()
+            })
+        });
+
+        if (!res.ok) {
+            showToast('Failed to create board', 'error');
+            return;
+        }
+
+        const board = await res.json();
+        boards.push(board);
+        currentBoardId = board.id;
+        localStorage.setItem('meeting_notes_board_id_' + teamId, String(board.id));
+        renderBoardsList();
+        ensureBoardLoaded(board);
+        showToast('Board saved', 'success');
+    }
+
+    async function persistCurrentBoard() {
+        if (!currentBoardId) {
+            await createBoardFromCurrent();
+            return;
+        }
+
+        const res = await fetch(`/api/v1/meetings/boards/${teamId}/${currentBoardId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                state_json: getCanvasStateJSON()
+            })
+        });
+
+        if (!res.ok) {
+            showToast('Failed to save board', 'error');
+            return;
+        }
+
+        const board = await res.json();
+        boards = boards.map(item => String(item.id) === String(board.id) ? board : item);
+        renderBoardsList();
+        showToast('Board saved', 'success');
+    }
+
+    document.getElementById('newBoardBtn')?.addEventListener('click', createBoardFromCurrent);
+    document.getElementById('saveBoardBtn')?.addEventListener('click', persistCurrentBoard);
 
     // Fabric Event Listeners for Delta Syncing
     canvas.on('object:added', (opt) => {
@@ -1180,7 +1401,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const aiStatusBadge = document.getElementById('aiStatusBadge');
     
     // Wire top record button
-    const topRecordBtn = document.getElementById('topRecordBtn');
+    const summaryRecordBtn = document.getElementById('summaryRecordBtn');
 
     uploadClick.addEventListener('click', () => audioFileInput.click());
 
@@ -1195,14 +1416,14 @@ document.addEventListener('DOMContentLoaded', () => {
     let audioChunks = [];
     let isRecording = false;
 
-    topRecordBtn.addEventListener('click', async () => {
+    summaryRecordBtn?.addEventListener('click', async () => {
         if (isRecording) {
             // Stop recording
             if (mediaRecorder && mediaRecorder.state !== 'inactive') {
                 mediaRecorder.stop();
                 mediaRecorder.stream.getTracks().forEach(track => track.stop());
             }
-            topRecordBtn.classList.remove('record-btn-pulsing');
+            summaryRecordBtn.classList.remove('record-btn-pulsing');
             isRecording = false;
             showToast("Recording stopped.", "success");
         } else {
@@ -1222,7 +1443,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
 
                 mediaRecorder.start();
-                topRecordBtn.classList.add('record-btn-pulsing');
+                summaryRecordBtn.classList.add('record-btn-pulsing');
                 isRecording = true;
                 showToast("Recording started...", "success");
                 
@@ -1296,31 +1517,7 @@ document.addEventListener('DOMContentLoaded', () => {
     /*                              History Loader                              */
     /* -------------------------------------------------------------------------- */
     function loadHistory() {
-        const historyList = document.getElementById('historyList');
-        historyList.innerHTML = '<p class="text-gray-500 text-sm">Loading histories...</p>';
-        
-        fetch(`/api/v1/rag/chat/sessions/${teamId}`)
-            .then(res => res.json())
-            .then(data => {
-                historyList.innerHTML = '';
-                if (!data.sessions || data.sessions.length === 0) {
-                    historyList.innerHTML = '<p class="text-gray-500 text-sm">No recent histories found.</p>';
-                    return;
-                }
-                
-                data.sessions.forEach(sess => {
-                    const el = document.createElement('div');
-                    el.style.cssText = "padding: 12px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; margin-bottom: 10px;";
-                    el.innerHTML = `
-                        <div style="font-weight: 500; font-size: 14px;">Session: ${sess.session_id.substring(0,8)}...</div>
-                        <div style="font-size: 12px; color: #6b7280; margin-top: 4px;">${new Date(sess.created_at).toLocaleString()}</div>
-                    `;
-                    historyList.appendChild(el);
-                });
-            })
-            .catch(e => {
-                historyList.innerHTML = '<p class="text-red-500 text-sm">Failed to load history.</p>';
-            });
+        return loadBoards();
     }
 
 });

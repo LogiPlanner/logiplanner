@@ -276,7 +276,7 @@
     }
 
     // ── Load user info → set initials + dropdown name/email ──
-    authFetch('/api/v1/auth/me')
+    authFetch('/api/v1/profile-status')
         .then(function(r) { return r && r.ok ? r.json() : null; })
         .then(function(d) {
             if (!d) return;
@@ -287,11 +287,11 @@
             var avatarEl = document.getElementById('avatarInitials');
             if (avatarEl) avatarEl.textContent = initials;
             var nameEl = document.getElementById('navUserName');
-            if (nameEl) nameEl.textContent = name || email;
+            if (nameEl) nameEl.textContent = name || email || 'User';
             var emailEl = document.getElementById('navUserEmail');
             if (emailEl) {
                 emailEl.textContent = email;
-                emailEl.style.display = name && email ? '' : 'none';
+                emailEl.style.display = email ? '' : 'none';
             }
         })
         .catch(function() {});

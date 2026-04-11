@@ -64,25 +64,6 @@
         }
     }
 
-    /* History Sidebar Overrides */
-    #historySidebar {
-        position: fixed;
-        right: -400px;
-        top: 60px;
-        width: 350px;
-        height: calc(100vh - 60px);
-        background: white;
-        box-shadow: -4px 0 15px rgba(0, 0, 0, 0.05);
-        transition: right 0.3s ease;
-        z-index: 900;
-        padding: 20px;
-        border-left: 1px solid #e5e7eb;
-    }
-
-    #historySidebar.open {
-        right: 0;
-    }
-
     .toolbar-left {
         background: #fdfdfd;
         border-radius: 20px;
@@ -156,25 +137,16 @@
         <div class="view-tabs">
             <button class="view-tab active" id="tabWhiteboard">Whiteboard</button>
             <button class="view-tab" id="tabEditor">Notes</button>
-            <div class="history" id="tabHistory" style="cursor: pointer;">
-                <span>History</span>
+            <button class="view-tab history" id="tabBoards" type="button" style="cursor: pointer; display:flex; align-items:center; gap:12px;">
+                <span>Boards</span>
                 <div class="avatars" id="activeUsersList" style="display: flex; align-items: center;">
                     <!-- Real-time users injected via WebSocket presence -->
                 </div>
-            </div>
+            </button>
+            <button class="view-tab" id="tabAISummary" type="button">AI Summary</button>
         </div>
 
         <div class="header-actions">
-            <!-- Record Button moved to Top Right -->
-            <button class="icon-btn" id="topRecordBtn" title="Record Meeting">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round"
-                        d="M12 2C9.243 2 7 4.243 7 7v6c0 2.757 2.243 5 5 5s5-2.243 5-5V7c0-2.757-2.243-5-5-5z" />
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 13v-1M5 13v-1M12 22v-4M8 22h8" />
-                </svg>
-            </button>
-
-
             <div class="position-relative" id="notificationDropdownWrapper">
                 <button class="icon-btn position-relative" id="notificationBtn">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -205,13 +177,24 @@
                     <button class="tool-btn" data-export="svg" style="width: 100%; text-align: left; justify-content: flex-start; border-radius: 4px; padding: 8px 12px; font-size:13px; color:#374151;">Download SVG</button>
                 </div>
             </div>
-            <div class="topbar__avatar" id="userAvatar">
+            <div class="topbar__avatar" id="userAvatarBtn">
                 <span id="avatarInitials">U</span>
-                <div class="topbar__dropdown">
-                    <a href="/settings" class="topbar__dropdown-item">Profile Settings</a>
-                    <button type="button" id="navbarLogoutBtn" class="topbar__dropdown-item"
-                        style="border:none;background:transparent;text-align:left;width:100%;font-family:inherit;cursor:pointer;">Sign
-                        Out</button>
+                <div class="topbar__dropdown topbar__dropdown--wide" id="userDropdown">
+                    <a href="/settings" class="topbar__dropdown-item topbar__dropdown-item--user">
+                        <span class="topbar__user-name" id="navUserName">Loading…</span>
+                        <span class="topbar__user-email" id="navUserEmail"></span>
+                    </a>
+                    <div class="topbar__dropdown-divider"></div>
+                    <div class="topbar__dropdown-group-label">PROJECTS</div>
+                    <div id="navProjectsList">
+                        <!-- JS renders project (team) buttons here -->
+                    </div>
+                    <button type="button" class="topbar__project-btn topbar__project-btn--create" id="navCreateProjectBtn">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                        Create Project
+                    </button>
+                    <div class="topbar__dropdown-divider"></div>
+                    <button type="button" id="navbarLogoutBtn" class="topbar__dropdown-item topbar__dropdown-item--danger">Logout</button>
                 </div>
             </div>
         </div>
@@ -406,70 +389,112 @@
         </div>
         <!-- /main-view-area -->
 
-        <!-- History Sidebar -->
-        <div id="historySidebar">
-            <h3 style="font-weight:600; margin-bottom:20px; font-size:18px;">Meeting History & Summaries</h3>
-            <div id="historyList" style="overflow-y:auto; height: 100%;">
-                <p class="text-gray-500 text-sm">Loading histories...</p>
-            </div>
-        </div>
-
-        <!-- Right Sidebar - AI Summary -->
-        <aside class="right-sidebar">
-            <div class="rs-header">
-                <div class="rs-title">
-                    <svg class="sparkles-icon" viewBox="0 0 24 24" fill="none" stroke="#4f46e5">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-                    </svg>
-                    AI Summary
-                </div>
-                <div class="badge-active" id="aiStatusBadge">READY</div>
-            </div>
-
-            <div class="rs-section">
-                <div class="rs-section-title">RECORDING UPLOAD</div>
-                <div class="upload-box" id="uploadBox" style="position: relative;">
-                    <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="#9ca3af">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                    </svg>
-                    <p><span class="link-text" id="uploadClick">Click to upload</span> MP3 audio</p>
-                    <input type="file" id="audioFileInput" accept="audio/*" style="display:none;">
-                </div>
-
-                <div class="privacy-note mt-3">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
-                    Use the Top-Right MIC button to Record. AI will transcribe audio, summarize, and auto-<br>delete
-                    original file for privacy.
-                </div>
-
-                <div class="progress-container" id="uploadProgress" style="display:none;">
-                    <div class="progress-text">
-                        <span id="uploadStatusLabel">PROCESSING...</span>
-                        <span id="uploadPercent">0%</span>
+        <!-- Right Sidebar -->
+        <aside class="right-sidebar" id="rightSidebar">
+            <div class="right-sidebar__mode right-sidebar__mode--boards" id="boardsSidebar">
+                <div class="rs-header">
+                    <div class="rs-title">
+                        <svg class="sparkles-icon" viewBox="0 0 24 24" fill="none" stroke="#4f46e5">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                        </svg>
+                        Boards
                     </div>
-                    <div class="progress-bar">
-                        <div class="progress-fill" id="uploadFill" style="width: 0%;"></div>
+                    <div style="display:flex; gap:8px; align-items:center;">
+                        <button class="icon-btn right-sidebar__action" id="saveBoardBtn" title="Save Board">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M12 5v14" />
+                            </svg>
+                        </button>
+                        <button class="icon-btn right-sidebar__close" id="closeRightSidebarBtn" title="Close sidebar">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 6l12 12M18 6l-12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="rs-section">
+                    <div class="rs-section-title">SAVED BOARDS</div>
+                    <div class="boards-list-actions">
+                        <button class="share-btn boards-list-actions__btn" id="newBoardBtn">New Board</button>
+                    </div>
+                    <div class="boards-list" id="boardsList">
+                        <p class="text-gray-500 text-sm">Loading boards...</p>
                     </div>
                 </div>
             </div>
 
-            <div class="rs-section" id="aiResults" style="display:none;">
-                <div class="rs-section-title">KEY TAKEAWAYS</div>
-                <ul class="takeaways-list" id="takeawaysList">
-                    <!-- Dynamic -->
-                </ul>
+            <div class="right-sidebar__mode right-sidebar__mode--summary" id="summarySidebar">
+                <div class="rs-header">
+                    <div class="rs-title">
+                        <svg class="sparkles-icon" viewBox="0 0 24 24" fill="none" stroke="#4f46e5">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                        </svg>
+                        AI Summary
+                    </div>
+                    <div style="display:flex; gap:8px; align-items:center;">
+                        <div class="badge-active" id="aiStatusBadge">READY</div>
+                        <button class="icon-btn right-sidebar__action right-sidebar__action--record" id="summaryRecordBtn" title="Record Meeting">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M12 2C9.243 2 7 4.243 7 7v6c0 2.757 2.243 5 5 5s5-2.243 5-5V7c0-2.757-2.243-5-5-5z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19 13v-1M5 13v-1M12 22v-4M8 22h8" />
+                            </svg>
+                        </button>
+                        <button class="icon-btn right-sidebar__close" id="closeRightSidebarBtnSummary" title="Close sidebar">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 6l12 12M18 6l-12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
 
-                <button class="synthesize-btn mt-3" style="width: 100%;">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                    </svg>
-                    Saved to AI Brain!
-                </button>
+                <div class="rs-section">
+                    <div class="rs-section-title">RECORDING UPLOAD</div>
+                    <div class="upload-box" id="uploadBox" style="position: relative;">
+                        <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="#9ca3af">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                        </svg>
+                        <p><span class="link-text" id="uploadClick">Click to upload</span> MP3 audio</p>
+                        <input type="file" id="audioFileInput" accept="audio/*" style="display:none;">
+                    </div>
+
+                    <div class="privacy-note mt-3">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                        Use the mic button above to record. AI will transcribe audio, summarize, and auto-<br>delete
+                        original file for privacy.
+                    </div>
+
+                    <div class="progress-container" id="uploadProgress" style="display:none;">
+                        <div class="progress-text">
+                            <span id="uploadStatusLabel">PROCESSING...</span>
+                            <span id="uploadPercent">0%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="uploadFill" style="width: 0%;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="rs-section" id="aiResults" style="display:none;">
+                    <div class="rs-section-title">KEY TAKEAWAYS</div>
+                    <ul class="takeaways-list" id="takeawaysList">
+                        <!-- Dynamic -->
+                    </ul>
+
+                    <button class="synthesize-btn mt-3" style="width: 100%;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        Saved to AI Brain!
+                    </button>
+                </div>
             </div>
         </aside>
     </div>
@@ -510,5 +535,5 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
 <!-- Custom Scripts -->
 <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
-<script src="/static/meetings/js/meetings.js?v=3"></script>
+<script src="/static/meetings/js/meetings.js?v=4"></script>
 {% endblock %}

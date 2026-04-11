@@ -13,8 +13,8 @@ from app.core.dependencies import get_current_user
 from app.core.database import get_db
 from app.core.config import settings
 from app.models.user import User, Team, ChatMessage
-from app.models.meeting import MeetingFolder, MeetingNote, WhiteboardState
-from app.schemas.meeting import FolderCreate, FolderResponse, NoteCreate, NoteUpdate, NoteResponse
+from app.models.meeting import MeetingBoard, MeetingFolder, MeetingNote
+from app.schemas.meeting import BoardActionResponse, BoardCreate, BoardResponse, BoardUpdate, FolderCreate, FolderResponse, NoteCreate, NoteUpdate, NoteResponse
 from app.api.v1.rag import _verify_team_access
 
 router = APIRouter()
@@ -51,8 +51,36 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
+
+def _get_or_create_default_board(db: Session, team_id: int) -> MeetingBoard:
+    board = (
+        db.query(MeetingBoard)
+        .filter(MeetingBoard.team_id == team_id)
+        .order_by(MeetingBoard.created_at.asc(), MeetingBoard.id.asc())
+        .first()
+    )
+    if board:
+        return board
+
+    board = MeetingBoard(team_id=team_id, name="Main Board", state_json=None)
+    db.add(board)
+    db.commit()
+    db.refresh(board)
+    return board
+
+
+def _get_board_or_404(db: Session, team_id: int, board_id: int) -> MeetingBoard:
+    board = (
+        db.query(MeetingBoard)
+        .filter(MeetingBoard.id == board_id, MeetingBoard.team_id == team_id)
+        .first()
+    )
+    if not board:
+        raise HTTPException(status_code=404, detail="Board not found")
+    return board
+
 @router.websocket("/ws/{team_id}")
-async def websocket_endpoint(websocket: WebSocket, team_id: int, token: str = Query(None), db: Session = Depends(get_db)):
+async def websocket_endpoint(websocket: WebSocket, team_id: int, token: str = Query(None), board_id: Optional[int] = Query(None), db: Session = Depends(get_db)):
     # Authenticate before accepting the WebSocket connection.
     if not token:
         await websocket.close(code=1008)
@@ -85,11 +113,26 @@ async def websocket_endpoint(websocket: WebSocket, team_id: int, token: str = Qu
     
     try:
         # On connection, send the latest state to the client
-        state = db.query(WhiteboardState).filter(WhiteboardState.team_id == team_id).first()
-        if state and state.state_json:
+        board = None
+        if board_id:
+            board = (
+                db.query(MeetingBoard)
+                .filter(MeetingBoard.id == board_id, MeetingBoard.team_id == team_id)
+                .first()
+            )
+        if not board:
+            board = _get_or_create_default_board(db, team_id)
+        if board and board.state_json:
             await websocket.send_text(json.dumps({
                 "type": "init",
-                "data": state.state_json
+                "board_id": board.id,
+                "data": board.state_json
+            }))
+        else:
+            await websocket.send_text(json.dumps({
+                "type": "init",
+                "board_id": board.id,
+                "data": json.dumps({"version": "5.3.1", "objects": []})
             }))
         
         while True:
@@ -99,13 +142,20 @@ async def websocket_endpoint(websocket: WebSocket, team_id: int, token: str = Qu
             
             # Periodically or on every update (simplified here), save to DB
             msg = json.loads(data)
+            msg_board_id = msg.get("board_id") or board.id
             if msg.get("type") == "save_state":
-                board_state = db.query(WhiteboardState).filter(WhiteboardState.team_id == team_id).first()
+                board_state = (
+                    db.query(MeetingBoard)
+                    .filter(MeetingBoard.id == msg_board_id, MeetingBoard.team_id == team_id)
+                    .first()
+                )
                 if not board_state:
-                    board_state = WhiteboardState(team_id=team_id, state_json=msg.get("data"))
+                    board_state = MeetingBoard(team_id=team_id, name=msg.get("board_name") or "Main Board", state_json=msg.get("data"))
                     db.add(board_state)
                 else:
                     board_state.state_json = msg.get("data")
+                    if msg.get("board_name"):
+                        board_state.name = msg.get("board_name")
                 db.commit()
                 
     except WebSocketDisconnect:
@@ -115,6 +165,56 @@ async def websocket_endpoint(websocket: WebSocket, team_id: int, token: str = Qu
 # ──────────────────────────────────────────────
 # Folders API
 # ──────────────────────────────────────────────
+
+@router.get("/boards/{team_id}", response_model=List[BoardResponse])
+def get_boards(team_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    _verify_team_access(current_user, team_id, db)
+    _get_or_create_default_board(db, team_id)
+    return (
+        db.query(MeetingBoard)
+        .filter(MeetingBoard.team_id == team_id)
+        .order_by(MeetingBoard.created_at.asc(), MeetingBoard.id.asc())
+        .all()
+    )
+
+
+@router.post("/boards/{team_id}", response_model=BoardResponse)
+def create_board(team_id: int, data: BoardCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    _verify_team_access(current_user, team_id, db)
+    board = MeetingBoard(team_id=team_id, name=data.name.strip() or "Main Board", state_json=data.state_json)
+    db.add(board)
+    db.commit()
+    db.refresh(board)
+    return board
+
+
+@router.get("/boards/{team_id}/{board_id}", response_model=BoardResponse)
+def get_board(team_id: int, board_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    _verify_team_access(current_user, team_id, db)
+    return _get_board_or_404(db, team_id, board_id)
+
+
+@router.put("/boards/{team_id}/{board_id}", response_model=BoardResponse)
+def update_board(team_id: int, board_id: int, data: BoardUpdate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    _verify_team_access(current_user, team_id, db)
+    board = _get_board_or_404(db, team_id, board_id)
+    if data.name is not None:
+        board.name = data.name.strip() or board.name
+    if data.state_json is not None:
+        board.state_json = data.state_json
+    db.commit()
+    db.refresh(board)
+    return board
+
+
+@router.delete("/boards/{team_id}/{board_id}", response_model=BoardActionResponse)
+def delete_board(team_id: int, board_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    _verify_team_access(current_user, team_id, db)
+    board = _get_board_or_404(db, team_id, board_id)
+    db.delete(board)
+    db.commit()
+    _get_or_create_default_board(db, team_id)
+    return {"message": "Board deleted"}
 
 @router.get("/folders/{team_id}", response_model=List[FolderResponse])
 def get_folders(team_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
