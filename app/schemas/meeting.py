@@ -9,6 +9,7 @@ class FolderResponse(BaseModel):
     id: int
     team_id: int
     name: str
+    is_protected: bool = False
     created_at: datetime
     updated_at: Optional[datetime] = None
 

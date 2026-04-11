@@ -238,6 +238,8 @@ def delete_folder(team_id: int, folder_id: int, current_user: User = Depends(get
     folder = db.query(MeetingFolder).filter(MeetingFolder.id == folder_id, MeetingFolder.team_id == team_id).first()
     if not folder:
         raise HTTPException(status_code=404, detail="Folder not found")
+    if folder.is_protected:
+        raise HTTPException(status_code=403, detail="This folder is protected and cannot be deleted")
     db.delete(folder)
     db.commit()
     return {"message": "Folder deleted"}
@@ -309,6 +311,10 @@ UPLOAD_DIR = os.path.join("app", "static", "uploads", "audio")
 
 def _process_audio_summary(file_path: str, team_id: int, user_id: int, db_url: str):
     from app.core.database import SessionLocal
+    from app.models.user import Document
+    from app.rag.processor import process_text, apply_document_summary
+    from app.rag.engine import rag_engine
+
     db = SessionLocal()
     try:
         # 1. Transcribe audio with Whisper
@@ -325,7 +331,7 @@ def _process_audio_summary(file_path: str, team_id: int, user_id: int, db_url: s
 
         # 2. Summarize with GPT-4
         prompt = f"""
-You are an AI meeting assistant for LogiPlanner. 
+You are an AI meeting assistant for LogiPlanner.
 A meeting recording was just uploaded. Here is the exact transcript:
 ---
 {transcription_text}
@@ -361,7 +367,7 @@ Please provide a structured summary containing:
             .first()
         )
         if not ai_folder:
-            ai_folder = MeetingFolder(team_id=team_id, name=AI_GENERATED_FOLDER_NAME)
+            ai_folder = MeetingFolder(team_id=team_id, name=AI_GENERATED_FOLDER_NAME, is_protected=True)
             db.add(ai_folder)
             db.flush()
 
@@ -374,6 +380,46 @@ Please provide a structured summary containing:
             note_type="document",
         )
         db.add(note)
+        db.flush()
+
+        # 5. Ingest the summary into RAG system for AI Brain access
+        user = db.query(User).filter(User.id == user_id).first()
+        if user:
+            doc_record = Document(
+                team_id=team_id,
+                uploader_id=user_id,
+                filename=note_title,
+                stored_path="[meeting_summary]",
+                doc_type="text",
+                file_size=len(summary.encode("utf-8")),
+                status="processing",
+            )
+            db.add(doc_record)
+            db.flush()
+
+            try:
+                # Process text and ingest into RAG
+                chunks = process_text(
+                    text=f"Meeting Summary\n\nTranscript:\n{transcription_text}\n\nSummary:\n{summary}",
+                    title=note_title,
+                    team_id=team_id,
+                    document_id=doc_record.id,
+                    uploader_email=user.email,
+                )
+
+                # Generate document summary for RAG
+                doc_summary = f"Meeting summary generated from audio recording on {datetime.now(timezone.utc).strftime('%b %d, %Y')}. Contains transcript and structured summary with key takeaways and action items."
+                chunks = apply_document_summary(chunks, doc_summary)
+
+                chunk_count = rag_engine.ingest_chunks(team_id, chunks)
+                doc_record.chunk_count = chunk_count
+                doc_record.status = "ready"
+                doc_record.summary = doc_summary
+                print(f"[RAG] Ingested meeting summary into AI Brain: {chunk_count} chunks")
+            except Exception as e:
+                doc_record.status = "failed"
+                print(f"[RAG] Error ingesting meeting summary into RAG: {e}")
+
         db.commit()
 
     except Exception as e:
@@ -381,7 +427,7 @@ Please provide a structured summary containing:
         print(f"[RAG] Error processing audio summary: {e}")
     finally:
         db.close()
-        # 5. Erase original file for privacy
+        # 6. Erase original file for privacy
         if os.path.exists(file_path):
             try:
                 os.remove(file_path)

@@ -1173,37 +1173,42 @@ document.addEventListener('DOMContentLoaded', () => {
                     nameEl.title = f.name;
                     nameEl.textContent = f.name;
 
-                    const del = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-                    del.setAttribute('class', 'delete-folder-btn');
-                    del.dataset.id = f.id;
-                    del.setAttribute('viewBox', '0 0 24 24');
-                    del.setAttribute('fill', 'none');
-                    del.setAttribute('stroke', 'currentColor');
-                    del.setAttribute('stroke-width', '2');
-                    del.setAttribute('style', 'width:14px; height:14px; color:#ef4444; cursor:pointer; display:none; margin-left:8px;');
-
-                    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                    path.setAttribute('d', 'M3 6h18M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2');
-                    del.appendChild(path);
-
                     folderEl.appendChild(nameEl);
-                    folderEl.appendChild(del);
-                    list.appendChild(folderEl);
 
-                    folderEl.addEventListener('mouseenter', () => del.style.display = 'block');
-                    folderEl.addEventListener('mouseleave', () => del.style.display = 'none');
-                    del.addEventListener('click', async (e) => {
-                        e.stopPropagation();
-                        const confirmed = await showConfirmDelete('Delete this folder and all its notes?');
-                        if(confirmed) {
-                            fetch(`/api/v1/meetings/folders/${teamId}/${del.dataset.id}`, {method: 'DELETE'})
-                            .then(() => {
-                                if(currentFolderId == del.dataset.id) selectFolder(null);
-                                else loadFolders();
-                                showToast("Folder deleted", "success");
-                            });
-                        }
-                    });
+                    // Only add delete button if folder is not protected
+                    if (!f.is_protected) {
+                        const del = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                        del.setAttribute('class', 'delete-folder-btn');
+                        del.dataset.id = f.id;
+                        del.setAttribute('viewBox', '0 0 24 24');
+                        del.setAttribute('fill', 'none');
+                        del.setAttribute('stroke', 'currentColor');
+                        del.setAttribute('stroke-width', '2');
+                        del.setAttribute('style', 'width:14px; height:14px; color:#ef4444; cursor:pointer; display:none; margin-left:8px;');
+
+                        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                        path.setAttribute('d', 'M3 6h18M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2');
+                        del.appendChild(path);
+
+                        folderEl.appendChild(del);
+
+                        folderEl.addEventListener('mouseenter', () => del.style.display = 'block');
+                        folderEl.addEventListener('mouseleave', () => del.style.display = 'none');
+                        del.addEventListener('click', async (e) => {
+                            e.stopPropagation();
+                            const confirmed = await showConfirmDelete('Delete this folder and all its notes?');
+                            if(confirmed) {
+                                fetch(`/api/v1/meetings/folders/${teamId}/${del.dataset.id}`, {method: 'DELETE'})
+                                .then(() => {
+                                    if(currentFolderId == del.dataset.id) selectFolder(null);
+                                    else loadFolders();
+                                    showToast("Folder deleted", "success");
+                                });
+                            }
+                        });
+                    }
+
+                    list.appendChild(folderEl);
                 });
             }).catch(e => showToast("Error loading folders", "error"));
     }
