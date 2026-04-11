@@ -998,13 +998,25 @@ document.addEventListener('DOMContentLoaded', () => {
         showToast('Board saved', 'success');
     }
 
+    function toSafeNumericPathSegment(value) {
+        const s = String(value ?? '').trim();
+        return /^\d+$/.test(s) ? s : null;
+    }
+
     async function persistCurrentBoard() {
         if (!currentBoardId) {
             await createBoardFromCurrent();
             return;
         }
 
-        const res = await fetch(`/api/v1/meetings/boards/${teamId}/${currentBoardId}`, {
+        const safeTeamId = toSafeNumericPathSegment(teamId);
+        const safeBoardId = toSafeNumericPathSegment(currentBoardId);
+        if (!safeTeamId || !safeBoardId) {
+            showToast('Invalid board or team ID', 'error');
+            return;
+        }
+
+        const res = await fetch(`/api/v1/meetings/boards/${encodeURIComponent(safeTeamId)}/${encodeURIComponent(safeBoardId)}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
