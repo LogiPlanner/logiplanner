@@ -77,6 +77,9 @@ app.include_router(settings_router, prefix=settings.API_V1_STR + "/settings", ta
 from app.api.v1.meetings import router as meetings_router
 app.include_router(meetings_router, prefix=settings.API_V1_STR + "/meetings", tags=["meetings"])
 
+from app.api.v1.integrations import router as integrations_router
+app.include_router(integrations_router, prefix=settings.API_V1_STR, tags=["integrations"])
+
 # ──────────────────────────────────────────────
 # Health Check
 # ──────────────────────────────────────────────

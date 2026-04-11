@@ -37,7 +37,7 @@ from collections import defaultdict
 import chromadb
 from chromadb.config import Settings as ChromaSettings
 from langchain_openai import ChatOpenAI
-from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_chroma import Chroma
 from langchain_core.documents import Document as LCDocument
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
@@ -89,11 +89,14 @@ class RAGEngine:
             ),
         )
 
-        # ── Embeddings (local HuggingFace) ─────────────────────────────────
-        self._embeddings = HuggingFaceEmbeddings(
-            model_name=settings.HF_EMBEDDING_MODEL,
-            model_kwargs={"device": "cpu"},
-            encode_kwargs={"normalize_embeddings": True},
+        # ── Embeddings (OpenAI) ─────────────────────────────────
+        if not settings.OPENAI_API_KEY:
+            raise RuntimeError(
+                "OPENAI_API_KEY is not set. Required for the RAG."
+            )
+        self._embeddings = OpenAIEmbeddings(
+            model="text-embedding-3-small",
+            openai_api_key=settings.OPENAI_API_KEY,
         )
 
         # ── Chat LLM (always OpenAI GPT) ────────────────────────────────────
@@ -108,12 +111,8 @@ class RAGEngine:
             max_tokens=2000,
         )
 
-        # ── Cross-encoder reranker (local HuggingFace) ────────────────────────
-        from sentence_transformers import CrossEncoder
-        self._reranker = CrossEncoder(
-            settings.HF_RERANKER_MODEL,
-            max_length=512,
-        )
+        # ── Cross-encoder reranker (Disabled for OpenAI compatibility) ──────────
+        self._reranker = None
 
         # ── Expansion LLM (cheap model for HyDE + doc summaries) ─────────────
         self._expansion_llm = ChatOpenAI(
@@ -570,12 +569,8 @@ class RAGEngine:
         if not fused:
             return []
 
-        # Step 6: Cross-encoder reranking on fused pool
-        # Use the original query for reranking (user intent, not HyDE excerpt)
-        pairs = [[query, doc.page_content] for doc in fused]
-        scores = self._reranker.predict(pairs)
-        ranked = sorted(zip(scores, fused), key=lambda x: x[0], reverse=True)
-        return [doc for _, doc in ranked[:k]]
+        # Step 6: Return Top K directly (Reranking disabled)
+        return fused[:k]
 
     def chat(
         self,

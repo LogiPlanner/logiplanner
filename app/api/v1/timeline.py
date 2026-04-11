@@ -8,8 +8,11 @@ import json
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
 from app.models.user import User, Team, SubTeam, user_team
-from app.models.timeline import TimelineEntry
-from app.schemas.timeline import TimelineEntryCreate, TimelineEntryResponse, TimelineEntryUpdate, MemoryAnalyticsResponse
+from app.models.timeline import TimelineEntry, TimelineEntryComment, TimelineEntryVersion
+from app.schemas.timeline import (
+    TimelineEntryCreate, TimelineEntryResponse, TimelineEntryUpdate, 
+    MemoryAnalyticsResponse, TimelineEntryCommentCreate, TimelineEntryCommentResponse
+)
 
 from langchain_core.documents import Document as LCDocument
 from langchain_openai import ChatOpenAI
@@ -359,3 +362,99 @@ def get_user_teams(
 ):
     """Returns all teams the current user belongs to. Frontend uses this for project switching."""
     return [{"id": t.id, "team_name": t.team_name} for t in current_user.teams]
+
+# ──────────────────────────────────────────────
+# AI & ENHANCED ENDPOINTS
+# ──────────────────────────────────────────────
+
+class MemoryAskResponse(BaseModel):
+    response: str
+    sources: list
+
+@router.get("/team/{team_id}/ask", response_model=MemoryAskResponse)
+def ask_memory(
+    team_id: int,
+    query: str = Query(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Semantic search / RAG over timeline entries."""
+    _verify_team_member(current_user, team_id, db)
+    try:
+        # Guarantee timeline context by pushing recent history as live_context
+        recent_entries = db.query(TimelineEntry).filter(TimelineEntry.team_id == team_id).order_by(TimelineEntry.created_at.desc()).limit(25).all()
+        live_context_str = "LATEST PROJECT TIMELINE EVENTS:\n"
+        for e in recent_entries:
+            date_str = e.created_at.strftime("%Y-%m-%d") if e.created_at else "Unknown Date"
+            live_context_str += f"- [{date_str}] {e.entry_type.upper()} '{e.title}' (Author: {e.author_name}). Tags: {e.tags}. Details: {e.content}\n"
+
+        res = rag_engine.chat(team_id=team_id, query=query, live_context=live_context_str)
+        return MemoryAskResponse(response=res.get("response", ""), sources=res.get("sources", []))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class ConflictCheckRequest(BaseModel):
+    text: str
+
+class ConflictCheckResponse(BaseModel):
+    warnings: List[str]
+
+@router.post("/team/{team_id}/check-conflict", response_model=ConflictCheckResponse)
+def check_conflict(
+    team_id: int,
+    request: ConflictCheckRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Live conflict validation using stored memory."""
+    _verify_team_member(current_user, team_id, db)
+    chunks = rag_engine.search(team_id=team_id, query=request.text, k=3)
+    if not chunks:
+        return ConflictCheckResponse(warnings=[])
+        
+    context = "\n\n".join([chunk.page_content for chunk in chunks])
+    prompt = (
+        f"Does the following new draft conflict with or contradict any of these past decisions?\n\n"
+        f"Past:\n{context}\n\nDraft:\n{request.text}\n\n"
+        f"If it explicitly conflicts, explain why briefly. If no clear conflict, reply exactly 'No conflict'."
+    )
+    
+    messages = [
+        SystemMessage(content="You are a strict conflict detection AI. Only flag explicit contradictions."),
+        HumanMessage(content=prompt)
+    ]
+    try:
+        res = rag_engine._invoke_llm_with_retry(messages)
+        res_text = res.content.strip()
+        if "No conflict" in res_text or "no conflict" in res_text.lower():
+            return ConflictCheckResponse(warnings=[])
+        return ConflictCheckResponse(warnings=[res_text])
+    except Exception:
+        return ConflictCheckResponse(warnings=[])
+
+# ──────────────────────────────────────────────
+# SUB-RESOURCES (Comments)
+# ──────────────────────────────────────────────
+
+@router.post("/{entry_id}/comments", response_model=TimelineEntryCommentResponse)
+def add_comment(
+    entry_id: int,
+    comment: TimelineEntryCommentCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    entry = db.query(TimelineEntry).filter(TimelineEntry.id == entry_id).first()
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found")
+    _verify_team_member(current_user, entry.team_id, db)
+    
+    db_comment = TimelineEntryComment(
+        entry_id=entry_id,
+        user_id=current_user.id,
+        author_name=current_user.full_name or current_user.email.split("@")[0],
+        content=comment.content
+    )
+    db.add(db_comment)
+    db.commit()
+    db.refresh(db_comment)
+    return db_comment
