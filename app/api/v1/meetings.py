@@ -424,7 +424,9 @@ Please provide a structured summary containing:
 
     except Exception as e:
         db.rollback()
+        import traceback
         print(f"[RAG] Error processing audio summary: {e}")
+        traceback.print_exc()
     finally:
         db.close()
         # 6. Erase original file for privacy

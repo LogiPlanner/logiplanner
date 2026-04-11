@@ -241,8 +241,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     /* ═══════════════════ SUBTEAM MANAGEMENT (Team Management tab) ═══════════════════ */
 
-    let editingSubteamId = null;
-
     async function loadSubteams() {
         if (!currentTeamId) return;
         const res = await apiCall(`/api/v1/settings/teams/${currentTeamId}/subteams`, "GET");

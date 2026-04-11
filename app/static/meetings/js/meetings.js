@@ -1509,17 +1509,39 @@ document.addEventListener('DOMContentLoaded', () => {
                 uploadFill.style.backgroundColor = "#10b981"; // green
                 aiStatusBadge.innerText = "ANALYZING...";
                 
-                showToast("Audio safely uploaded. AI summarizes in background.", "success");
+                showToast("Audio safely uploaded. AI is transcribing and summarizing — this may take up to a minute.", "success");
 
-                // In a real scenario, we might poll. Here we simulate finishing.
-                setTimeout(() => {
-                    uploadProgress.style.display = 'none';
-                    document.getElementById('aiResults').style.display = 'block';
-                    document.getElementById('takeawaysList').innerHTML = `
-                        <li><span>Processing has completed and stored in the AI Brain safely. Ask the AI Brain for summaries!</span></li>
-                    `;
-                    aiStatusBadge.innerText = "READY";
-                }, 3000);
+                // Poll for the AI-generated note to appear
+                let pollAttempts = 0;
+                const maxPollAttempts = 30; // ~60 seconds total
+                const pollInterval = 2000;
+
+                const pollTimer = setInterval(() => {
+                    pollAttempts++;
+                    fetch(`/api/v1/meetings/folders/${teamId}`)
+                        .then(r => r.ok ? r.json() : [])
+                        .then(folders => {
+                            const aiFolder = folders.find(f => f.name === 'AI Generated');
+                            if (aiFolder) {
+                                clearInterval(pollTimer);
+                                uploadProgress.style.display = 'none';
+                                document.getElementById('aiResults').style.display = 'block';
+                                document.getElementById('takeawaysList').innerHTML = `
+                                    <li><span>Meeting summary created! Check the <strong>AI Generated</strong> folder in the Notes tab.</span></li>
+                                `;
+                                aiStatusBadge.innerText = "READY";
+                                showToast("AI summary is ready in Meeting Notes!", "success");
+                                loadFolders();
+                                loadNotes();
+                            } else if (pollAttempts >= maxPollAttempts) {
+                                clearInterval(pollTimer);
+                                uploadProgress.style.display = 'none';
+                                aiStatusBadge.innerText = "TIMEOUT";
+                                showToast("AI processing is taking longer than expected. Check back shortly.", "info");
+                            }
+                        })
+                        .catch(() => {});
+                }, pollInterval);
             } else {
                 showToast("Error uploading audio.", "error");
                 uploadProgress.style.display = 'none';
