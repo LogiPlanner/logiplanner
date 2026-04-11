@@ -1236,7 +1236,8 @@
 .stg-integration-card__icon--drive  { background: #e8f0fe; color: #1a73e8; }
 .stg-integration-card__icon--github { background: #24292e1a; color: #24292e; }
 .stg-integration-card__icon--notion { background: #f7f6f3; color: #37352f; }
-.stg-integration-card__icon--jira   { background: #e6edff; color: #0052cc; }
+.stg-integration-card__icon--jira      { background: #e6edff; color: #0052cc; }
+.stg-integration-card__icon--whatsapp  { background: #e9f9ed; color: #25D366; }
 
 .stg-integration-card__info {
     flex: 1;

@@ -66,14 +66,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const tabWhiteboard = document.getElementById('tabWhiteboard');
     const tabEditor = document.getElementById('tabEditor');
     const tabBoards = document.getElementById('tabBoards');
-    const tabAISummary = document.getElementById('tabAISummary');
     const whiteboardView = document.getElementById('whiteboardContainer');
     const notesView = document.getElementById('notesView');
     const rightSidebar = document.getElementById('rightSidebar');
     const boardsSidebar = document.getElementById('boardsSidebar');
-    const summarySidebar = document.getElementById('summarySidebar');
     const closeRightSidebarBtn = document.getElementById('closeRightSidebarBtn');
-    const closeRightSidebarBtnSummary = document.getElementById('closeRightSidebarBtnSummary');
     let rightSidebarMode = null;
     let currentBoardId = localStorage.getItem('meeting_notes_board_id_' + teamId);
     let boards = [];
@@ -91,7 +88,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const workspace = document.querySelector('.meetings-workspace');
         if (workspace) workspace.classList.remove('sidebar-open');
         boardsSidebar?.classList.remove('active');
-        summarySidebar?.classList.remove('active');
         resizeBoardCanvas();
     }
 
@@ -102,11 +98,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (workspace) workspace.classList.add('sidebar-open');
         if (mode === 'boards') {
             boardsSidebar?.classList.add('active');
-            summarySidebar?.classList.remove('active');
             loadBoards();
-        } else if (mode === 'summary') {
-            summarySidebar?.classList.add('active');
-            boardsSidebar?.classList.remove('active');
         }
         resizeBoardCanvas();
     }
@@ -134,12 +126,7 @@ document.addEventListener('DOMContentLoaded', () => {
         openRightSidebar('boards');
     });
 
-    tabAISummary.addEventListener('click', () => {
-        openRightSidebar('summary');
-    });
-
     closeRightSidebarBtn?.addEventListener('click', closeRightSidebar);
-    closeRightSidebarBtnSummary?.addEventListener('click', closeRightSidebar);
 
     /* -------------------------------------------------------------------------- */
     /*                         Search & Notifications                           */
@@ -1407,179 +1394,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     /* -------------------------------------------------------------------------- */
-    /*                              Audio & Recording                           */
+    /*                            Voice Recorder FAB                            */
     /* -------------------------------------------------------------------------- */
-    const uploadClick = document.getElementById('uploadClick');
-    const audioFileInput = document.getElementById('audioFileInput');
-    const uploadProgress = document.getElementById('uploadProgress');
-    const uploadFill = document.getElementById('uploadFill');
-    const uploadPercent = document.getElementById('uploadPercent');
-    const uploadStatusLabel = document.getElementById('uploadStatusLabel');
-    const aiStatusBadge = document.getElementById('aiStatusBadge');
-    
-    // Wire top record button
-    const summaryRecordBtn = document.getElementById('summaryRecordBtn');
+    if (window.__lp && window.__lp.initVoiceRecorder) {
+        var voiceResult = window.__lp.initVoiceRecorder({
+            teamId: teamId,
+            fetchNotes: function () {
+                return fetch('/api/v1/meetings/notes/' + teamId)
+                    .then(function (r) { return r.ok ? r.json() : []; });
+            },
+            onDone: function () {
+                loadFolders();
+                loadNotes();
+            },
+            timeoutMsg: 'Still processing — check Notes shortly.'
+        });
 
-    uploadClick.addEventListener('click', () => audioFileInput.click());
-
-    audioFileInput.addEventListener('change', (e) => {
-        if (e.target.files.length > 0) {
-            const file = e.target.files[0];
-            audioFileInput.value = ''; // reset so re-selecting same file triggers change
-
-            const MAX_SIZE_MB = 15;
-
-            if (!file.name.match(/\.mp4$/i) && file.type !== 'video/mp4' && file.type !== 'audio/mp4') {
-                showToast('Only MP4 files are supported.', 'error');
-                return;
-            }
-            if (file.size > MAX_SIZE_MB * 1024 * 1024) {
-                showToast(`File too large. Maximum size is ${MAX_SIZE_MB} MB.`, 'error');
-                return;
-            }
-            uploadAudio(file);
+        // ── View in Notes button ──
+        var voiceViewNotes = document.getElementById('voiceViewNotes');
+        if (voiceViewNotes) {
+            voiceViewNotes.addEventListener('click', function () {
+                if (voiceResult && voiceResult.closePanel) voiceResult.closePanel();
+                showNotesView();
+                loadFolders();
+                loadNotes();
+            });
         }
-    });
-
-    // Mic Recording
-    let mediaRecorder;
-    let audioChunks = [];
-    let isRecording = false;
-
-    summaryRecordBtn?.addEventListener('click', async () => {
-        if (isRecording) {
-            // Stop recording
-            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-                mediaRecorder.stop();
-                mediaRecorder.stream.getTracks().forEach(track => track.stop());
-            }
-            summaryRecordBtn.classList.remove('record-btn-pulsing');
-            isRecording = false;
-            showToast("Recording stopped.", "success");
-        } else {
-            // Start recording
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                mediaRecorder = new MediaRecorder(stream);
-                
-                mediaRecorder.ondataavailable = event => {
-                    audioChunks.push(event.data);
-                };
-
-                mediaRecorder.onstop = () => {
-                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-                    audioChunks = []; // reset
-                    uploadAudio(audioBlob, 'meeting_recording.webm');
-                };
-
-                mediaRecorder.start();
-                summaryRecordBtn.classList.add('record-btn-pulsing');
-                isRecording = true;
-                showToast("Recording started...", "success");
-                
-                document.getElementById('aiResults').style.display = 'none';
-                aiStatusBadge.innerText = "RECORDING...";
-                
-            } catch (err) {
-                showToast("Could not access microphone: " + err, "error");
-            }
-        }
-    });
-
-    function uploadAudio(fileBlob, filename = null) {
-        uploadProgress.style.display = 'flex';
-        uploadFill.style.backgroundColor = "#4f46e5"; 
-        uploadFill.style.width = "0%";
-        uploadPercent.innerText = "0%";
-        uploadStatusLabel.innerText = "UPLOADING...";
-        aiStatusBadge.innerText = "UPLOADING...";
-
-        const formData = new FormData();
-        formData.append('team_id', teamId);
-        formData.append('file', fileBlob, filename || fileBlob.name);
-
-        const xhr = new XMLHttpRequest();
-        xhr.open('POST', '/api/v1/meetings/upload-audio', true);
-        
-        const token = localStorage.getItem('access_token');
-        if (token) {
-            xhr.setRequestHeader('Authorization', 'Bearer ' + token);
-        }
-
-        xhr.upload.onprogress = (e) => {
-            if (e.lengthComputable) {
-                const percent = Math.round((e.loaded / e.total) * 100);
-                uploadFill.style.width = percent + '%';
-                uploadPercent.innerText = percent + '%';
-            }
-        };
-
-        xhr.onload = function() {
-            if (xhr.status === 200) {
-                uploadStatusLabel.innerText = "PROCESSING WITH AI...";
-                uploadPercent.innerText = "";
-                uploadFill.style.width = "100%";
-                uploadFill.style.backgroundColor = "#10b981"; // green
-                aiStatusBadge.innerText = "ANALYZING...";
-                
-                showToast("Audio safely uploaded. AI is transcribing and summarizing — this may take up to a minute.", "success");
-
-                // Snapshot current note count so we can detect when a new one appears
-                let baselineNoteCount = null;
-                fetch(`/api/v1/meetings/notes/${teamId}`)
-                    .then(r => r.ok ? r.json() : [])
-                    .then(notes => { baselineNoteCount = notes.length; })
-                    .catch(() => { baselineNoteCount = -1; });
-
-                // Poll for a NEW note to appear (handles both first upload and subsequent ones)
-                let pollAttempts = 0;
-                const maxPollAttempts = 30; // ~60 seconds total
-                const pollInterval = 2000;
-
-                const pollTimer = setInterval(() => {
-                    pollAttempts++;
-                    if (baselineNoteCount === null) return; // baseline not ready yet
-
-                    fetch(`/api/v1/meetings/notes/${teamId}`)
-                        .then(r => r.ok ? r.json() : [])
-                        .then(notes => {
-                            if (notes.length > baselineNoteCount) {
-                                clearInterval(pollTimer);
-                                uploadProgress.style.display = 'none';
-                                document.getElementById('aiResults').style.display = 'block';
-                                document.getElementById('takeawaysList').innerHTML = `
-                                    <li><span>Meeting summary created! Check the <strong>AI Generated</strong> folder in the Notes tab.</span></li>
-                                `;
-                                aiStatusBadge.innerText = "READY";
-                                showToast("AI summary is ready in Meeting Notes!", "success");
-                                loadFolders();
-                                loadNotes();
-                            } else if (pollAttempts >= maxPollAttempts) {
-                                clearInterval(pollTimer);
-                                uploadProgress.style.display = 'none';
-                                aiStatusBadge.innerText = "TIMEOUT";
-                                showToast("AI processing is taking longer than expected. Check back shortly.", "info");
-                                loadFolders();
-                                loadNotes();
-                            }
-                        })
-                        .catch(() => {});
-                }, pollInterval);
-            } else {
-                showToast("Error uploading audio.", "error");
-                uploadProgress.style.display = 'none';
-                aiStatusBadge.innerText = "ERROR";
-            }
-        };
-
-        xhr.onerror = function() {
-            showToast("Network error uploading audio.", "error");
-            uploadProgress.style.display = 'none';
-            aiStatusBadge.innerText = "ERROR";
-        };
-
-        xhr.send(formData);
     }
+
 
     /* -------------------------------------------------------------------------- */
     /*                              History Loader                              */

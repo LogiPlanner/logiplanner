@@ -260,6 +260,16 @@
         initDayPanel();
         initAISuggestionsPanel();
         loadTeamData();
+
+        // Voice recorder (must be after currentTeamId is set and common.js has loaded)
+        if (window.__lp && window.__lp.initVoiceRecorder) {
+            window.__lp.initVoiceRecorder({
+                teamId: currentTeamId,
+                fetchNotes: function () { return api('/meetings/notes/' + currentTeamId); },
+                onDone: function () {},
+                timeoutMsg: 'Still processing — check Meetings shortly.'
+            });
+        }
     }
 
     // ── Sidebar Team Buttons ──

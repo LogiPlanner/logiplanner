@@ -70,24 +70,30 @@ class RAGEngine:
         self._llm = None
         self._expansion_llm = None
         self._initialized = False
+        self._chroma_ready = False
+
+    def _ensure_chroma(self):
+        """Lightweight init — only connects to ChromaDB (no heavy ML models)."""
+        if self._chroma_ready:
+            return
+        import chromadb
+        from chromadb.config import Settings as ChromaSettings
+
+        self._chroma_client = chromadb.PersistentClient(
+            path=settings.CHROMA_PERSIST_DIR,
+            settings=ChromaSettings(anonymized_telemetry=False),
+        )
+        self._chroma_ready = True
 
     def _ensure_initialized(self):
-        """Lazy initialization — only connects to ChromaDB and embedding/chat providers when first needed."""
+        """Full initialization — connects to ChromaDB and loads embedding/chat/reranker models."""
         if self._initialized:
             return
 
-        import chromadb
-        from chromadb.config import Settings as ChromaSettings
+        self._ensure_chroma()
+
         from langchain_openai import ChatOpenAI
         from langchain_huggingface import HuggingFaceEmbeddings
-
-        # ChromaDB persistent client
-        self._chroma_client = chromadb.PersistentClient(
-            path=settings.CHROMA_PERSIST_DIR,
-            settings=ChromaSettings(
-                anonymized_telemetry=False,
-            ),
-        )
 
         # ── Embeddings (local HuggingFace) ─────────────────────────────────
         self._embeddings = HuggingFaceEmbeddings(
@@ -385,7 +391,7 @@ class RAGEngine:
         Returns:
             Number of chunks deleted
         """
-        self._ensure_initialized()
+        self._ensure_chroma()
         collection_name = self._get_collection_name(team_id)
 
         try:
@@ -417,7 +423,7 @@ class RAGEngine:
 
     def get_document_chunks(self, team_id: int, document_id: int, limit: int = 20, offset: int = 0) -> dict:
         """Retrieve stored chunks for a specific document from the vector store."""
-        self._ensure_initialized()
+        self._ensure_chroma()
         collection_name = self._get_collection_name(team_id)
 
         safe_limit = max(limit, 0)
@@ -485,7 +491,7 @@ class RAGEngine:
         """
         Delete all chunks belonging to a specific timeline entry from the vector store.
         """
-        self._ensure_initialized()
+        self._ensure_chroma()
         collection_name = self._get_collection_name(team_id)
 
         try:
@@ -703,7 +709,7 @@ class RAGEngine:
                 "recent_uploads": [{"filename": ..., "uploaded_at": ...}]
             }
         """
-        self._ensure_initialized()
+        self._ensure_chroma()
         collection_name = self._get_collection_name(team_id)
 
         try:
@@ -753,7 +759,7 @@ class RAGEngine:
 
     def collection_exists(self, team_id: int) -> bool:
         """Check if a team has a knowledge base collection."""
-        self._ensure_initialized()
+        self._ensure_chroma()
         collection_name = self._get_collection_name(team_id)
         try:
             col = self._chroma_client.get_collection(collection_name)
@@ -772,7 +778,7 @@ class RAGEngine:
         Returns list of dicts with keys: content, filename, doc_type,
         uploader_email, uploaded_at, chunk_index, page_number.
         """
-        self._ensure_initialized()
+        self._ensure_chroma()
         collection_name = self._get_collection_name(team_id)
 
         if db is not None:

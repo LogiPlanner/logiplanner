@@ -446,10 +446,11 @@ async def upload_audio_recording(
 ):
     _verify_team_access(current_user, team_id, db)
 
-    # Validate file type
+    # Validate file type — Whisper supports mp3, mp4, mpeg, mpga, m4a, wav, webm
+    ALLOWED_AUDIO_EXTS = {".mp4", ".webm", ".mp3", ".wav", ".m4a", ".mpga", ".mpeg"}
     ext = os.path.splitext(file.filename or "")[1].lower()
-    if ext != ".mp4":
-        raise HTTPException(status_code=400, detail="Only MP4 audio files are supported.")
+    if ext not in ALLOWED_AUDIO_EXTS:
+        raise HTTPException(status_code=400, detail=f"Unsupported audio format. Allowed: {', '.join(sorted(ALLOWED_AUDIO_EXTS))}")
 
     os.makedirs(UPLOAD_DIR, exist_ok=True)
     # Strip any path components from the client-supplied filename to prevent
