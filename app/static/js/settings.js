@@ -13,6 +13,7 @@ document.addEventListener("DOMContentLoaded", () => {
     /* ── State ── */
     let userRole      = "viewer";
     let currentTeamId = null;
+    let editingSubteamId = null;
 
     /* ═══════════════════ INIT ═══════════════════ */
 
@@ -349,7 +350,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 color:       document.getElementById("subteamColor").value
             };
             let res;
-            if (editingSubteamId) {
+            if (editingSubteamId !== null) {
                 res = await apiCall(`/api/v1/settings/teams/${currentTeamId}/subteams/${editingSubteamId}`, "PUT", payload);
             } else {
                 res = await apiCall(`/api/v1/settings/teams/${currentTeamId}/subteams`, "POST", payload);
