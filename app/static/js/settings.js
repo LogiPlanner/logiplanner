@@ -572,13 +572,28 @@ document.addEventListener("DOMContentLoaded", () => {
             const data = await res.json();
             const docs = data.documents || [];
 
+            const driveAllowedHosts = new Set(["drive.google.com"]);
+            const githubAllowedHosts = new Set(["github.com", "raw.githubusercontent.com"]);
+
             const driveCount  = docs.filter(d => {
                 if (d.doc_type === "folder") return true;
-                return d.source_url && d.source_url.includes("drive.google.com");
+                if (!d.source_url) return false;
+                try {
+                    const host = new URL(d.source_url).hostname.toLowerCase();
+                    return driveAllowedHosts.has(host);
+                } catch {
+                    return false;
+                }
             }).length;
-            const githubCount = docs.filter(d =>
-                d.source_url && (d.source_url.includes("github.com") || d.source_url.includes("raw.githubusercontent.com"))
-            ).length;
+            const githubCount = docs.filter(d => {
+                if (!d.source_url) return false;
+                try {
+                    const host = new URL(d.source_url).hostname.toLowerCase();
+                    return githubAllowedHosts.has(host);
+                } catch {
+                    return false;
+                }
+            }).length;
 
             const driveEl  = document.getElementById("intDriveCount");
             const githubEl = document.getElementById("intGithubCount");
