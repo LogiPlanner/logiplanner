@@ -131,6 +131,7 @@ class SubTeam(Base):
 
     team = relationship("Team", back_populates="sub_teams")
     users = relationship("User", secondary=user_sub_team, back_populates="sub_teams")
+    timeline_entries = relationship("TimelineEntry", back_populates="sub_team")
 
 
 # ═══════════════════════════════════════════════════

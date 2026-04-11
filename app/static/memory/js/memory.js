@@ -67,10 +67,36 @@ document.addEventListener('DOMContentLoaded', () => {
     let allEntries = [];
     let projectUsers = [];
     let currentTeamId = null;
+    let currentSubteamId = 'all';
+    let currentSubteamName = 'All Teams';
     let currentFilter = 'all';
     let entryToDelete = null;
+    let editingEntrySubteamId = null;
 
     // --- FETCH DATA ---
+
+    function getSelectedSubteamScope() {
+        const storedId = localStorage.getItem('selected_subteam_id') || 'all';
+        const scopeNameEl = document.getElementById('activeSubteamName');
+        return {
+            id: storedId,
+            name: scopeNameEl?.textContent?.trim() || (storedId === 'all' ? 'All Teams' : 'Team')
+        };
+    }
+
+    function updateScopeHeader() {
+        const subtitleEl = document.getElementById('timelineSubtitle');
+        if (!subtitleEl) return;
+        subtitleEl.textContent = 'Timeline for ' + currentSubteamName;
+    }
+
+    function updateCreateControls() {
+        if (!addEntryFab) return;
+        const canCreate = currentSubteamId !== 'all';
+        addEntryFab.style.opacity = canCreate ? '1' : '0.65';
+        addEntryFab.style.cursor = canCreate ? 'pointer' : 'not-allowed';
+        addEntryFab.title = canCreate ? 'Add Memory Entry' : 'Select a team in the sidebar to add a memory entry';
+    }
 
     async function fetchTeams() {
         try {
@@ -86,7 +112,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (projectTitle) {
                         projectTitle.textContent = chosen.team_name || 'Project Memory';
                     }
-                    loadTeamData(chosen.id);
+                    syncScopeFromSidebar();
+                    loadTeamData(chosen.id, currentSubteamId);
                 } else {
                     if (projectTitle) projectTitle.textContent = 'Project Memory';
                     timelineEmpty.style.display = 'block';
@@ -104,15 +131,27 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function loadTeamData(teamId) {
-        fetchTimeline(teamId);
-        fetchAnalytics(teamId);
-        fetchTeamUsers(teamId);
+    function syncScopeFromSidebar() {
+        const scope = getSelectedSubteamScope();
+        currentSubteamId = scope.id || 'all';
+        currentSubteamName = scope.name || 'All Teams';
+        updateScopeHeader();
+        updateCreateControls();
+    }
+
+    async function loadTeamData(teamId, subteamId = currentSubteamId) {
+        syncScopeFromSidebar();
+        fetchTimeline(teamId, subteamId);
+        fetchAnalytics(teamId, subteamId);
+        fetchTeamUsers(teamId, subteamId);
     }
     
-    async function fetchTeamUsers(teamId) {
+    async function fetchTeamUsers(teamId, subteamId = 'all') {
         try {
-            const res = await fetch(`/api/v1/timeline/team/${teamId}/users`, { headers });
+            const usersUrl = subteamId && subteamId !== 'all'
+                ? `/api/v1/timeline/team/${teamId}/users?subteam_id=${encodeURIComponent(subteamId)}`
+                : `/api/v1/timeline/team/${teamId}/users`;
+            const res = await fetch(usersUrl, { headers });
             if (res.ok) {
                 projectUsers = await res.json();
             }
@@ -121,9 +160,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function fetchTimeline(teamId) {
+    async function fetchTimeline(teamId, subteamId = 'all') {
         try {
-            const res = await mFetch(`/api/v1/timeline/team/${teamId}`, { headers });
+            const timelineUrl = subteamId && subteamId !== 'all'
+                ? `/api/v1/timeline/team/${teamId}?subteam_id=${encodeURIComponent(subteamId)}`
+                : `/api/v1/timeline/team/${teamId}`;
+            const res = await mFetch(timelineUrl, { headers });
 
             if (res.ok) {
                 const newData = await res.json();
@@ -161,9 +203,12 @@ document.addEventListener('DOMContentLoaded', () => {
         notifList.insertAdjacentHTML('afterbegin', html);
     }
 
-    async function fetchAnalytics(teamId) {
+    async function fetchAnalytics(teamId, subteamId = 'all') {
         try {
-            const res = await mFetch(`/api/v1/timeline/team/${teamId}/analytics`, { headers });
+            const analyticsUrl = subteamId && subteamId !== 'all'
+                ? `/api/v1/timeline/team/${teamId}/analytics?subteam_id=${encodeURIComponent(subteamId)}`
+                : `/api/v1/timeline/team/${teamId}/analytics`;
+            const res = await mFetch(analyticsUrl, { headers });
             if (res.ok) {
                 const data = await res.json();
                 statDecisions.textContent = data.decisions_count;
@@ -471,6 +516,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const entry = allEntries.find(e => e.id === id);
         if(!entry) return;
 
+        editingEntrySubteamId = entry.sub_team_id || null;
         editEntryId.value = entry.id;
         document.getElementById('entryType').value = entry.entry_type;
         document.getElementById('entryTitle').value = entry.title;
@@ -487,7 +533,12 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     addEntryFab.addEventListener('click', () => {
+        if (currentSubteamId === 'all') {
+            showError('Select a team in the sidebar before adding a memory entry.');
+            return;
+        }
         editEntryId.value = "";
+        editingEntrySubteamId = null;
         entryForm.reset();
         document.getElementById('entryCollaborators').value = '';
         
@@ -510,6 +561,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const url = isEditing ? `/api/v1/timeline/${editEntryId.value}` : '/api/v1/timeline/';
         const method = isEditing ? 'PUT' : 'POST';
 
+        if (!isEditing && currentSubteamId === 'all') {
+            showError('Select a team in the sidebar before adding a memory entry.');
+            return;
+        }
+
         const payload = {
             entry_type: document.getElementById('entryType').value,
             title: document.getElementById('entryTitle').value,
@@ -522,6 +578,9 @@ document.addEventListener('DOMContentLoaded', () => {
         
         if (!isEditing) {
             payload.team_id = currentTeamId;
+            payload.sub_team_id = parseInt(currentSubteamId, 10);
+        } else if (editingEntrySubteamId) {
+            payload.sub_team_id = editingEntrySubteamId;
         }
 
         const originalText = saveEntryBtn.textContent;
@@ -567,7 +626,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     setInterval(() => {
         if(currentTeamId) {
-            fetchTimeline(currentTeamId); // silently updates and triggers dot
+            fetchTimeline(currentTeamId, currentSubteamId); // silently updates and triggers dot
         }
     }, 15000);
 
@@ -675,13 +734,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Update subtitle on subteam change
     window.addEventListener('subteamchange', (e) => {
-        const subtitleEl = document.getElementById('timelineSubtitle');
-        if (!subtitleEl) return;
-        const { name } = e.detail || {};
-        if (name && name !== 'All Teams') {
-            subtitleEl.textContent = 'Timeline for ' + name + ' — The story of the project';
-        } else {
-            subtitleEl.textContent = 'Timeline for All Teams — The story of the project';
+        const { id, name } = e.detail || {};
+        currentSubteamId = id || 'all';
+        currentSubteamName = name || 'All Teams';
+        updateScopeHeader();
+        updateCreateControls();
+        if (currentTeamId) {
+            loadTeamData(currentTeamId, currentSubteamId);
+        }
+    });
+
+    window.addEventListener('teamchange', (e) => {
+        const { id, name } = e.detail || {};
+        const parsedTeamId = parseInt(id, 10);
+        if (!Number.isNaN(parsedTeamId)) {
+            currentTeamId = parsedTeamId;
+        }
+        if (projectTitle) {
+            projectTitle.textContent = name || 'Project Memory';
+        }
+        currentSubteamId = 'all';
+        currentSubteamName = 'All Teams';
+        updateScopeHeader();
+        updateCreateControls();
+        if (currentTeamId) {
+            loadTeamData(currentTeamId, 'all');
         }
     });
 

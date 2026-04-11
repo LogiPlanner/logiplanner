@@ -1,13 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, UploadFile, File, Query
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 import os
 import uuid
 import json
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
-from app.models.user import User, Team, user_team
+from app.models.user import User, Team, SubTeam, user_team
 from app.models.timeline import TimelineEntry
 from app.schemas.timeline import TimelineEntryCreate, TimelineEntryResponse, TimelineEntryUpdate, MemoryAnalyticsResponse
 
@@ -45,6 +45,20 @@ def _verify_team_member(user: User, team_id: int, db: Session) -> Team:
     return team
 
 
+def _verify_subteam_member(user: User, team_id: int, sub_team_id: int, db: Session) -> SubTeam:
+    """Verify user can access the given subteam within the requested team."""
+    _verify_team_member(user, team_id, db)
+    subteam = db.query(SubTeam).filter(
+        SubTeam.id == sub_team_id,
+        SubTeam.team_id == team_id,
+    ).first()
+    if not subteam:
+        raise HTTPException(status_code=404, detail="Team not found")
+    if user not in subteam.users:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    return subteam
+
+
 def _ingest_timeline_entry(team_id: int, entry: TimelineEntry, user_email: str):
     """Background task to safely ingest timeline entry into RAG."""
     try:
@@ -63,6 +77,7 @@ def _ingest_timeline_entry(team_id: int, entry: TimelineEntry, user_email: str):
                 "team_id": team_id,
                 "document_id": 0,
                 "timeline_entry_id": entry.id,
+                "sub_team_id": entry.sub_team_id,
                 "filename": f"Memory: {entry.title}",
                 "uploader_email": user_email,
                 "doc_type": "text",
@@ -88,9 +103,13 @@ def create_timeline_entry(
 ):
     """Creates a new timeline entry scoped directly to a team."""
     _verify_team_member(current_user, entry.team_id, db)
+    if not entry.sub_team_id:
+        raise HTTPException(status_code=400, detail="Select a team before creating a memory entry")
+    _verify_subteam_member(current_user, entry.team_id, entry.sub_team_id, db)
 
     db_entry = TimelineEntry(
         team_id=entry.team_id,
+        sub_team_id=entry.sub_team_id,
         entry_type=entry.entry_type,
         title=entry.title,
         content=entry.content,
@@ -117,39 +136,52 @@ def create_timeline_entry(
 @router.get("/team/{team_id}", response_model=List[TimelineEntryResponse])
 def get_team_timeline(
     team_id: int,
+    subteam_id: Optional[int] = Query(default=None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Fetches all timeline entries for a team, newest first."""
     _verify_team_member(current_user, team_id, db)
-    entries = db.query(TimelineEntry)\
-                .filter(TimelineEntry.team_id == team_id)\
-                .order_by(TimelineEntry.created_at.desc())\
-                .all()
+    query = db.query(TimelineEntry).filter(TimelineEntry.team_id == team_id)
+    if subteam_id is not None:
+        _verify_subteam_member(current_user, team_id, subteam_id, db)
+        query = query.filter(TimelineEntry.sub_team_id == subteam_id)
+    entries = query.order_by(TimelineEntry.created_at.desc()).all()
     return entries
 
 
 @router.get("/team/{team_id}/users")
 def get_team_users(
     team_id: int,
+    subteam_id: Optional[int] = Query(default=None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Returns all members of the team for @mentions."""
     team = _verify_team_member(current_user, team_id, db)
-    return [{"id": u.id, "email": u.email, "full_name": u.full_name or u.email.split("@")[0]} for u in team.users]
+    if subteam_id is not None:
+        subteam = _verify_subteam_member(current_user, team_id, subteam_id, db)
+        users = subteam.users
+    else:
+        users = team.users
+    return [{"id": u.id, "email": u.email, "full_name": u.full_name or u.email.split("@")[0]} for u in users]
 
 
 @router.get("/team/{team_id}/analytics", response_model=MemoryAnalyticsResponse)
 def get_team_analytics(
     team_id: int,
+    subteam_id: Optional[int] = Query(default=None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Returns analytics for a team's memory timeline."""
     _verify_team_member(current_user, team_id, db)
 
-    entries = db.query(TimelineEntry).filter(TimelineEntry.team_id == team_id).all()
+    query = db.query(TimelineEntry).filter(TimelineEntry.team_id == team_id)
+    if subteam_id is not None:
+        _verify_subteam_member(current_user, team_id, subteam_id, db)
+        query = query.filter(TimelineEntry.sub_team_id == subteam_id)
+    entries = query.all()
 
     decisions = sum(1 for e in entries if e.entry_type == "decision")
     milestones = sum(1 for e in entries if e.entry_type == "milestone")

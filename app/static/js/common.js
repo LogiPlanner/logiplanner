@@ -188,7 +188,10 @@
                     _userDropdown.style.opacity = '0';
                     _userDropdown.style.visibility = 'hidden';
                 }
-                window.location.reload();
+                _renderNavProjects(teams);
+                if (!_ts) {
+                    window.dispatchEvent(new CustomEvent('teamchange', { detail: { id: id, name: name } }));
+                }
             });
             container.appendChild(btn);
         });
@@ -311,6 +314,7 @@
                 _ts.addEventListener('change', function() {
                     localStorage.setItem('selected_team_id', _ts.value);
                     _loadSubteams(_ts.value);
+                    window.dispatchEvent(new CustomEvent('teamchange', { detail: { id: _ts.value, name: _ts.options[_ts.selectedIndex] ? _ts.options[_ts.selectedIndex].textContent : '' } }));
                 });
             }
 

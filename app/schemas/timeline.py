@@ -17,6 +17,7 @@ class TimelineEntryBase(BaseModel):
     tags: Optional[str] = None
     collaborators: Optional[str] = None
     impact_level: Optional[str] = None
+    sub_team_id: Optional[int] = None
 
 class TimelineEntryCreate(TimelineEntryBase):
     team_id: int  # Was project_id — now scoped directly to team
@@ -29,6 +30,7 @@ class TimelineEntryUpdate(BaseModel):
     tags: Optional[str] = None
     collaborators: Optional[str] = None
     impact_level: Optional[str] = None
+    sub_team_id: Optional[int] = None
 
 class TimelineEntryResponse(TimelineEntryBase):
     id: int
