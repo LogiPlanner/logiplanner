@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app.core.dependencies import get_current_user
 from app.core.database import get_db
 from app.core.config import settings
-from app.models.user import User, Team, ChatMessage
+from app.models.user import User, Team
 from app.models.meeting import MeetingBoard, MeetingFolder, MeetingNote
 from app.schemas.meeting import BoardActionResponse, BoardCreate, BoardResponse, BoardUpdate, FolderCreate, FolderResponse, NoteCreate, NoteUpdate, NoteResponse
 from app.api.v1.rag import _verify_team_access
@@ -344,16 +344,33 @@ Please provide a structured summary containing:
 
         summary = response.choices[0].message.content
 
-        # 3. Add to AI Brain (ChatMessage) so the RAG context picks it up for the team
-        assistant_msg = ChatMessage(
-            team_id=team_id,
-            user_id=user_id,
-            session_id=str(uuid.uuid4()),
-            role="assistant",
-            content=f"Meeting Summary Generated:\n\n{summary}",
-            sources=json.dumps([{"filename": "Meeting Recording", "page_number": 0, "uploader": "system", "doc_type": "audio"}])
+        # 3. Convert plain-text summary to basic HTML for the Quill editor
+        html_lines = []
+        for line in summary.splitlines():
+            stripped = line.strip()
+            html_lines.append("<p><br></p>" if not stripped else f"<p>{stripped}</p>")
+        html_content = "".join(html_lines)
+
+        # 4. Save to Meeting Notes inside an "AI Generated" folder
+        ai_folder = (
+            db.query(MeetingFolder)
+            .filter(MeetingFolder.team_id == team_id, MeetingFolder.name == "AI Generated")
+            .first()
         )
-        db.add(assistant_msg)
+        if not ai_folder:
+            ai_folder = MeetingFolder(team_id=team_id, name="AI Generated")
+            db.add(ai_folder)
+            db.flush()
+
+        note_title = f"Meeting Summary – {datetime.utcnow().strftime('%b %d, %Y %H:%M')} UTC"
+        note = MeetingNote(
+            team_id=team_id,
+            folder_id=ai_folder.id,
+            title=note_title,
+            content=html_content,
+            note_type="document",
+        )
+        db.add(note)
         db.commit()
 
     except Exception as e:
@@ -361,7 +378,7 @@ Please provide a structured summary containing:
         print(f"[RAG] Error processing audio summary: {e}")
     finally:
         db.close()
-        # 4. Erase original file for privacy
+        # 5. Erase original file for privacy
         if os.path.exists(file_path):
             try:
                 os.remove(file_path)
