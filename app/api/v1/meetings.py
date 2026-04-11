@@ -1,8 +1,9 @@
+import html as html_lib
 import os
 import json
 import uuid
+from datetime import datetime, timezone
 from typing import List, Optional
-from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect, UploadFile, File, Form, BackgroundTasks
 from jose import jwt, JWTError
@@ -17,6 +18,8 @@ from app.schemas.meeting import BoardActionResponse, BoardCreate, BoardResponse,
 from app.api.v1.rag import _verify_team_access
 
 router = APIRouter()
+
+AI_GENERATED_FOLDER_NAME = "AI Generated"
 
 # ──────────────────────────────────────────────
 # WebSocket Connection Manager
@@ -348,21 +351,21 @@ Please provide a structured summary containing:
         html_lines = []
         for line in summary.splitlines():
             stripped = line.strip()
-            html_lines.append("<p><br></p>" if not stripped else f"<p>{stripped}</p>")
+            html_lines.append("<p><br></p>" if not stripped else f"<p>{html_lib.escape(stripped)}</p>")
         html_content = "".join(html_lines)
 
         # 4. Save to Meeting Notes inside an "AI Generated" folder
         ai_folder = (
             db.query(MeetingFolder)
-            .filter(MeetingFolder.team_id == team_id, MeetingFolder.name == "AI Generated")
+            .filter(MeetingFolder.team_id == team_id, MeetingFolder.name == AI_GENERATED_FOLDER_NAME)
             .first()
         )
         if not ai_folder:
-            ai_folder = MeetingFolder(team_id=team_id, name="AI Generated")
+            ai_folder = MeetingFolder(team_id=team_id, name=AI_GENERATED_FOLDER_NAME)
             db.add(ai_folder)
             db.flush()
 
-        note_title = f"Meeting Summary – {datetime.utcnow().strftime('%b %d, %Y %H:%M')} UTC"
+        note_title = f"Meeting Summary – {datetime.now(timezone.utc).strftime('%b %d, %Y %H:%M')} UTC"
         note = MeetingNote(
             team_id=team_id,
             folder_id=ai_folder.id,
