@@ -356,7 +356,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 res = await apiCall(`/api/v1/settings/teams/${currentTeamId}/subteams`, "POST", payload);
             }
             if (res) {
-                showToast(editingSubteamId ? "Team updated" : "Team created", "success");
+                showToast(editingSubteamId !== null ? "Team updated" : "Team created", "success");
                 closeModal("subteamModalOverlay");
                 await loadSubteams();
             }
