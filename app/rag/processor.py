@@ -587,18 +587,17 @@ def validate_public_http_url(url: str) -> str:
 
     host = parsed.hostname
 
-    def _is_public_ip(ip_str: str) -> bool:
-        ip_obj = ipaddress.ip_address(ip_str)
-        return ip_obj.is_global
-
     # If host is a literal IP, validate directly.
     try:
-        if not _is_public_ip(host):
+        ip_literal = ipaddress.ip_address(host)
+    except ValueError:
+        # Not an IP literal — fall through to DNS resolution.
+        ip_literal = None
+
+    if ip_literal is not None:
+        if not ip_literal.is_global:
             raise ValueError("URL host resolves to a non-public IP address.")
         return parsed.geturl()
-    except ValueError:
-        # Not an IP literal, continue with DNS resolution.
-        pass
 
     # Resolve DNS and ensure every resolved address is public.
     try:
@@ -612,10 +611,11 @@ def validate_public_http_url(url: str) -> str:
 
     for ip_str in resolved_ips:
         try:
-            if not _is_public_ip(ip_str):
-                raise ValueError("URL host resolves to a non-public IP address.")
+            ip_obj = ipaddress.ip_address(ip_str)
         except ValueError:
             raise ValueError("URL host resolves to an invalid IP address.")
+        if not ip_obj.is_global:
+            raise ValueError("URL host resolves to a non-public IP address.")
 
     return parsed.geturl()
 
