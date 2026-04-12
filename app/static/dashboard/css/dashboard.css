@@ -1,11 +1,11 @@
-/* ═══════════════════════════════════════════════════════
-   DASHBOARD — LogiPlanner
+﻿/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   DASHBOARD â€” LogiPlanner
    Mission Control: AI-driven project command center
-   ═══════════════════════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
-/* ═══ LAYOUT ═══ */
+/* â•â•â• LAYOUT â•â•â• */
 
-/* ── Welcome Overlay (deferred project setup) ── */
+/* â”€â”€ Welcome Overlay (deferred project setup) â”€â”€ */
 .welcome-overlay {
     position: fixed;
     inset: 0;
@@ -58,7 +58,7 @@
 }
 
 .welcome-overlay--success .welcome-overlay__spinner { display: none; }
-.welcome-overlay--success .welcome-overlay__icon::after { content: ' ✓'; }
+.welcome-overlay--success .welcome-overlay__icon::after { content: ' âœ“'; }
 
 .dashboard {
     display: flex;
@@ -80,7 +80,7 @@
     padding: 24px 28px 40px;
 }
 
-/* ═══ TOPBAR — Dashboard-specific styles only ═══ */
+/* â•â•â• TOPBAR â€” Dashboard-specific styles only â•â•â• */
 .topbar__greeting {
     font-size: 0.88rem;
     font-weight: 500;
@@ -104,7 +104,7 @@
     font-weight: 700;
 }
 
-/* ═══ HERO HEADER — Slim personalized greeting ═══ */
+/* â•â•â• HERO HEADER â€” Slim personalized greeting â•â•â• */
 .hero-header {
     display: flex;
     align-items: center;
@@ -212,7 +212,7 @@
     height: 16px;
 }
 
-/* ═══ STATS STRIP ═══ */
+/* â•â•â• STATS STRIP â•â•â• */
 .stats-strip {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -273,7 +273,7 @@
     color: var(--color-text-muted);
 }
 
-/* ═══ DASHBOARD INFO CARD (reused for Recent Knowledge) ═══ */
+/* â•â•â• DASHBOARD INFO CARD (reused for Recent Knowledge) â•â•â• */
 .dashboard-info-card__loading {
     display: flex;
     align-items: center;
@@ -317,7 +317,7 @@
     opacity: 0.8;
 }
 
-/* ── Knowledge chunk items ── */
+/* â”€â”€ Knowledge chunk items â”€â”€ */
 .knowledge-item {
     display: flex;
     align-items: flex-start;
@@ -372,7 +372,7 @@
     gap: 8px;
 }
 
-/* ── Upcoming event items ── */
+/* â”€â”€ Upcoming event items â”€â”€ */
 .event-item {
     display: flex;
     align-items: flex-start;
@@ -444,7 +444,7 @@
     color: var(--color-text-muted);
 }
 
-/* ═══ CONTENT GRID ═══ */
+/* â•â•â• CONTENT GRID â•â•â• */
 .content-grid {
     display: grid;
     grid-template-columns: 1fr 380px;
@@ -458,7 +458,7 @@
     min-width: 0;
 }
 
-/* ═══ CARD ═══ */
+/* â•â•â• CARD â•â•â• */
 .card {
     background: var(--color-surface);
     border: 1px solid var(--color-border-lt);
@@ -540,7 +540,7 @@
     background: linear-gradient(135deg, var(--color-surface) 0%, rgba(6,214,160,0.03) 100%);
 }
 
-/* ═══ TODAY'S FOCUS ═══ */
+/* â•â•â• TODAY'S FOCUS â•â•â• */
 .focus-loading {
     display: flex;
     align-items: center;
@@ -677,7 +677,7 @@
     background: rgba(79,70,229,0.04);
 }
 
-/* ═══ DOCUMENT LIST ═══ */
+/* â•â•â• DOCUMENT LIST â•â•â• */
 .doc-list {
     display: flex;
     flex-direction: column;
@@ -747,7 +747,7 @@
 .doc-item__status--pending    { background: rgba(107,114,128,0.08); color: var(--color-text-muted); }
 .doc-item__status--error      { background: rgba(239,68,68,0.08); color: var(--color-error); }
 
-/* ═══ CALENDAR VIEW TOGGLE ═══ */
+/* â•â•â• CALENDAR VIEW TOGGLE â•â•â• */
 .calendar-view-toggle {
     display: flex;
     gap: 2px;
@@ -777,7 +777,7 @@
     color: var(--color-text-sec);
 }
 
-/* ═══ CALENDAR ═══ */
+/* â•â•â• CALENDAR â•â•â• */
 .calendar {
     width: 100%;
 }
@@ -1064,7 +1064,7 @@
     padding: 16px 0;
 }
 
-/* ═══ DASHBOARD CALENDAR SCOPE OVERRIDES ═══
+/* â•â•â• DASHBOARD CALENDAR SCOPE OVERRIDES â•â•â•
    Base template loads auth common styles globally, so force dashboard
    calendar internals to use this page's layout model. */
 #calendarWidget.calendar,
@@ -1091,7 +1091,7 @@
     background: transparent;
 }
 
-/* ═══ QUICK ACTIONS — Tile Grid ═══ */
+/* â•â•â• QUICK ACTIONS â€” Tile Grid â•â•â• */
 .quick-actions-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -1144,7 +1144,7 @@
     text-align: center;
 }
 
-/* ═══ ONBOARDING STEPS ═══ */
+/* â•â•â• ONBOARDING STEPS â•â•â• */
 .onboarding-steps {
     display: flex;
     flex-direction: column;
@@ -1234,7 +1234,7 @@
     color: var(--color-accent);
 }
 
-/* ═══ RECENT CHATS ═══ */
+/* â•â•â• RECENT CHATS â•â•â• */
 .chat-preview {
     display: flex;
     flex-direction: column;
@@ -1262,7 +1262,7 @@
 }
 
 .chat-preview__question::before {
-    content: '💬';
+    content: 'ðŸ’¬';
     font-size: 0.7rem;
 }
 
@@ -1282,7 +1282,7 @@
     margin-top: 4px;
 }
 
-/* ═══ EMPTY STATES ═══ */
+/* â•â•â• EMPTY STATES â•â•â• */
 .empty-state {
     text-align: center;
     padding: 32px 16px;
@@ -1329,7 +1329,7 @@
     color: #fff;
 }
 
-/* ═══ TEAM INFO CARD ═══ */
+/* â•â•â• TEAM INFO CARD â•â•â• */
 .team-info {
     display: flex;
     flex-direction: column;
@@ -1372,11 +1372,11 @@
 }
 
 .team-info__invite-code[data-copied="true"]::after {
-    content: ' ✓';
+    content: ' âœ“';
     color: var(--color-success);
 }
 
-/* ═══ LOADING SKELETON ═══ */
+/* â•â•â• LOADING SKELETON â•â•â• */
 .skeleton {
     background: linear-gradient(90deg, var(--color-border-lt) 25%, #e8eaf0 50%, var(--color-border-lt) 75%);
     background-size: 200% 100%;
@@ -1394,7 +1394,7 @@
 .skeleton--value    { height: 28px; width: 50px; }
 .skeleton--card     { height: 60px; width: 100%; }
 
-/* ═══ TOAST NOTIFICATION ═══ */
+/* â•â•â• TOAST NOTIFICATION â•â•â• */
 .toast {
     position: fixed;
     bottom: 24px;
@@ -1417,7 +1417,7 @@
     opacity: 1;
 }
 
-/* ═══ CALENDAR — Interactive task elements ═══ */
+/* â•â•â• CALENDAR â€” Interactive task elements â•â•â• */
 
 .calendar__day {
     cursor: pointer;
@@ -1563,7 +1563,7 @@
     flex-shrink: 0;
 }
 
-/* Week day cards — make them clickable */
+/* Week day cards â€” make them clickable */
 .calendar__week-day {
     cursor: pointer;
     display: flex;
@@ -1574,7 +1574,7 @@
     flex: 1;
 }
 
-/* ═══ TASK MODAL ═══ */
+/* â•â•â• TASK MODAL â•â•â• */
 .task-modal-overlay {
     position: fixed;
     inset: 0;
@@ -1757,7 +1757,7 @@
     transform: translateY(-1px);
 }
 
-/* ═══ DAY PANEL (slide-in) ═══ */
+/* â•â•â• DAY PANEL (slide-in) â•â•â• */
 .day-panel-overlay {
     position: fixed;
     inset: 0;
@@ -1977,7 +1977,7 @@
     opacity: 0.7;
 }
 
-/* ═══ TASK — COLOR BAR / META ═══ */
+/* â•â•â• TASK â€” COLOR BAR / META â•â•â• */
 .calendar__color-bar {
     width: 100%;
     height: 3px;
@@ -2000,19 +2000,19 @@
     margin-top: 2px;
 }
 
-/* ═══ WEEK VIEW — TASK TYPE ICON ═══ */
+/* â•â•â• WEEK VIEW â€” TASK TYPE ICON â•â•â• */
 .calendar__week-task-type {
     font-size: 0.65rem;
     flex-shrink: 0;
 }
 
-/* ═══ DAY PANEL — TASK TYPE ═══ */
+/* â•â•â• DAY PANEL â€” TASK TYPE â•â•â• */
 .day-panel__task-type {
     font-size: 1rem;
     flex-shrink: 0;
 }
 
-/* ═══ TASK MODAL — TASK TYPE SELECT ═══ */
+/* â•â•â• TASK MODAL â€” TASK TYPE SELECT â•â•â• */
 #taskTypeInput {
     width: 100%;
     padding: 9px 12px;
@@ -2031,7 +2031,7 @@
     border-color: var(--color-primary);
 }
 
-/* ═══ SAVE ERROR BANNER ═══ */
+/* â•â•â• SAVE ERROR BANNER â•â•â• */
 .task-modal__save-error {
     display: flex;
     align-items: center;
@@ -2055,7 +2055,7 @@
     line-height: 1.4;
 }
 
-/* ═══ CONFLICT WARNING ═══ */
+/* â•â•â• CONFLICT WARNING â•â•â• */
 .task-modal__conflict-warning {    display: flex;
     align-items: flex-start;
     gap: 10px;
@@ -2099,7 +2099,7 @@
     80% { transform: translateX(2px); }
 }
 
-/* ═══ AI SUGGESTIONS PANEL ═══ */
+/* â•â•â• AI SUGGESTIONS PANEL â•â•â• */
 .ai-suggestions-card {
     border: 1px solid rgba(139, 92, 246, 0.15);
     background: linear-gradient(135deg, var(--color-surface) 0%, rgba(139, 92, 246, 0.03) 100%);
@@ -2315,7 +2315,7 @@
     white-space: nowrap;
 }
 
-/* ═══ DAY PANEL — EXTRA META ═══ */
+/* â•â•â• DAY PANEL â€” EXTRA META â•â•â• */
 .day-panel__task-meta {
     display: flex;
     flex-wrap: wrap;
@@ -2350,7 +2350,7 @@
     font-weight: 600;
 }
 
-/* ═══ TASK MODAL — COLOR PICKER ═══ */
+/* â•â•â• TASK MODAL â€” COLOR PICKER â•â•â• */
 .task-modal__color-picker {
     display: flex;
     gap: 6px;
@@ -2393,7 +2393,7 @@
     border-style: solid;
 }
 
-/* ═══ TASK MODAL — @MENTION DROPDOWN ═══ */
+/* â•â•â• TASK MODAL â€” @MENTION DROPDOWN â•â•â• */
 .task-modal__mention-wrap {
     position: relative;
 }
@@ -2452,7 +2452,7 @@
     color: var(--color-text);
 }
 
-/* ═══ TASK MODAL — TAGGED MEMBERS ═══ */
+/* â•â•â• TASK MODAL â€” TAGGED MEMBERS â•â•â• */
 .task-modal__tags {
     display: flex;
     flex-wrap: wrap;
@@ -2494,7 +2494,7 @@
     opacity: 1;
 }
 
-/* ═══ RESPONSIVE ═══ */
+/* â•â•â• RESPONSIVE â•â•â• */
 @media (max-width: 1100px) {
     .content-grid {
         grid-template-columns: 1fr;

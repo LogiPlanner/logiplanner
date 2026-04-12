@@ -44,7 +44,7 @@
 .memory-topbar {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start; gap: 1.5rem;
     height: 4rem;
     background: transparent;
 }
@@ -190,7 +190,7 @@
 .timeline-header {
     display: flex;
     align-items: flex-start;
-    justify-content: space-between;
+    justify-content: flex-start; gap: 1.5rem;
     margin-bottom: 2rem;
 }
 
@@ -320,7 +320,7 @@
 .entry-header {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start; gap: 1.5rem;
     margin-bottom: 0.75rem;
 }
 
@@ -359,7 +359,7 @@
 
 .entry-content {
     font-size: 0.875rem;
-    color: #475569;
+    
     line-height: 1.6;
     margin: 0 0 1rem;
     white-space: pre-wrap;
@@ -386,7 +386,7 @@
 .entry-footer {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start; gap: 1.5rem;
     padding-top: 1rem;
     border-top: 1px solid var(--color-surface-low);
 }
@@ -679,7 +679,7 @@
 
 .focus-item-header {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-start; gap: 1.5rem;
     align-items: center;
     margin-bottom: 0.5rem;
 }
@@ -814,13 +814,16 @@
 .modal-overlay.active { display: flex; }
 
 .modal-box {
-    background: var(--color-surface-lowest);
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.4);
     border-radius: 1.5rem;
     width: 100%;
     max-width: 32rem;
     padding: 2rem;
-    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
-    animation: modalPop 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.15), 0 0 0 1px rgba(255,255,255,0.5) inset;
+    animation: modalPop 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes modalPop {
@@ -934,3 +937,411 @@
     background: var(--color-surface-low);
 }
 
+/* ═══════════════════════════════════════════════════════
+   NEW COMPONENTS — Beta badge + Quick Recall card
+   ═══════════════════════════════════════════════════════ */
+
+/* Beta badge on Memory Analytics header */
+.analytics-beta-badge {
+    display: inline-block;
+    font-size: 0.58rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #f59e0b, #ef4444);
+    color: #fff;
+    margin-left: 8px;
+    vertical-align: middle;
+    box-shadow: 0 1px 3px rgba(239,68,68,0.25);
+}
+
+/* Quick Recall card */
+.quick-recall-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 1.1rem 1.25rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+
+.quick-recall-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+    color: #4f46e5;
+}
+
+.quick-recall-header h4 {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0;
+}
+
+.quick-recall-desc {
+    font-size: 0.72rem;
+    color: #64748b;
+    margin: 0 0 12px;
+}
+
+.quick-recall-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.quick-recall-list li {
+    padding: 8px 10px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.quick-recall-list li:hover {
+    background: #eef2ff;
+    border-color: #c7d2fe;
+    color: #4f46e5;
+}
+
+.quick-recall-empty {
+    text-align: center;
+    color: #94a3b8;
+    font-style: italic;
+    cursor: default !important;
+}
+
+.quick-recall-empty:hover {
+    background: #f8fafc !important;
+    border-color: #e2e8f0 !important;
+    color: #94a3b8 !important;
+}
+
+/* ── Ask AI typing animation ── */
+@keyframes bounce {
+    0%, 100% { transform: translateY(0); opacity: 0.4; }
+    50% { transform: translateY(-4px); opacity: 1; }
+}
+
+/* ── AI Chat Interface ── */
+.chat-message {
+    display: flex;
+    gap: 1rem;
+    max-width: 85%;
+}
+
+.chat-message.user {
+    align-self: flex-end;
+    flex-direction: row-reverse;
+}
+
+.chat-message.ai {
+    align-self: flex-start;
+}
+
+.chat-avatar {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 0.875rem;
+}
+
+.chat-message.ai .chat-avatar {
+    background: linear-gradient(135deg, #6366f1, #a855f7);
+    color: white;
+}
+
+.chat-message.user .chat-avatar {
+    background: var(--color-primary-fade);
+    color: var(--color-primary);
+    color: var(--color-on-surface-variant);
+    font-weight: 700;
+}
+
+.chat-bubble {
+    padding: 1rem 1.25rem;
+    border-radius: 1.25rem;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: var(--color-on-surface);
+}
+
+.chat-message.ai .chat-bubble {
+    background: var(--color-surface-lowest);
+    border: 1px solid var(--color-surface-high);
+    border-top-left-radius: 0.25rem;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02);
+}
+
+.chat-message.user .chat-bubble {
+    background: #6366f1;
+    color: white;
+    border-top-right-radius: 0.25rem;
+    box-shadow: 0 4px 6px -1px rgba(99,102,241,0.2);
+}
+
+/* Markdown Styles inside AI bubble */
+.chat-bubble p { margin-top: 0; margin-bottom: 0.75rem; }
+.chat-bubble p:last-child { margin-bottom: 0; }
+.chat-bubble ul, .chat-bubble ol { margin-top: 0; margin-bottom: 0.75rem; padding-left: 1.5rem; }
+.chat-bubble pre { background: #f1f5f9; padding: 0.75rem; border-radius: 0.5rem; overflow-x: auto; margin-bottom: 0.75rem; font-size: 0.85rem;}
+.chat-bubble code { background: #f1f5f9; padding: 0.1rem 0.3rem; border-radius: 0.25rem; font-size: 0.85em; font-family: monospace; color: #db2777;}
+.chat-message.user .chat-bubble code { background: rgba(255,255,255,0.2); color: white; }
+.chat-bubble pre code { background: transparent; padding: 0; color: inherit; }
+.chat-bubble h1, .chat-bubble h2, .chat-bubble h3, .chat-bubble h4 { margin-top: 1rem; margin-bottom: 0.5rem; font-weight: 700; color: #1e293b; font-size: 1.1em;}
+.chat-message.user .chat-bubble h1, .chat-message.user .chat-bubble h2, .chat-message.user .chat-bubble h3, .chat-message.user .chat-bubble h4 { color: white; }
+
+#askAiInputWrapper:focus-within {
+    border-color: #6366f1 !important;
+    background: var(--color-surface-lowest) !important;
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+}
+
+#submitAskAiBtn:hover {
+    transform: scale(1.05);
+    background: #4f46e5 !important;
+}
+
+@keyframes aiSpin {
+    100% { transform: rotate(360deg); }
+}
+
+/* ── Facebook Style Interactions ── */
+
+.fb-post-actions {
+    display: flex;
+    justify-content: flex-start; gap: 1.5rem;
+       padding: 4px 0;
+    margin-top: 12px;
+    margin-bottom: 12px;
+}
+
+.fb-post-action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    padding: 6px 0;
+    font-weight: 600;
+    color: var(--color-outline);
+    cursor: pointer;
+    transition: background 0.2s;
+    font-size: 14px;
+    gap: 6px;
+}
+
+.fb-post-action-btn:hover {
+    background: var(--color-primary-fade);
+    color: var(--color-primary);
+}
+
+.fb-post-action-btn.active {
+    color: var(--color-primary);
+    background: var(--color-primary-fade);
+}
+
+.fb-post-options {
+    position: relative;
+    margin-left: auto;
+}
+
+.fb-post-options-toggle {
+    background: transparent;
+    border: none;
+    color: var(--color-outline);
+    cursor: pointer;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.fb-post-options-toggle:hover {
+    background: var(--color-primary-fade);
+    color: var(--color-primary);
+}
+
+.fb-post-options-dropdown {
+    position: absolute;
+    right: 0;
+    top: 100%;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    padding: 8px;
+    display: none;
+    flex-direction: column;
+    min-width: 150px;
+    z-index: 10;
+    border: 1px solid var(--color-surface-high);
+}
+
+.fb-post-options-dropdown.active {
+    display: flex;
+}
+
+.fb-post-options-btn {
+    padding: 8px 12px;
+    background: transparent;
+    border: none;
+    text-align: left;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+    color: var(--color-on-surface);
+    font-size: 14px;
+}
+
+.fb-post-options-btn:hover {
+    background: var(--color-surface-lowest);
+}
+.fb-post-options-btn.danger {
+    color: #e41c38;
+}
+
+.fb-comment-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.fb-comment-reply-row {
+    margin-left: 40px;
+}
+
+.fb-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--color-primary-fade);
+    color: var(--color-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 12px;
+    flex-shrink: 0;
+    
+}
+
+.fb-comment-body {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.fb-comment-bubble {
+    background: var(--color-surface-lowest);
+    border: 1px solid var(--color-surface-high);
+    border-radius: 12px;
+    padding: 8px 12px;
+    display: inline-block;
+    max-width: 100%;
+    position: relative;
+}
+
+.fb-comment-author {
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--color-on-surface);
+    margin-bottom: 2px;
+}
+
+.fb-comment-text {
+    font-size: 14px;
+    color: var(--color-on-surface);
+    word-wrap: break-word;
+}
+
+.fb-comment-actions {
+    display: flex;
+    gap: 12px;
+    padding-left: 12px;
+    margin-top: 2px;
+    align-items: center;
+}
+
+.fb-action-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--color-outline);
+    cursor: pointer;
+}
+
+.fb-action-btn:hover {
+    text-decoration: underline;
+}
+
+.fb-action-btn.active {
+    color: var(--color-primary);
+    background: var(--color-primary-fade);
+}
+
+.fb-comment-date {
+    font-size: 12px;
+    color: var(--color-outline);
+}
+
+.fb-likes-count {
+    display: inline-flex;
+    align-items: center;
+    background: #fff;
+    padding: 2px 4px;
+    border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    font-size: 11px;
+    color: var(--color-outline);
+    gap: 4px;
+    position: absolute;
+    bottom: -8px;
+    right: 4px;
+}
+
+.show-more-toggle {
+    background: transparent;
+    border: none;
+    color: var(--color-outline);
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 0;
+    margin-top: 4px;
+    margin-bottom: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.show-more-toggle:hover {
+    text-decoration: underline;
+}
+
+.reply-input-row {
+    display: none;
+    margin-top: 4px;
+    gap: 8px;
+    align-items: center;
+}
+
+.reply-input-row.active {
+    display: flex;
+}

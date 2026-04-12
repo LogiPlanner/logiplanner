@@ -8,11 +8,6 @@ from typing import List, Dict, Any, Optional, Tuple
 from urllib.parse import urlparse, urlunparse
 
 import httpx
-from langchain_community.document_loaders import (
-    PyPDFLoader,
-    TextLoader,
-)
-from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document as LCDocument
 
 from app.core.config import settings
@@ -92,11 +87,13 @@ def load_document(file_path: str, filename: str) -> List[LCDocument]:
     doc_type = get_doc_type(filename)
 
     if doc_type == "pdf":
+        from langchain_community.document_loaders import PyPDFLoader
         loader = PyPDFLoader(file_path)
         return loader.load()
     elif doc_type == "docx":
         return _load_docx(file_path)
     elif doc_type in ("txt", "markdown"):
+        from langchain_community.document_loaders import TextLoader
         loader = TextLoader(file_path, encoding="utf-8")
         return loader.load()
     else:
@@ -116,6 +113,7 @@ def split_documents(
     chunk_size = chunk_size or settings.RAG_CHUNK_SIZE
     chunk_overlap = chunk_overlap or settings.RAG_CHUNK_OVERLAP
 
+    from langchain_text_splitters import RecursiveCharacterTextSplitter
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,

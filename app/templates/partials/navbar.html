@@ -1,28 +1,19 @@
 {#
   Common Topbar Macro — navbar.html
-  ─────────────────────────────────
-  Usage (Jinja2 macro with caller block):
-
+  Usage:
     {% from "partials/navbar.html" import topbar %}
-
     {% call topbar() %}
         <!-- Page-specific LEFT content goes here -->
     {% endcall %}
-
-  Parameters:
-    show_notif_dropdown (bool, default false)
-        Shows the live notification panel wired to JS (used by Project Memory).
-        All other pages use a plain bell icon button.
 #}
-{% macro topbar(show_notif_dropdown=false) %}
+{% macro topbar() %}
 <header class="topbar">
     <div class="topbar__left">
         {{ caller() }}
     </div>
 
     <div class="topbar__right">
-        {% if show_notif_dropdown %}
-        {# Memory page — full notification panel with live updates #}
+        <!-- Notification Bell -->
         <div style="position: relative;">
             <button class="topbar__icon-btn" id="notifBtn" aria-label="Notifications">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
@@ -35,18 +26,26 @@
                 </div>
             </div>
         </div>
-        {% else %}
-        {# All other pages — standard bell button (no live panel yet) #}
-        <button class="topbar__icon-btn" aria-label="Notifications">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
-        </button>
-        {% endif %}
 
-        <div class="topbar__avatar" id="userAvatar">
+        <!-- User Avatar + Project Dropdown -->
+        <div class="topbar__avatar" id="userAvatarBtn">
             <span id="avatarInitials">U</span>
-            <div class="topbar__dropdown">
-                <a href="/settings" class="topbar__dropdown-item">Profile Settings</a>
-                <button type="button" id="navbarLogoutBtn" class="topbar__dropdown-item" style="border:none;background:transparent;text-align:left;width:100%;font-family:inherit;cursor:pointer;">Sign Out</button>
+            <div class="topbar__dropdown topbar__dropdown--wide" id="userDropdown">
+                <a href="/settings" class="topbar__dropdown-item topbar__dropdown-item--user">
+                    <span class="topbar__user-name" id="navUserName">Loading…</span>
+                    <span class="topbar__user-email" id="navUserEmail"></span>
+                </a>
+                <div class="topbar__dropdown-divider"></div>
+                <div class="topbar__dropdown-group-label">PROJECTS</div>
+                <div id="navProjectsList">
+                    <!-- JS renders project (team) buttons here -->
+                </div>
+                <button type="button" class="topbar__project-btn topbar__project-btn--create" id="navCreateProjectBtn">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                    Create Project
+                </button>
+                <div class="topbar__dropdown-divider"></div>
+                <button type="button" id="navbarLogoutBtn" class="topbar__dropdown-item topbar__dropdown-item--danger">Logout</button>
             </div>
         </div>
     </div>

@@ -65,34 +65,68 @@ document.addEventListener('DOMContentLoaded', () => {
     /* -------------------------------------------------------------------------- */
     const tabWhiteboard = document.getElementById('tabWhiteboard');
     const tabEditor = document.getElementById('tabEditor');
-    const tabHistory = document.getElementById('tabHistory');
-    const notesModal = document.getElementById('notesModal');
-    const historySidebar = document.getElementById('historySidebar');
+    const tabBoards = document.getElementById('tabBoards');
+    const whiteboardView = document.getElementById('whiteboardContainer');
+    const notesView = document.getElementById('notesView');
+    const rightSidebar = document.getElementById('rightSidebar');
+    const boardsSidebar = document.getElementById('boardsSidebar');
+    const closeRightSidebarBtn = document.getElementById('closeRightSidebarBtn');
+    let rightSidebarMode = null;
+    let currentBoardId = localStorage.getItem('meeting_notes_board_id_' + teamId);
+    let boards = [];
 
-    tabWhiteboard.addEventListener('click', () => {
+    function resizeBoardCanvas() {
+        if (typeof canvas === 'undefined' || !canvas || !whiteboardView) return;
+        canvas.setWidth(whiteboardView.clientWidth - 70);
+        canvas.setHeight(whiteboardView.clientHeight);
+        canvas.renderAll();
+    }
+
+    function closeRightSidebar() {
+        rightSidebarMode = null;
+        if (rightSidebar) rightSidebar.classList.remove('open');
+        const workspace = document.querySelector('.meetings-workspace');
+        if (workspace) workspace.classList.remove('sidebar-open');
+        boardsSidebar?.classList.remove('active');
+        resizeBoardCanvas();
+    }
+
+    function openRightSidebar(mode) {
+        rightSidebarMode = mode;
+        if (rightSidebar) rightSidebar.classList.add('open');
+        const workspace = document.querySelector('.meetings-workspace');
+        if (workspace) workspace.classList.add('sidebar-open');
+        if (mode === 'boards') {
+            boardsSidebar?.classList.add('active');
+            loadBoards();
+        }
+        resizeBoardCanvas();
+    }
+
+    function showWhiteboardView() {
         tabWhiteboard.classList.add('active');
         tabEditor.classList.remove('active');
-        notesModal.style.display = 'none';
-        historySidebar.classList.remove('open');
-    });
+        if (notesView) notesView.style.display = 'none';
+        if (whiteboardView) whiteboardView.style.display = '';
+        closeRightSidebar();
+    }
 
-    tabEditor.addEventListener('click', () => {
+    function showNotesView() {
         tabEditor.classList.add('active');
         tabWhiteboard.classList.remove('active');
-        notesModal.style.display = 'flex';
-        historySidebar.classList.remove('open');
+        if (whiteboardView) whiteboardView.style.display = 'none';
+        if (notesView) notesView.style.display = 'flex';
+        closeRightSidebar();
+    }
+
+    tabWhiteboard.addEventListener('click', showWhiteboardView);
+    tabEditor.addEventListener('click', showNotesView);
+
+    tabBoards.addEventListener('click', () => {
+        openRightSidebar('boards');
     });
 
-    document.getElementById('closeNotesModal').addEventListener('click', () => {
-        tabWhiteboard.click();
-    });
-
-    tabHistory.addEventListener('click', () => {
-        historySidebar.classList.toggle('open');
-        if(historySidebar.classList.contains('open')) {
-            loadHistory();
-        }
-    });
+    closeRightSidebarBtn?.addEventListener('click', closeRightSidebar);
 
     /* -------------------------------------------------------------------------- */
     /*                         Search & Notifications                           */
@@ -130,39 +164,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /* -------------------------------------------------------------------------- */
-    /*                        Draggable Notes Modal                             */
-    /* -------------------------------------------------------------------------- */
-    let isDragging = false;
-    let dragStartX, dragStartY;
-    let initialX, initialY;
-    const headerEl = document.getElementById('notesModalHeader');
-    
-    headerEl.addEventListener('mousedown', (e) => {
-        // Prevent drag on buttons inside header
-        if (e.target.closest('button') || e.target.closest('svg')) return;
-        isDragging = true;
-        dragStartX = e.clientX;
-        dragStartY = e.clientY;
-        initialX = notesModal.offsetLeft;
-        initialY = notesModal.offsetTop;
-        document.body.style.userSelect = 'none';
-    });
-
-    document.addEventListener('mousemove', (e) => {
-        if (!isDragging) return;
-        const dx = e.clientX - dragStartX;
-        const dy = e.clientY - dragStartY;
-        notesModal.style.left = `${initialX + dx}px`;
-        notesModal.style.top = `${initialY + dy}px`;
-    });
-
-    document.addEventListener('mouseup', () => {
-        isDragging = false;
-        document.body.style.userSelect = '';
-    });
-
-
-    /* -------------------------------------------------------------------------- */
     /*                            Whiteboard & Fabric.js                        */
     /* -------------------------------------------------------------------------- */
     const whiteboardContainer = document.getElementById('whiteboardContainer');
@@ -179,8 +180,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Handle Resize
     window.addEventListener('resize', () => {
-        canvas.setWidth(whiteboardContainer.clientWidth - 70);
-        canvas.setHeight(whiteboardContainer.clientHeight);
+        resizeBoardCanvas();
     });
 
     // Zoom Controls
@@ -599,23 +599,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let mySessionId = 'client-' + Math.random().toString(36).substr(2, 9);
     let myFullName = "Team Member";
     
-    // Fetch profile status securely to get user's real name
-    fetch('/api/v1/profile-status')
-        .then(res => res.json())
-        .then(data => {
-            if(data.full_name) myFullName = data.full_name;
-            // UPDATE HEADER AVATAR
-            const avatarContainer = document.getElementById('userAvatar');
-            const initialsSpan = document.getElementById('avatarInitials');
-            if(avatarContainer && initialsSpan) {
-                if(data.avatar) {
-                    initialsSpan.outerHTML = `<img src="${data.avatar}" alt="Avatar" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`;
-                } else if(data.full_name) {
-                    initialsSpan.textContent = data.full_name.charAt(0).toUpperCase();
-                }
-            }
-        }).catch(e => console.error("Could not load user name for cursors"));
-
     const wsToken = localStorage.getItem('access_token') || '';
     if (!wsToken) {
         showToast("Session expired. Please log in again.", "error");
@@ -623,6 +606,9 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
     let wsUrl = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/api/v1/meetings/ws/' + teamId + '?token=' + encodeURIComponent(wsToken);
+    if (currentBoardId) {
+        wsUrl += '&board_id=' + encodeURIComponent(currentBoardId);
+    }
     let ws = new WebSocket(wsUrl);
     let ignoreNextChange = false;
 
@@ -722,8 +708,35 @@ document.addEventListener('DOMContentLoaded', () => {
         return obj.id;
     }
 
+    function getCanvasStateJSON() {
+        return canvas ? JSON.stringify(canvas.toJSON(['id'])) : null;
+    }
+
+    function ensureBoardLoaded(board) {
+        if (!board) return;
+        currentBoardId = board.id;
+        localStorage.setItem('meeting_notes_board_id_' + teamId, String(board.id));
+        renderBoardsList();
+
+        if (!board.state_json) {
+            ignoreNextChange = true;
+            canvas.clear();
+            canvas.renderAll();
+            return;
+        }
+
+        ignoreNextChange = true;
+        canvas.loadFromJSON(board.state_json, () => {
+            canvas.backgroundColor = null;
+            canvas.renderAll();
+        });
+    }
+
     ws.onmessage = function(event) {
         const msg = JSON.parse(event.data);
+        if (msg.board_id && currentBoardId && String(msg.board_id) !== String(currentBoardId)) {
+            return;
+        }
         
         if(msg.session_id && msg.session_id !== mySessionId) {
             trackPresence(msg.session_id, msg.full_name);
@@ -731,6 +744,10 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Initial Board Load
         if (msg.type === 'init' && msg.data) {
+            currentBoardId = msg.board_id || currentBoardId;
+            if (currentBoardId) {
+                localStorage.setItem('meeting_notes_board_id_' + teamId, String(currentBoardId));
+            }
             ignoreNextChange = true;
             canvas.loadFromJSON(msg.data, () => {
                 canvas.backgroundColor = null;
@@ -810,6 +827,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 type: type,
                 id: obj.id,
                 object: typeof obj.toJSON === 'function' ? obj.toJSON(['id']) : obj,
+                board_id: currentBoardId,
                 session_id: mySessionId
             }));
             
@@ -825,10 +843,187 @@ document.addEventListener('DOMContentLoaded', () => {
             ws.send(JSON.stringify({
                 type: "save_state",
                 data: JSON.stringify(serialized),
+                board_id: currentBoardId,
                 session_id: mySessionId
             }));
         }
     }
+
+    function renderBoardsList() {
+        const boardsList = document.getElementById('boardsList');
+        if (!boardsList) return;
+
+        if (!boards || boards.length === 0) {
+            boardsList.innerHTML = '<p class="text-gray-500 text-sm">No boards found.</p>';
+            return;
+        }
+
+        boardsList.innerHTML = '';
+        boards.forEach((board) => {
+            const item = document.createElement('div');
+            item.className = 'board-item' + (String(board.id) === String(currentBoardId) ? ' active' : '');
+
+            const meta = document.createElement('div');
+            meta.className = 'board-item__meta';
+
+            const name = document.createElement('div');
+            name.className = 'board-item__name';
+            name.textContent = board.name || 'Main Board';
+
+            const updated = document.createElement('div');
+            updated.className = 'board-item__updated';
+            updated.textContent = board.updated_at ? `Updated ${new Date(board.updated_at).toLocaleString()}` : 'Unsaved changes';
+
+            meta.appendChild(name);
+            meta.appendChild(updated);
+
+            const actions = document.createElement('div');
+            actions.className = 'board-item__actions';
+
+            if (String(board.id) === String(currentBoardId)) {
+                const badge = document.createElement('span');
+                badge.className = 'board-item__badge';
+                badge.textContent = 'Current';
+                actions.appendChild(badge);
+            }
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.type = 'button';
+            deleteBtn.className = 'board-item__action board-item__action--danger';
+            deleteBtn.title = 'Delete board';
+            deleteBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 6h18M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" /></svg>';
+            deleteBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                if (!await showConfirmDelete('Delete this board permanently?')) return;
+                const res = await fetch(`/api/v1/meetings/boards/${teamId}/${board.id}`, { method: 'DELETE' });
+                if (res.ok) {
+                    showToast('Board deleted', 'success');
+                    await loadBoards();
+                } else {
+                    showToast('Failed to delete board', 'error');
+                }
+            });
+            actions.appendChild(deleteBtn);
+
+            item.appendChild(meta);
+            item.appendChild(actions);
+            item.addEventListener('click', () => selectBoard(board.id));
+            boardsList.appendChild(item);
+        });
+    }
+
+    async function loadBoards() {
+        const boardsList = document.getElementById('boardsList');
+        if (boardsList) {
+            boardsList.innerHTML = '<p class="text-gray-500 text-sm">Loading boards...</p>';
+        }
+
+        try {
+            const res = await fetch(`/api/v1/meetings/boards/${teamId}`);
+            if (!res.ok) throw new Error('Failed to load boards');
+            boards = await res.json();
+
+            if (!boards.length) {
+                boards = [];
+                renderBoardsList();
+                return;
+            }
+
+            const requestedBoard = currentBoardId && boards.find(board => String(board.id) === String(currentBoardId));
+            if (!requestedBoard) {
+                currentBoardId = boards[0].id;
+                localStorage.setItem('meeting_notes_board_id_' + teamId, String(currentBoardId));
+            }
+
+            renderBoardsList();
+            const activeBoard = boards.find(board => String(board.id) === String(currentBoardId));
+            if (activeBoard && rightSidebarMode === 'boards') {
+                ensureBoardLoaded(activeBoard);
+            }
+        } catch (error) {
+            console.error('Error loading boards:', error);
+            if (boardsList) {
+                boardsList.innerHTML = '<p class="text-red-500 text-sm">Failed to load boards.</p>';
+            }
+        }
+    }
+
+    async function selectBoard(boardId) {
+        const board = boards.find(item => String(item.id) === String(boardId));
+        if (!board) return;
+        currentBoardId = board.id;
+        localStorage.setItem('meeting_notes_board_id_' + teamId, String(board.id));
+        renderBoardsList();
+        ensureBoardLoaded(board);
+        openRightSidebar('boards');
+    }
+
+    async function createBoardFromCurrent() {
+        const boardName = window.prompt('Board name', `Board ${boards.length + 1}`);
+        if (!boardName) return;
+
+        const res = await fetch(`/api/v1/meetings/boards/${teamId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name: boardName,
+                state_json: getCanvasStateJSON()
+            })
+        });
+
+        if (!res.ok) {
+            showToast('Failed to create board', 'error');
+            return;
+        }
+
+        const board = await res.json();
+        boards.push(board);
+        currentBoardId = board.id;
+        localStorage.setItem('meeting_notes_board_id_' + teamId, String(board.id));
+        renderBoardsList();
+        ensureBoardLoaded(board);
+        showToast('Board saved', 'success');
+    }
+
+    function toSafeNumericPathSegment(value) {
+        const s = String(value ?? '').trim();
+        return /^\d+$/.test(s) ? s : null;
+    }
+
+    async function persistCurrentBoard() {
+        if (!currentBoardId) {
+            await createBoardFromCurrent();
+            return;
+        }
+
+        const safeTeamId = toSafeNumericPathSegment(teamId);
+        const safeBoardId = toSafeNumericPathSegment(currentBoardId);
+        if (!safeTeamId || !safeBoardId) {
+            showToast('Invalid board or team ID', 'error');
+            return;
+        }
+
+        const res = await fetch(`/api/v1/meetings/boards/${encodeURIComponent(safeTeamId)}/${encodeURIComponent(safeBoardId)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                state_json: getCanvasStateJSON()
+            })
+        });
+
+        if (!res.ok) {
+            showToast('Failed to save board', 'error');
+            return;
+        }
+
+        const board = await res.json();
+        boards = boards.map(item => String(item.id) === String(board.id) ? board : item);
+        renderBoardsList();
+        showToast('Board saved', 'success');
+    }
+
+    document.getElementById('newBoardBtn')?.addEventListener('click', createBoardFromCurrent);
+    document.getElementById('saveBoardBtn')?.addEventListener('click', persistCurrentBoard);
 
     // Fabric Event Listeners for Delta Syncing
     canvas.on('object:added', (opt) => {
@@ -965,37 +1160,42 @@ document.addEventListener('DOMContentLoaded', () => {
                     nameEl.title = f.name;
                     nameEl.textContent = f.name;
 
-                    const del = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-                    del.setAttribute('class', 'delete-folder-btn');
-                    del.dataset.id = f.id;
-                    del.setAttribute('viewBox', '0 0 24 24');
-                    del.setAttribute('fill', 'none');
-                    del.setAttribute('stroke', 'currentColor');
-                    del.setAttribute('stroke-width', '2');
-                    del.setAttribute('style', 'width:14px; height:14px; color:#ef4444; cursor:pointer; display:none; margin-left:8px;');
-
-                    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                    path.setAttribute('d', 'M3 6h18M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2');
-                    del.appendChild(path);
-
                     folderEl.appendChild(nameEl);
-                    folderEl.appendChild(del);
-                    list.appendChild(folderEl);
 
-                    folderEl.addEventListener('mouseenter', () => del.style.display = 'block');
-                    folderEl.addEventListener('mouseleave', () => del.style.display = 'none');
-                    del.addEventListener('click', async (e) => {
-                        e.stopPropagation();
-                        const confirmed = await showConfirmDelete('Delete this folder and all its notes?');
-                        if(confirmed) {
-                            fetch(`/api/v1/meetings/folders/${teamId}/${del.dataset.id}`, {method: 'DELETE'})
-                            .then(() => {
-                                if(currentFolderId == del.dataset.id) selectFolder(null);
-                                else loadFolders();
-                                showToast("Folder deleted", "success");
-                            });
-                        }
-                    });
+                    // Only add delete button if folder is not protected
+                    if (!f.is_protected) {
+                        const del = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                        del.setAttribute('class', 'delete-folder-btn');
+                        del.dataset.id = f.id;
+                        del.setAttribute('viewBox', '0 0 24 24');
+                        del.setAttribute('fill', 'none');
+                        del.setAttribute('stroke', 'currentColor');
+                        del.setAttribute('stroke-width', '2');
+                        del.setAttribute('style', 'width:14px; height:14px; color:#ef4444; cursor:pointer; display:none; margin-left:8px;');
+
+                        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                        path.setAttribute('d', 'M3 6h18M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2');
+                        del.appendChild(path);
+
+                        folderEl.appendChild(del);
+
+                        folderEl.addEventListener('mouseenter', () => del.style.display = 'block');
+                        folderEl.addEventListener('mouseleave', () => del.style.display = 'none');
+                        del.addEventListener('click', async (e) => {
+                            e.stopPropagation();
+                            const confirmed = await showConfirmDelete('Delete this folder and all its notes?');
+                            if(confirmed) {
+                                fetch(`/api/v1/meetings/folders/${teamId}/${del.dataset.id}`, {method: 'DELETE'})
+                                .then(() => {
+                                    if(currentFolderId == del.dataset.id) selectFolder(null);
+                                    else loadFolders();
+                                    showToast("Folder deleted", "success");
+                                });
+                            }
+                        });
+                    }
+
+                    list.appendChild(folderEl);
                 });
             }).catch(e => showToast("Error loading folders", "error"));
     }
@@ -1194,158 +1394,40 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     /* -------------------------------------------------------------------------- */
-    /*                              Audio & Recording                           */
+    /*                            Voice Recorder FAB                            */
     /* -------------------------------------------------------------------------- */
-    const uploadClick = document.getElementById('uploadClick');
-    const audioFileInput = document.getElementById('audioFileInput');
-    const uploadProgress = document.getElementById('uploadProgress');
-    const uploadFill = document.getElementById('uploadFill');
-    const uploadPercent = document.getElementById('uploadPercent');
-    const uploadStatusLabel = document.getElementById('uploadStatusLabel');
-    const aiStatusBadge = document.getElementById('aiStatusBadge');
-    
-    // Wire top record button
-    const topRecordBtn = document.getElementById('topRecordBtn');
+    if (window.__lp && window.__lp.initVoiceRecorder) {
+        var voiceResult = window.__lp.initVoiceRecorder({
+            teamId: teamId,
+            fetchNotes: function () {
+                return fetch('/api/v1/meetings/notes/' + teamId)
+                    .then(function (r) { return r.ok ? r.json() : []; });
+            },
+            onDone: function () {
+                loadFolders();
+                loadNotes();
+            },
+            timeoutMsg: 'Still processing — check Notes shortly.'
+        });
 
-    uploadClick.addEventListener('click', () => audioFileInput.click());
-
-    audioFileInput.addEventListener('change', (e) => {
-        if (e.target.files.length > 0) {
-            uploadAudio(e.target.files[0]);
+        // ── View in Notes button ──
+        var voiceViewNotes = document.getElementById('voiceViewNotes');
+        if (voiceViewNotes) {
+            voiceViewNotes.addEventListener('click', function () {
+                if (voiceResult && voiceResult.closePanel) voiceResult.closePanel();
+                showNotesView();
+                loadFolders();
+                loadNotes();
+            });
         }
-    });
-
-    // Mic Recording
-    let mediaRecorder;
-    let audioChunks = [];
-    let isRecording = false;
-
-    topRecordBtn.addEventListener('click', async () => {
-        if (isRecording) {
-            // Stop recording
-            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-                mediaRecorder.stop();
-                mediaRecorder.stream.getTracks().forEach(track => track.stop());
-            }
-            topRecordBtn.classList.remove('record-btn-pulsing');
-            isRecording = false;
-            showToast("Recording stopped.", "success");
-        } else {
-            // Start recording
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                mediaRecorder = new MediaRecorder(stream);
-                
-                mediaRecorder.ondataavailable = event => {
-                    audioChunks.push(event.data);
-                };
-
-                mediaRecorder.onstop = () => {
-                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-                    audioChunks = []; // reset
-                    uploadAudio(audioBlob, 'meeting_recording.webm');
-                };
-
-                mediaRecorder.start();
-                topRecordBtn.classList.add('record-btn-pulsing');
-                isRecording = true;
-                showToast("Recording started...", "success");
-                
-                document.getElementById('aiResults').style.display = 'none';
-                aiStatusBadge.innerText = "RECORDING...";
-                
-            } catch (err) {
-                showToast("Could not access microphone: " + err, "error");
-            }
-        }
-    });
-
-    function uploadAudio(fileBlob, filename = null) {
-        uploadProgress.style.display = 'flex';
-        uploadFill.style.backgroundColor = "#4f46e5"; 
-        uploadFill.style.width = "0%";
-        uploadPercent.innerText = "0%";
-        uploadStatusLabel.innerText = "UPLOADING...";
-        aiStatusBadge.innerText = "UPLOADING...";
-
-        const formData = new FormData();
-        formData.append('team_id', teamId);
-        formData.append('file', fileBlob, filename || fileBlob.name);
-
-        const xhr = new XMLHttpRequest();
-        xhr.open('POST', '/api/v1/meetings/upload-audio', true);
-        
-        const token = localStorage.getItem('access_token');
-        if (token) {
-            xhr.setRequestHeader('Authorization', 'Bearer ' + token);
-        }
-
-        xhr.upload.onprogress = (e) => {
-            if (e.lengthComputable) {
-                const percent = Math.round((e.loaded / e.total) * 100);
-                uploadFill.style.width = percent + '%';
-                uploadPercent.innerText = percent + '%';
-            }
-        };
-
-        xhr.onload = function() {
-            if (xhr.status === 200) {
-                uploadStatusLabel.innerText = "PROCESSING WITH AI...";
-                uploadPercent.innerText = "";
-                uploadFill.style.width = "100%";
-                uploadFill.style.backgroundColor = "#10b981"; // green
-                aiStatusBadge.innerText = "ANALYZING...";
-                
-                showToast("Audio safely uploaded. AI summarizes in background.", "success");
-
-                // In a real scenario, we might poll. Here we simulate finishing.
-                setTimeout(() => {
-                    uploadProgress.style.display = 'none';
-                    document.getElementById('aiResults').style.display = 'block';
-                    document.getElementById('takeawaysList').innerHTML = `
-                        <li><span>Processing has completed and stored in the AI Brain safely. Ask the AI Brain for summaries!</span></li>
-                    `;
-                    aiStatusBadge.innerText = "READY";
-                }, 3000);
-            } else {
-                showToast("Error uploading audio.", "error");
-                uploadProgress.style.display = 'none';
-                aiStatusBadge.innerText = "ERROR";
-            }
-        };
-
-        xhr.send(formData);
     }
+
 
     /* -------------------------------------------------------------------------- */
     /*                              History Loader                              */
     /* -------------------------------------------------------------------------- */
     function loadHistory() {
-        const historyList = document.getElementById('historyList');
-        historyList.innerHTML = '<p class="text-gray-500 text-sm">Loading histories...</p>';
-        
-        fetch(`/api/v1/rag/chat/sessions/${teamId}`)
-            .then(res => res.json())
-            .then(data => {
-                historyList.innerHTML = '';
-                if (!data.sessions || data.sessions.length === 0) {
-                    historyList.innerHTML = '<p class="text-gray-500 text-sm">No recent histories found.</p>';
-                    return;
-                }
-                
-                data.sessions.forEach(sess => {
-                    const el = document.createElement('div');
-                    el.style.cssText = "padding: 12px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; margin-bottom: 10px;";
-                    el.innerHTML = `
-                        <div style="font-weight: 500; font-size: 14px;">Session: ${sess.session_id.substring(0,8)}...</div>
-                        <div style="font-size: 12px; color: #6b7280; margin-top: 4px;">${new Date(sess.created_at).toLocaleString()}</div>
-                    `;
-                    historyList.appendChild(el);
-                });
-            })
-            .catch(e => {
-                historyList.innerHTML = '<p class="text-red-500 text-sm">Failed to load history.</p>';
-            });
+        return loadBoards();
     }
 
 });

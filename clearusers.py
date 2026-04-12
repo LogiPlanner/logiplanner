@@ -2,11 +2,11 @@
 import sys
 import os
 import shutil
-from sqlalchemy import text
+from sqlalchemy import MetaData
 from app.core.database import engine, SessionLocal
 from app.core.config import settings
 from app.models.user import (
-    Base, User, Company, Team, Role, UserRole, Project,
+    User, Company, Team, Role, UserRole, Project,
     Document, ChatMessage, user_team, user_project,
 )
 from app.models.calendar_task import CalendarTask, task_tagged_users
@@ -96,7 +96,9 @@ def nuke_everything():
     # 1. Drop all database tables
     print("\n[1/3] Dropping all database tables...")
     try:
-        Base.metadata.drop_all(bind=engine)
+        reflected_metadata = MetaData()
+        reflected_metadata.reflect(bind=engine)
+        reflected_metadata.drop_all(bind=engine)
         print("  ✅ All tables dropped.")
     except Exception as e:
         print(f"  ❌ Table drop failed: {e}")

@@ -49,6 +49,10 @@ class CreateTeamResponse(BaseModel):
     invite_code: str
 
 
+class TeamNameCheckResponse(BaseModel):
+    exists: bool
+
+
 # ── Join Team Flow ──
 
 class JoinTeamStep1(BaseModel):

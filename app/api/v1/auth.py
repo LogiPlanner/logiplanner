@@ -325,9 +325,9 @@ async def create_team(
     # Add user to team
     team.users.append(current_user)
 
-    # Assign owner role
+    # Assign owner role scoped to this team
     owner_role = _get_or_create_role(db, "owner")
-    user_role = UserRole(user_id=current_user.id, role_id=owner_role.id)
+    user_role = UserRole(user_id=current_user.id, role_id=owner_role.id, team_id=team.id)
     db.add(user_role)
 
     db.commit()
@@ -369,9 +369,9 @@ async def join_team(
 
     team.users.append(current_user)
 
-    # Assign member role
-    member_role = _get_or_create_role(db, "member")
-    user_role = UserRole(user_id=current_user.id, role_id=member_role.id)
+    # Assign viewer role scoped to this team
+    viewer_role = _get_or_create_role(db, "viewer")
+    user_role = UserRole(user_id=current_user.id, role_id=viewer_role.id, team_id=team.id)
     db.add(user_role)
 
     db.commit()

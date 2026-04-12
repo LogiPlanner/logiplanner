@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
+import threading
 
 
 from app.core.config import settings
@@ -49,6 +50,19 @@ def on_startup():
     finally:
         db.close()
 
+    # Pre-warm the RAG engine in a background thread so the HuggingFace embedding
+    # model (~370MB) and cross-encoder reranker (~270MB) are loaded into RAM before
+    # the first user request hits, instead of blocking it for 10-30 seconds.
+    if settings.OPENAI_API_KEY:
+        def _warmup_rag():
+            try:
+                from app.rag.engine import rag_engine
+                rag_engine._ensure_initialized()
+                print("[RAG] ✅ Engine pre-warmed — models ready.")
+            except Exception as e:
+                print(f"[RAG] ⚠️ Pre-warm failed (non-fatal): {e}")
+        threading.Thread(target=_warmup_rag, daemon=True, name="rag-warmup").start()
+
 
 # ──────────────────────────────────────────────
 # API Routers
@@ -76,6 +90,9 @@ app.include_router(settings_router, prefix=settings.API_V1_STR + "/settings", ta
 
 from app.api.v1.meetings import router as meetings_router
 app.include_router(meetings_router, prefix=settings.API_V1_STR + "/meetings", tags=["meetings"])
+
+from app.api.v1.integrations import router as integrations_router
+app.include_router(integrations_router, prefix=settings.API_V1_STR, tags=["integrations"])
 
 # ──────────────────────────────────────────────
 # Health Check

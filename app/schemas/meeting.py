@@ -9,6 +9,7 @@ class FolderResponse(BaseModel):
     id: int
     team_id: int
     name: str
+    is_protected: bool = False
     created_at: datetime
     updated_at: Optional[datetime] = None
 
@@ -41,5 +42,27 @@ class NoteResponse(BaseModel):
     class Config:
         from_attributes = True
 
-class WhiteboardUpdate(BaseModel):
-    state_json: str
+class BoardCreate(BaseModel):
+    name: str = "Main Board"
+    state_json: Optional[str] = None
+
+
+class BoardUpdate(BaseModel):
+    name: Optional[str] = None
+    state_json: Optional[str] = None
+
+
+class BoardResponse(BaseModel):
+    id: int
+    team_id: int
+    name: str
+    state_json: Optional[str] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class BoardActionResponse(BaseModel):
+    message: str

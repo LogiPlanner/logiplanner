@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr
-from typing import Optional
+from typing import Optional, List
 
 class ProfileUpdateReq(BaseModel):
     full_name: Optional[str] = None
@@ -19,3 +19,27 @@ class RoleUpdateReq(BaseModel):
 class InviteMemberReq(BaseModel):
     email: EmailStr
     role: str = "viewer"
+
+# SubTeam schemas (UI "Team" = DB "SubTeam")
+class SubTeamCreateReq(BaseModel):
+    name: str
+    description: Optional[str] = None
+    color: Optional[str] = "#4f46e5"
+
+class SubTeamUpdateReq(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    color: Optional[str] = None
+
+class AddSubTeamMemberReq(BaseModel):
+    user_id: int
+
+class SubTeamResponse(BaseModel):
+    id: int
+    name: str
+    description: Optional[str] = None
+    color: Optional[str] = None
+    member_count: int = 0
+
+    class Config:
+        from_attributes = True

@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(alembic history:*)",
+      "Bash(alembic current:*)",
+      "Bash(xargs grep:*)"
+    ]
+  }
+}

@@ -1,23 +1,24 @@
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, UploadFile, File, Query
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 import os
 import uuid
 import json
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
-from app.models.user import User, Team, user_team
-from app.models.timeline import TimelineEntry
-from app.schemas.timeline import TimelineEntryCreate, TimelineEntryResponse, TimelineEntryUpdate, MemoryAnalyticsResponse
+from app.models.user import User, Team, SubTeam, user_team
+from app.models.timeline import TimelineEntry, TimelineEntryComment, TimelineEntryVersion
+from app.schemas.timeline import (
+    TimelineEntryCreate, TimelineEntryResponse, TimelineEntryUpdate, 
+    MemoryAnalyticsResponse, TimelineEntryCommentCreate, TimelineEntryCommentResponse
+)
 
 from langchain_core.documents import Document as LCDocument
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
 from app.core.config import settings
-from app.rag.processor import load_document, validate_file
 from pydantic import BaseModel
-from app.rag.engine import rag_engine
 
 class AutoFillResponse(BaseModel):
     title: str
@@ -45,9 +46,25 @@ def _verify_team_member(user: User, team_id: int, db: Session) -> Team:
     return team
 
 
+def _verify_subteam_member(user: User, team_id: int, sub_team_id: int, db: Session) -> SubTeam:
+    """Verify user can access the given subteam within the requested team."""
+    _verify_team_member(user, team_id, db)
+    subteam = db.query(SubTeam).filter(
+        SubTeam.id == sub_team_id,
+        SubTeam.team_id == team_id,
+    ).first()
+    if not subteam:
+        raise HTTPException(status_code=404, detail="Team not found")
+    if user not in subteam.users:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    return subteam
+
+
 def _ingest_timeline_entry(team_id: int, entry: TimelineEntry, user_email: str):
     """Background task to safely ingest timeline entry into RAG."""
     try:
+        from langchain_core.documents import Document as LCDocument
+        from app.rag.engine import rag_engine
         rich_content = (
             f"Project Timeline {entry.entry_type}:\n"
             f"Title: {entry.title}\n"
@@ -63,6 +80,7 @@ def _ingest_timeline_entry(team_id: int, entry: TimelineEntry, user_email: str):
                 "team_id": team_id,
                 "document_id": 0,
                 "timeline_entry_id": entry.id,
+                "sub_team_id": entry.sub_team_id,
                 "filename": f"Memory: {entry.title}",
                 "uploader_email": user_email,
                 "doc_type": "text",
@@ -88,9 +106,13 @@ def create_timeline_entry(
 ):
     """Creates a new timeline entry scoped directly to a team."""
     _verify_team_member(current_user, entry.team_id, db)
+    if not entry.sub_team_id:
+        raise HTTPException(status_code=400, detail="Select a team before creating a memory entry")
+    _verify_subteam_member(current_user, entry.team_id, entry.sub_team_id, db)
 
     db_entry = TimelineEntry(
         team_id=entry.team_id,
+        sub_team_id=entry.sub_team_id,
         entry_type=entry.entry_type,
         title=entry.title,
         content=entry.content,
@@ -117,39 +139,56 @@ def create_timeline_entry(
 @router.get("/team/{team_id}", response_model=List[TimelineEntryResponse])
 def get_team_timeline(
     team_id: int,
+    subteam_id: Optional[int] = Query(default=None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Fetches all timeline entries for a team, newest first."""
     _verify_team_member(current_user, team_id, db)
-    entries = db.query(TimelineEntry)\
-                .filter(TimelineEntry.team_id == team_id)\
-                .order_by(TimelineEntry.created_at.desc())\
-                .all()
+    query = db.query(TimelineEntry).filter(TimelineEntry.team_id == team_id)
+    if subteam_id is not None:
+        _verify_subteam_member(current_user, team_id, subteam_id, db)
+        query = query.filter(TimelineEntry.sub_team_id == subteam_id)
+    entries = query.order_by(TimelineEntry.created_at.desc()).all()
+    for entry in entries:
+        entry.user_reaction = next((r.is_like for r in entry.reactions if r.user_id == current_user.id), None)
+        for c in entry.comments:
+            c.user_reaction = next((r.is_like for r in c.reactions if r.user_id == current_user.id), None)
     return entries
 
 
 @router.get("/team/{team_id}/users")
 def get_team_users(
     team_id: int,
+    subteam_id: Optional[int] = Query(default=None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Returns all members of the team for @mentions."""
     team = _verify_team_member(current_user, team_id, db)
-    return [{"id": u.id, "email": u.email, "full_name": u.full_name or u.email.split("@")[0]} for u in team.users]
+    if subteam_id is not None:
+        subteam = _verify_subteam_member(current_user, team_id, subteam_id, db)
+        users = subteam.users
+    else:
+        users = team.users
+    return [{"id": u.id, "email": u.email, "full_name": u.full_name or u.email.split("@")[0]} for u in users]
 
 
 @router.get("/team/{team_id}/analytics", response_model=MemoryAnalyticsResponse)
 def get_team_analytics(
     team_id: int,
+    subteam_id: Optional[int] = Query(default=None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Returns analytics for a team's memory timeline."""
     _verify_team_member(current_user, team_id, db)
 
-    entries = db.query(TimelineEntry).filter(TimelineEntry.team_id == team_id).all()
+    query = db.query(TimelineEntry).filter(TimelineEntry.team_id == team_id)
+    if subteam_id is not None:
+        _verify_subteam_member(current_user, team_id, subteam_id, db)
+        query = query.filter(TimelineEntry.sub_team_id == subteam_id)
+    entries = query.all()
 
     decisions = sum(1 for e in entries if e.entry_type == "decision")
     milestones = sum(1 for e in entries if e.entry_type == "milestone")
@@ -202,6 +241,7 @@ def delete_timeline_entry(
     db.delete(entry)
     db.commit()
 
+    from app.rag.engine import rag_engine
     background_tasks.add_task(
         rag_engine.delete_timeline_entry_chunks,
         team_id=entry.team_id,
@@ -230,6 +270,7 @@ def update_timeline_entry(
     db.commit()
     db.refresh(entry)
 
+    from app.rag.engine import rag_engine
     background_tasks.add_task(rag_engine.delete_timeline_entry_chunks, team_id=entry.team_id, timeline_entry_id=entry_id)
     background_tasks.add_task(_ingest_timeline_entry, team_id=entry.team_id, entry=entry, user_email=current_user.email)
 
@@ -249,6 +290,7 @@ async def auto_fill_from_document(
     content = await file.read()
     file_size = len(content)
 
+    from app.rag.processor import load_document, validate_file
     is_valid, error = validate_file(file.filename, file_size)
     if not is_valid:
         raise HTTPException(status_code=400, detail=error)
@@ -270,6 +312,8 @@ async def auto_fill_from_document(
                 detail="No readable text found. Please upload a document with highlightable text, or try a .txt/.docx file."
             )
 
+        from langchain_openai import ChatOpenAI
+        from langchain_core.messages import SystemMessage, HumanMessage
         llm = ChatOpenAI(
             model=settings.RAG_CHAT_MODEL,
             openai_api_key=settings.OPENAI_API_KEY,
@@ -327,3 +371,237 @@ def get_user_teams(
 ):
     """Returns all teams the current user belongs to. Frontend uses this for project switching."""
     return [{"id": t.id, "team_name": t.team_name} for t in current_user.teams]
+
+# ──────────────────────────────────────────────
+# AI & ENHANCED ENDPOINTS
+# ──────────────────────────────────────────────
+
+class MemoryAskResponse(BaseModel):
+    response: str
+    sources: list
+
+@router.get("/team/{team_id}/ask", response_model=MemoryAskResponse)
+def ask_memory(
+    team_id: int,
+    query: str = Query(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Semantic search / RAG over timeline entries."""
+    _verify_team_member(current_user, team_id, db)
+    try:
+        # Guarantee timeline context by pushing recent history as live_context
+        recent_entries = db.query(TimelineEntry).filter(TimelineEntry.team_id == team_id).order_by(TimelineEntry.created_at.desc()).limit(25).all()
+        live_context_str = "LATEST PROJECT TIMELINE EVENTS:\n"
+        for e in recent_entries:
+            date_str = e.created_at.strftime("%Y-%m-%d") if e.created_at else "Unknown Date"
+            live_context_str += f"- [{date_str}] {e.entry_type.upper()} '{e.title}' (Author: {e.author_name}). Tags: {e.tags}. Details: {e.content}\n"
+
+        res = rag_engine.chat(team_id=team_id, query=query, live_context=live_context_str)
+        return MemoryAskResponse(response=res.get("response", ""), sources=res.get("sources", []))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class ConflictCheckRequest(BaseModel):
+    text: str
+
+class ConflictCheckResponse(BaseModel):
+    warnings: List[str]
+
+@router.post("/team/{team_id}/check-conflict", response_model=ConflictCheckResponse)
+def check_conflict(
+    team_id: int,
+    request: ConflictCheckRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Live conflict validation using stored memory."""
+    _verify_team_member(current_user, team_id, db)
+    chunks = rag_engine.search(team_id=team_id, query=request.text, k=3)
+    if not chunks:
+        return ConflictCheckResponse(warnings=[])
+        
+    context = "\n\n".join([chunk.page_content for chunk in chunks])
+    prompt = (
+        f"Does the following new draft conflict with or contradict any of these past decisions?\n\n"
+        f"Past:\n{context}\n\nDraft:\n{request.text}\n\n"
+        f"If it explicitly conflicts, explain why briefly. If no clear conflict, reply exactly 'No conflict'."
+    )
+    
+    messages = [
+        SystemMessage(content="You are a strict conflict detection AI. Only flag explicit contradictions."),
+        HumanMessage(content=prompt)
+    ]
+    try:
+        res = rag_engine._invoke_llm_with_retry(messages)
+        res_text = res.content.strip()
+        if "No conflict" in res_text or "no conflict" in res_text.lower():
+            return ConflictCheckResponse(warnings=[])
+        return ConflictCheckResponse(warnings=[res_text])
+    except Exception:
+        return ConflictCheckResponse(warnings=[])
+
+# ──────────────────────────────────────────────
+# SUB-RESOURCES (Comments)
+# ──────────────────────────────────────────────
+
+@router.post("/{entry_id}/comments", response_model=TimelineEntryCommentResponse)
+def add_comment(
+    entry_id: int,
+    comment: TimelineEntryCommentCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    entry = db.query(TimelineEntry).filter(TimelineEntry.id == entry_id).first()
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found")
+    _verify_team_member(current_user, entry.team_id, db)
+    
+    db_comment = TimelineEntryComment(
+        entry_id=entry_id,
+        user_id=current_user.id,
+        author_name=current_user.full_name or current_user.email.split("@")[0],
+        content=comment.content,
+        parent_id=comment.parent_id
+    )
+    db.add(db_comment)
+    db.commit()
+    db.refresh(db_comment)
+    
+    # Simple JSON-based notification stub to console (To be wired up to actual real-time pubsub or DB if one exists)
+    print(f"[NOTIFICATION] {db_comment.author_name} replied to comment/entry {entry_id}.")
+    
+    db_comment.user_reaction = None
+    return db_comment
+
+class CommentReactionUpdate(BaseModel):
+    is_like: bool
+
+@router.post("/{entry_id}/react")
+def react_to_entry(
+    entry_id: int,
+    reaction: CommentReactionUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    from app.models.timeline import TimelineEntryReaction
+    entry = db.query(TimelineEntry).filter(TimelineEntry.id == entry_id).first()
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found")
+        
+    _verify_team_member(current_user, entry.team_id, db)
+
+    existing_reaction = db.query(TimelineEntryReaction).filter(
+        TimelineEntryReaction.entry_id == entry_id,
+        TimelineEntryReaction.user_id == current_user.id
+    ).first()
+
+    val = 1 if reaction.is_like else 0
+
+    if existing_reaction:
+        if existing_reaction.is_like == val:
+            db.delete(existing_reaction)
+            msg = "Reaction removed"
+            is_active = False
+        else:
+            existing_reaction.is_like = val
+            msg = "Reaction updated"
+            is_active = True
+    else:
+        new_reaction = TimelineEntryReaction(
+            entry_id=entry_id,
+            user_id=current_user.id,
+            is_like=val
+        )
+        db.add(new_reaction)
+        msg = "Reaction added"
+        is_active = True
+
+    db.commit()
+    db.refresh(entry)
+    return {
+        "message": msg,
+        "likes_count": entry.likes_count,
+        "user_reaction": val if is_active else None
+    }
+
+@router.post("/comments/{comment_id}/react")
+def react_to_comment(
+    comment_id: int,
+    reaction: CommentReactionUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    from app.models.timeline import TimelineEntryCommentReaction
+    comment = db.query(TimelineEntryComment).filter(TimelineEntryComment.id == comment_id).first()
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+        
+    entry = comment.entry
+    _verify_team_member(current_user, entry.team_id, db)
+
+    existing_reaction = db.query(TimelineEntryCommentReaction).filter(
+        TimelineEntryCommentReaction.comment_id == comment_id,
+        TimelineEntryCommentReaction.user_id == current_user.id
+    ).first()
+
+    val = 1 if reaction.is_like else 0
+
+    if existing_reaction:
+        if existing_reaction.is_like == val:
+            # Toggle off if clicking the same button
+            db.delete(existing_reaction)
+            msg = "Reaction removed"
+            is_active = False
+        else:
+            # Change reaction
+            existing_reaction.is_like = val
+            msg = "Reaction updated"
+            is_active = True
+    else:
+        new_reaction = TimelineEntryCommentReaction(
+            comment_id=comment_id,
+            user_id=current_user.id,
+            is_like=val
+        )
+        db.add(new_reaction)
+        msg = "Reaction added"
+        is_active = True
+        
+        # Simple JSON-based notification stub
+        reaction_type = "liked" if val == 1 else "disliked"
+        print(f"[NOTIFICATION] User {current_user.id} {reaction_type} comment {comment_id}.")
+
+    db.commit()
+    
+    # Reload comment properties
+    db.refresh(comment)
+    return {
+        "message": msg,
+        "likes_count": comment.likes_count,
+        "dislikes_count": comment.dislikes_count,
+        "user_reaction": val if is_active else None
+    }
+
+@router.delete("/comments/{comment_id}")
+def delete_comment(
+    comment_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    comment = db.query(TimelineEntryComment).filter(TimelineEntryComment.id == comment_id).first()
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+        
+    # Check permissions
+    if comment.user_id != current_user.id:
+        # Allow team owners/admins to delete any comment in the future, for now strict author-only
+        raise HTTPException(status_code=403, detail="Permission denied to delete comment")
+        
+    entry = comment.entry
+    _verify_team_member(current_user, entry.team_id, db)
+    
+    db.delete(comment)
+    db.commit()
+    
+    return {"message": "Comment deleted successfully"}

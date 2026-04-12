@@ -9,17 +9,18 @@
 {% from "partials/navbar.html" import topbar %}
 {% block content %}
 <main class="memory-main">
-    {% call topbar(show_notif_dropdown=true) %}
+    {% call topbar() %}
         <div class="topbar-left">
             <div class="topbar__page-title">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
                 <span>Project Memory</span>
             </div>
             <nav class="topbar-nav" id="topbarNav">
-                <a href="#" class="active" data-filter="all">Timeline</a>
-                <a href="#" data-filter="milestone">Milestones</a>
-                <a href="#" data-filter="decision">Decisions</a>
-                <a href="#" data-filter="upload">Resources</a>
+                <a href="#" class="active" data-view="timeline" data-filter="all">Timeline</a>
+                <a href="#" data-view="graph">Graph View ✨</a>
+                <a href="#" data-view="timeline" data-filter="milestone">Milestones</a>
+                <a href="#" data-view="timeline" data-filter="decision">Decisions</a>
+                <a href="#" data-view="timeline" data-filter="upload">Resources</a>
             </nav>
         </div>
     {% endcall %}
@@ -31,7 +32,7 @@
             <div class="timeline-header">
                 <div>
                     <h1 class="canvas-title" id="projectTitle" style="font-size: 2rem; font-weight: 700; color: #1e293b; margin-bottom: 0.5rem; letter-spacing: -0.02em;">Loading...</h1>
-                    <p class="canvas-subtitle" style="font-size: 1rem; color: #64748b; font-weight: 400; margin: 0;">The story of the project: How it started vs. how it’s going!</p>
+                    <p class="canvas-subtitle" id="timelineSubtitle" style="font-size: 1rem; color: #64748b; font-weight: 400; margin: 0;">Timeline for All Teams</p>
                 </div>
                 <div class="canvas-actions" style="position: relative; align-items: center;">
                     <!-- Search -->
@@ -87,37 +88,104 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Graph View Wrapper (Hidden by default) -->
+            <div id="graphWrapper" style="display:none; width: 100%; margin-top:1rem; flex-direction: column; gap: 1rem;">
+                <!-- Explanation / Legend Header -->
+                <div style="background: var(--color-surface-lowest); border: 1px solid var(--color-outline-variant); border-radius: 1rem; padding: 1.5rem; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <h3 style="margin: 0 0 0.5rem 0; font-size: 1.125rem; color: var(--color-on-surface);">Project Evolution Graph</h3>
+                        <p style="margin: 0; font-size: 0.875rem; color: var(--color-on-surface-variant);">Trace the chronological progression of related themes across your team's decisions and milestones. Click on any node to view its details.</p>
+                    </div>
+                    <div style="display: flex; gap: 1rem; font-size: 0.75rem; color: var(--color-on-surface-variant); font-weight: 600;">
+                        <span style="display: flex; align-items: center; gap: 0.25rem;"><span style="width:10px; height:10px; border-radius:50%; background:#ec4899;"></span> Decisions</span>
+                        <span style="display: flex; align-items: center; gap: 0.25rem;"><span style="width:10px; height:10px; border-radius:50%; background:#8b5cf6;"></span> Milestones</span>
+                        <span style="display: flex; align-items: center; gap: 0.25rem;"><span style="width:10px; height:10px; border-radius:50%; background:#10b981;"></span> Docs/Uploads</span>
+                    </div>
+                </div>
+
+                <!-- Graph and Node Details split -->
+                <div style="display: flex; gap: 1rem; height: 65vh;">
+                    <!-- The actual EChart -->
+                    <div id="graphContainer" style="flex: 1; border-radius: 1rem; background: var(--color-surface); border: 1px solid var(--color-border); box-shadow: var(--shadow-sm);"></div>
+                    
+                    <!-- Side Panel for Node Details -->
+                    <div id="graphNodeDetails" style="width: 350px; min-width: 350px; flex-shrink: 0; background: var(--color-surface-lowest); border: 1px solid var(--color-border); border-radius: 1rem; padding: 1.5rem; box-shadow: var(--shadow-sm); overflow-y: auto; display: flex; flex-direction: column;">
+                        
+                        <!-- Default Overview State -->
+                        <div id="gnDefault">
+                            <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:1rem; color: var(--color-primary);">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="20" height="20" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                <h4 style="font-size:0.875rem; font-weight:700; margin:0;">Graph Overview</h4>
+                            </div>
+                            <p style="font-size: 0.875rem; color: var(--color-on-surface-variant); line-height: 1.5; margin-bottom: 1.5rem;">
+                                Select any node on the graph to drill into the specific details, decisions, and history at that point in time.
+                            </p>
+                            
+                            <div style="background: var(--color-surface); padding: 1rem; border-radius: 0.75rem; border: 1px solid var(--color-outline-variant);">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                    <span style="font-size: 0.8rem; color: var(--color-on-surface-variant); font-weight: 500;">Total Memory Nodes</span>
+                                    <span style="font-size: 0.8rem; color: var(--color-on-surface); font-weight: 700;" id="gnTotalNodes">--</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                                    <span style="font-size: 0.8rem; color: var(--color-on-surface-variant); font-weight: 500;">Decision Branches</span>
+                                    <span style="font-size: 0.8rem; color: #ec4899; font-weight: 700;" id="gnTotalDecisions">--</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span style="font-size: 0.8rem; color: var(--color-on-surface-variant); font-weight: 500;">Milestones Reached</span>
+                                    <span style="font-size: 0.8rem; color: #8b5cf6; font-weight: 700;" id="gnTotalMilestones">--</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Selected Node State (Hidden by default) -->
+                        <div id="gnSelected" style="display: none; flex-direction: column;">
+                            <button id="gnClearBtn" style="background:transparent; border:none; color:var(--color-on-surface-variant); font-size:0.75rem; font-weight:600; cursor:pointer; align-self:flex-start; margin-bottom:1rem; display:flex; align-items:center; gap:0.25rem;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="14" height="14" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg> Back to Overview</button>
+                            <div style="font-size: 0.75rem; color: var(--color-primary); font-weight: 700; text-transform: uppercase; margin-bottom: 0.5rem;" id="gnType">Entry Type</div>
+                            <h4 style="margin: 0 0 1rem 0; color: var(--color-on-surface); font-size: 1rem;" id="gnTitle">Title</h4>
+                            <div style="font-size: 0.8rem; color: var(--color-on-surface-variant); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                                <span id="gnDate">Date</span> • <span id="gnAuthor">Author</span>
+                            </div>
+                            <p style="font-size: 0.875rem; color: var(--color-on-surface); line-height: 1.5; padding-bottom: 1rem; border-bottom: 1px solid var(--color-outline-variant); margin-bottom: 1rem;" id="gnContent">Content details...</p>
+                            <div style="font-size: 0.8rem; color: var(--color-on-surface-variant);" id="gnTags">Tags...</div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
         </section>
 
         <!-- Right Analytics Sidebar (4 cols) -->
         <aside class="analytics-sidebar">
 
-            <!-- AI Brain Insights Card -->
-            <div class="ai-insight-card relative-overflow">
-                <div class="insight-bg-icon">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                            d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                    </svg>
+            <!-- AI Insights (replaces Quick Recall) -->
+            <div class="tags-card ai-suggestions-card" id="aiSuggestionsCard" style="background-color: var(--color-surface-lowest); padding: 1.5rem; border-radius: 1.5rem; border: 1px solid var(--color-outline-variant); margin-bottom: 1.5rem;">
+                <div class="card__header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; border-bottom:1px solid var(--color-outline-variant); padding-bottom:0.75rem;">
+                    <h4 class="card__title" style="font-size:0.875rem; font-weight:700; margin:0; display:flex; align-items:center; gap:0.5rem; color: #6366f1;">
+                        <svg class="card__title-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:20px;height:20px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
+                        Project Insights
+                    </h4>
+                    <button class="ai-suggestions__refresh-btn" id="aiSuggestionsRefresh" title="Refresh suggestions" style="background:transparent; border:none; cursor:pointer; color:var(--color-on-surface-variant); padding:0.25rem;">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                    </button>
                 </div>
-                <div class="relative z-10">
-                    <div class="insight-header">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-                        </svg>
-                        <span>AI BRAIN INSIGHT</span>
+                <div class="card__body ai-suggestions__body" id="aiSuggestionsBody">
+                    <div class="ai-suggestions__loading" id="aiSuggestionsLoading" style="display: flex; align-items:center; gap:10px; color:#64748b; font-size:0.8rem; padding:10px 0;">
+                        <div class="ai-suggestions__spinner" style="width:16px; height:16px; border:2px solid #6366f1; border-top-color:transparent; border-radius:50%; animation:aiSpin 1s linear infinite;"></div>
+                        <span>AI is summarizing recent entries...</span>
                     </div>
-                    <h4>LogiPlanner</h4>
-                    <p class="insight-desc">Best Project Management Software with Artificial Intelligence!</p>
-                    <a href="/coming-soon" class="btn-glass" style="text-align: center; text-decoration: none; display: block; box-sizing: border-box;">Coming Soon!</a>
+                    <div class="ai-suggestions__empty" id="aiSuggestionsEmpty" style="display:none; color:#64748b; font-size:0.8rem; padding:10px 0;">
+                        <span>No entries to summarize yet.</span>
+                    </div>
+                    <div class="ai-suggestions__list" id="aiSuggestionsList" style="font-size:0.85rem; color:var(--color-on-surface); line-height:1.5;"></div>
                 </div>
             </div>
 
-            <!-- Key Stats -->
+            <!-- Key Stats / Velocity -->
             <div class="stats-box">
-                <h4>Memory Analytics</h4>
-                <div class="stats-grid">
+                <h4>Velocity Matrix</h4>
+                <div id="velocityChart" style="min-height: 220px; margin-top: 1rem;"></div>
+                <div class="stats-grid" style="margin-top:0.5rem;">
                     <div class="stat-card">
                         <p>Decisions</p>
                         <div class="stat-value-wrap">
@@ -154,12 +222,29 @@
                 </div>
             </div>
 
-            <!-- Collaboration Card -->
-            <div class="collab-card relative-overflow">
-                <div class="collab-bg"></div>
-                <div class="collab-overlay">
-                    <p class="collab-title">Team Memory Collaboration</p>
-                    <p class="collab-desc"><span id="activeParticipants">1</span> active participants recently</p>
+            <!-- Active Themes -->
+            <div class="tags-card" style="background-color: var(--color-surface-lowest); padding: 1.5rem; border-radius: 1.5rem; border: 1px solid var(--color-outline-variant);">
+                <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:1rem; color: #4f46e5;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="20" height="20" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                    </svg>
+                    <h4 style="font-size:0.875rem; font-weight:700; margin:0;">Active Themes</h4>
+                </div>
+                <div id="activeTagsContainer" style="display:flex; flex-wrap:wrap; gap:0.4rem;">
+                    <span style="font-size:0.75rem; color:#94a3b8;">Loading themes...</span>
+                </div>
+            </div>
+
+            <!-- Top Contributors Card -->
+            <div class="tags-card" style="background-color: var(--color-surface-lowest); padding: 1.5rem; border-radius: 1.5rem; border: 1px solid var(--color-outline-variant);">
+                <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:1rem; color: var(--color-primary);">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="20" height="20" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                    <h4 style="font-size:0.875rem; font-weight:700; margin:0;">Top Contributors</h4>
+                </div>
+                <div id="topContributorsContainer" style="display:flex; flex-direction:column; gap:1rem;">
+                    <span style="font-size:0.75rem; color:#94a3b8;">Loading contributors...</span>
                 </div>
             </div>
 
@@ -226,6 +311,9 @@
                 <div class="form-group">
                     <label>Content</label>
                     <textarea id="entryContent" rows="4" placeholder="Detail the event..." required></textarea>
+                    <div id="conflictWarning" style="display:none; margin-top:8px; padding:8px 12px; background:#fff1f2; border-left:4px solid #f43f5e; color:#9f1239; border-radius:4px; font-size:0.875rem;">
+                        <strong>⚠️ Conflict Detected:</strong> <span id="conflictText"></span>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label>Source Reference URL (Optional)</label>
@@ -281,5 +369,8 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script src="/static/memory/js/memory.js"></script>
 {% endblock %}

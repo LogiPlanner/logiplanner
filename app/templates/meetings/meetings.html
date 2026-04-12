@@ -42,67 +42,6 @@
         border-left: 4px solid #ef4444;
     }
 
-    /* Proper floating modal */
-    #notesModal {
-        position: absolute;
-        resize: both;
-        overflow: hidden;
-        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
-        background: #fff;
-        border: 1px solid #e5e7eb;
-        border-radius: 8px;
-        z-index: 1000;
-    }
-
-    #notesModal .modal-header {
-        cursor: grab;
-    }
-
-    #notesModal .modal-header:active {
-        cursor: grabbing;
-    }
-
-    .record-btn-pulsing {
-        animation: pulse-red 1.5s infinite;
-        color: #ef4444 !important;
-    }
-
-    @keyframes pulse-red {
-        0% {
-            transform: scale(1);
-            opacity: 1;
-        }
-
-        50% {
-            transform: scale(1.1);
-            opacity: 0.8;
-        }
-
-        100% {
-            transform: scale(1);
-            opacity: 1;
-        }
-    }
-
-    /* History Sidebar Overrides */
-    #historySidebar {
-        position: fixed;
-        right: -400px;
-        top: 60px;
-        width: 350px;
-        height: calc(100vh - 60px);
-        background: white;
-        box-shadow: -4px 0 15px rgba(0, 0, 0, 0.05);
-        transition: right 0.3s ease;
-        z-index: 900;
-        padding: 20px;
-        border-left: 1px solid #e5e7eb;
-    }
-
-    #historySidebar.open {
-        right: 0;
-    }
-
     .toolbar-left {
         background: #fdfdfd;
         border-radius: 20px;
@@ -176,25 +115,15 @@
         <div class="view-tabs">
             <button class="view-tab active" id="tabWhiteboard">Whiteboard</button>
             <button class="view-tab" id="tabEditor">Notes</button>
-            <div class="history" id="tabHistory" style="cursor: pointer;">
-                <span>History</span>
+            <button class="view-tab history" id="tabBoards" type="button" style="cursor: pointer; display:flex; align-items:center; gap:12px;">
+                <span>Boards</span>
                 <div class="avatars" id="activeUsersList" style="display: flex; align-items: center;">
                     <!-- Real-time users injected via WebSocket presence -->
                 </div>
-            </div>
+            </button>
         </div>
 
         <div class="header-actions">
-            <!-- Record Button moved to Top Right -->
-            <button class="icon-btn" id="topRecordBtn" title="Record Meeting">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round"
-                        d="M12 2C9.243 2 7 4.243 7 7v6c0 2.757 2.243 5 5 5s5-2.243 5-5V7c0-2.757-2.243-5-5-5z" />
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 13v-1M5 13v-1M12 22v-4M8 22h8" />
-                </svg>
-            </button>
-
-
             <div class="position-relative" id="notificationDropdownWrapper">
                 <button class="icon-btn position-relative" id="notificationBtn">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -225,21 +154,34 @@
                     <button class="tool-btn" data-export="svg" style="width: 100%; text-align: left; justify-content: flex-start; border-radius: 4px; padding: 8px 12px; font-size:13px; color:#374151;">Download SVG</button>
                 </div>
             </div>
-            <div class="topbar__avatar" id="userAvatar">
+            <div class="topbar__avatar" id="userAvatarBtn">
                 <span id="avatarInitials">U</span>
-                <div class="topbar__dropdown">
-                    <a href="/settings" class="topbar__dropdown-item">Profile Settings</a>
-                    <button type="button" id="navbarLogoutBtn" class="topbar__dropdown-item"
-                        style="border:none;background:transparent;text-align:left;width:100%;font-family:inherit;cursor:pointer;">Sign
-                        Out</button>
+                <div class="topbar__dropdown topbar__dropdown--wide" id="userDropdown">
+                    <a href="/settings" class="topbar__dropdown-item topbar__dropdown-item--user">
+                        <span class="topbar__user-name" id="navUserName">Loading…</span>
+                        <span class="topbar__user-email" id="navUserEmail"></span>
+                    </a>
+                    <div class="topbar__dropdown-divider"></div>
+                    <div class="topbar__dropdown-group-label">PROJECTS</div>
+                    <div id="navProjectsList">
+                        <!-- JS renders project (team) buttons here -->
+                    </div>
+                    <button type="button" class="topbar__project-btn topbar__project-btn--create" id="navCreateProjectBtn">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                        Create Project
+                    </button>
+                    <div class="topbar__dropdown-divider"></div>
+                    <button type="button" id="navbarLogoutBtn" class="topbar__dropdown-item topbar__dropdown-item--danger">Logout</button>
                 </div>
             </div>
         </div>
     </header>
 
     <div class="meetings-workspace">
+        <!-- Main view area (hosts whiteboard-view + notes-view) -->
+        <div class="main-view-area">
         <!-- Whiteboard Area -->
-        <div class="whiteboard-area" id="whiteboardContainer" style="position: relative;">
+        <div class="whiteboard-area whiteboard-view" id="whiteboardContainer" style="position: relative;">
 
             <div class="toolbar-left" style="display:flex; flex-direction:column; align-items:center;">
                 <!-- Cursor / Select -->
@@ -349,99 +291,6 @@
 
             <input type="file" id="boardImageUpload" accept="image/*" style="display:none;">
 
-            <!-- Notes Editor Floating Modal -->
-            <div class="floating-modal" id="notesModal"
-                style="display: none; width: 900px; height: 600px; top: 60px; left: 150px; flex-direction: column;">
-                <div class="modal-header" id="notesModalHeader"
-                    style="background:#f9fafb; border-bottom:1px solid #e5e7eb; padding: 12px 20px;">
-                    <div class="modal-title" id="currentNoteTitle" style="font-weight:600; color:#111827;">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="#6b7280" style="margin-right:8px;">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        Untitled Note
-                    </div>
-                    <div class="modal-actions">
-                        <button id="saveNoteBtn"
-                            style="background:#4f46e5;color:#fff;border:none;padding:6px 16px;border-radius:6px;cursor:pointer;font-weight:500; font-size:14px; box-shadow: 0 2px 4px rgba(79,70,229,0.2);">Save
-                            Note</button>
-                        <svg class="close-icon" viewBox="0 0 24 24" fill="none" stroke="#ef4444" id="closeNotesModal"
-                            style="cursor:pointer; margin-left: 12px;">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </div>
-                </div>
-                <div class="modal-body" style="height: calc(100% - 56px); display: flex; padding:0; background: #fff;">
-
-                    <!-- Pane 1: Folders -->
-                    <div
-                        style="width: 200px; border-right: 1px solid #e5e7eb; display: flex; flex-direction: column; background: #fcfcfc;">
-                        <div
-                            style="padding: 12px 16px; font-weight: 700; font-size: 11px; letter-spacing:0.5px; color: #6b7280; display:flex; justify-content: space-between; align-items:center; text-transform: uppercase;">
-                            Folders
-                            <button id="addFolderBtnUI"
-                                style="background:none;border:none;color:#9ca3af;cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center;">+</button>
-                        </div>
-                        <div id="newFolderContainer" style="display:none; padding: 0 12px 10px;">
-                            <div style="display:flex; gap:4px;">
-                                <input type="text" id="newFolderInput" placeholder="Folder name..."
-                                    style="flex:1; font-size: 13px; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; min-width:0;">
-                                <button id="submitFolderBtn"
-                                    style="background:#4f46e5; color:#fff; border:none; border-radius:4px; padding:0 10px; cursor:pointer; font-size:12px; font-weight:600;">Add</button>
-                            </div>
-                        </div>
-                        <div id="foldersList" style="flex:1; overflow-y:auto; padding: 0 8px;">
-                            <!-- Populated dynamically -->
-                        </div>
-                    </div>
-
-                    <!-- Pane 2: Notes -->
-                    <div
-                        style="width: 240px; border-right: 1px solid #e5e7eb; display: flex; flex-direction: column; background: #ffffff;">
-                        <div
-                            style="padding: 12px 16px; font-weight: 700; font-size: 11px; letter-spacing:0.5px; color: #6b7280; display:flex; justify-content: space-between; align-items:center; text-transform: uppercase;">
-                            Notes
-                            <button id="addNoteBtnUI"
-                                style="background:none;border:none;color:#9ca3af;cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center;">+</button>
-                        </div>
-                        <div id="newNoteContainer" style="display:none; padding: 0 12px 10px;">
-                            <div style="display:flex; gap:4px;">
-                                <input type="text" id="newNoteInput" placeholder="Note title..."
-                                    style="flex:1; font-size: 13px; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; min-width:0;">
-                                <button id="submitNoteBtn"
-                                    style="background:#4f46e5; color:#fff; border:none; border-radius:4px; padding:0 10px; cursor:pointer; font-size:12px; font-weight:600;">Add</button>
-                            </div>
-                        </div>
-                        <div id="notesList" style="flex:1; overflow-y:auto; padding: 0 8px;">
-                            <!-- Populated dynamically -->
-                        </div>
-                    </div>
-
-                    <!-- Pane 3: Editor -->
-                    <div class="modal-editor"
-                        style="flex: 1; display: flex; flex-direction: column; overflow: hidden; background: #fff; position: relative;">
-                        <!-- Empty State Overlay -->
-                        <div id="editorEmptyState"
-                            style="position: absolute; top:0; left:0; right:0; bottom:0; background:#fff; z-index:10; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#9ca3af;">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
-                                style="width:48px; height:48px; margin-bottom:16px; color:#d1d5db;">
-                                <path stroke-linecap="round" stroke-linejoin="round"
-                                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                            <div style="font-size:16px; font-weight:500; color:#4b5563;">Select a note to start editing
-                            </div>
-                            <div style="font-size:13px; margin-top:4px;">Or click the + icon in the Notes panel to
-                                create a new one.</div>
-                        </div>
-                        <!-- Quill will attach here -->
-                        <div style="flex:1; display:flex; flex-direction:column; min-height:0;">
-                            <div id="quillEditor" style="flex: 1; overflow-y:auto; border:none; padding:16px;"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
             <!-- Zoom Controls -->
             <div class="zoom-controls">
                 <button id="zoomOut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -456,71 +305,103 @@
             </div>
         </div>
 
-        <!-- History Sidebar -->
-        <div id="historySidebar">
-            <h3 style="font-weight:600; margin-bottom:20px; font-size:18px;">Meeting History & Summaries</h3>
-            <div id="historyList" style="overflow-y:auto; height: 100%;">
-                <p class="text-gray-500 text-sm">Loading histories...</p>
+        <!-- Notes View (inline three-pane layout) -->
+        <div class="notes-view" id="notesView" style="display: none;">
+            <!-- Pane 1: Folder Tree / Sidebar -->
+            <div class="notes-sidebar">
+                <div class="notes-sidebar__header">
+                    <span class="notes-sidebar__title">Folders</span>
+                    <button id="addFolderBtnUI" class="notes-sidebar__add-btn" title="New Folder">+</button>
+                </div>
+                <div id="newFolderContainer" class="notes-sidebar__new-input" style="display:none;">
+                    <input type="text" id="newFolderInput" placeholder="Folder name...">
+                    <button id="submitFolderBtn">Add</button>
+                </div>
+                <div id="foldersList" class="notes-sidebar__list">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+
+            <!-- Pane 2: Notes List -->
+            <div class="notes-list-pane">
+                <div class="notes-list-pane__header">
+                    <span class="notes-list-pane__title">Notes</span>
+                    <button id="addNoteBtnUI" class="notes-list-pane__add-btn" title="New Note">+</button>
+                </div>
+                <div id="newNoteContainer" class="notes-list-pane__new-input" style="display:none;">
+                    <input type="text" id="newNoteInput" placeholder="Note title...">
+                    <button id="submitNoteBtn">Add</button>
+                </div>
+                <div id="notesList" class="notes-list-pane__list">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+
+            <!-- Pane 3: Editor -->
+            <div class="notes-editor-pane">
+                <div class="notes-editor-pane__header">
+                    <div id="currentNoteTitle" class="notes-editor-pane__title">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#6b7280" style="margin-right:8px; width:16px; height:16px;">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Untitled Note
+                    </div>
+                    <button id="saveNoteBtn" class="notes-editor-pane__save-btn">Save Note</button>
+                </div>
+                <div class="notes-editor-pane__body">
+                    <div id="editorEmptyState" class="notes-editor-pane__empty">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                            style="width:48px; height:48px; margin-bottom:16px; color:#d1d5db;">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                        <div class="notes-editor-pane__empty-title">Select a note to start editing</div>
+                        <div class="notes-editor-pane__empty-sub">Or click the + icon in the Notes panel to create a new one.</div>
+                    </div>
+                    <div id="quillEditor" class="notes-editor-pane__quill"></div>
+                </div>
             </div>
         </div>
+        </div>
+        <!-- /main-view-area -->
 
-        <!-- Right Sidebar - AI Summary -->
-        <aside class="right-sidebar">
-            <div class="rs-header">
-                <div class="rs-title">
-                    <svg class="sparkles-icon" viewBox="0 0 24 24" fill="none" stroke="#4f46e5">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-                    </svg>
-                    AI Summary
-                </div>
-                <div class="badge-active" id="aiStatusBadge">READY</div>
-            </div>
-
-            <div class="rs-section">
-                <div class="rs-section-title">RECORDING UPLOAD</div>
-                <div class="upload-box" id="uploadBox" style="position: relative;">
-                    <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="#9ca3af">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                    </svg>
-                    <p><span class="link-text" id="uploadClick">Click to upload</span> MP3 audio</p>
-                    <input type="file" id="audioFileInput" accept="audio/*" style="display:none;">
-                </div>
-
-                <div class="privacy-note mt-3">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
-                    Use the Top-Right MIC button to Record. AI will transcribe audio, summarize, and auto-<br>delete
-                    original file for privacy.
-                </div>
-
-                <div class="progress-container" id="uploadProgress" style="display:none;">
-                    <div class="progress-text">
-                        <span id="uploadStatusLabel">PROCESSING...</span>
-                        <span id="uploadPercent">0%</span>
+        <!-- Right Sidebar -->
+        <aside class="right-sidebar" id="rightSidebar">
+            <div class="right-sidebar__mode right-sidebar__mode--boards" id="boardsSidebar">
+                <div class="rs-header">
+                    <div class="rs-title">
+                        <svg class="sparkles-icon" viewBox="0 0 24 24" fill="none" stroke="#4f46e5">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                        </svg>
+                        Boards
                     </div>
-                    <div class="progress-bar">
-                        <div class="progress-fill" id="uploadFill" style="width: 0%;"></div>
+                    <div style="display:flex; gap:8px; align-items:center;">
+                        <button class="icon-btn right-sidebar__action" id="saveBoardBtn" title="Save Board">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M12 5v14" />
+                            </svg>
+                        </button>
+                        <button class="icon-btn right-sidebar__close" id="closeRightSidebarBtn" title="Close sidebar">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 6l12 12M18 6l-12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="rs-section">
+                    <div class="rs-section-title">SAVED BOARDS</div>
+                    <div class="boards-list-actions">
+                        <button class="share-btn boards-list-actions__btn" id="newBoardBtn">New Board</button>
+                    </div>
+                    <div class="boards-list" id="boardsList">
+                        <p class="text-gray-500 text-sm">Loading boards...</p>
                     </div>
                 </div>
             </div>
 
-            <div class="rs-section" id="aiResults" style="display:none;">
-                <div class="rs-section-title">KEY TAKEAWAYS</div>
-                <ul class="takeaways-list" id="takeawaysList">
-                    <!-- Dynamic -->
-                </ul>
-
-                <button class="synthesize-btn mt-3" style="width: 100%;">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                    </svg>
-                    Saved to AI Brain!
-                </button>
-            </div>
         </aside>
     </div>
 
@@ -552,6 +433,151 @@
             </div>
         </div>
     </div>
+
+    <!-- Voice Recorder FAB -->
+    <div class="voice-recorder" id="voiceRecorder">
+        <button class="voice-fab" id="voiceFab" title="Record Meeting">
+            <svg class="voice-fab__mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 2a3 3 0 00-3 3v7a3 3 0 006 0V5a3 3 0 00-3-3z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 10v2a7 7 0 01-14 0v-2"/>
+                <line x1="12" y1="19" x2="12" y2="23" stroke-linecap="round"/>
+                <line x1="8" y1="23" x2="16" y2="23" stroke-linecap="round"/>
+            </svg>
+            <span class="voice-fab__label">Record</span>
+            <span class="voice-fab__pulse"></span>
+        </button>
+
+        <div class="voice-panel" id="voicePanel">
+            <div class="voice-panel__header">
+                <div class="voice-panel__title-row">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 2a3 3 0 00-3 3v7a3 3 0 006 0V5a3 3 0 00-3-3z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 10v2a7 7 0 01-14 0v-2"/>
+                    </svg>
+                    <span>Voice Recorder</span>
+                </div>
+                <button class="voice-panel__close" id="voicePanelClose" title="Close">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- State: Idle -->
+            <div class="voice-panel__state voice-panel__state--idle" id="voiceStateIdle">
+                <div class="voice-panel__waveform-idle">
+                    <div class="voice-idle-ring">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="32" height="32">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 2a3 3 0 00-3 3v7a3 3 0 006 0V5a3 3 0 00-3-3z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 10v2a7 7 0 01-14 0v-2"/>
+                        </svg>
+                    </div>
+                </div>
+                <p class="voice-panel__hint">Tap to start recording your meeting</p>
+                <button class="voice-panel__record-btn" id="voiceStartBtn">
+                    <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+                        <circle cx="12" cy="12" r="8"/>
+                    </svg>
+                    Start Recording
+                </button>
+                <div class="voice-panel__divider"><span>or</span></div>
+                <button class="voice-panel__upload-btn" id="voiceUploadBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+                    </svg>
+                    Upload Audio File
+                </button>
+                <input type="file" id="voiceFileInput" accept="audio/*" style="display:none;">
+            </div>
+
+            <!-- State: Recording -->
+            <div class="voice-panel__state voice-panel__state--recording" id="voiceStateRecording" style="display:none;">
+                <div class="voice-panel__waveform" id="voiceWaveform">
+                    <canvas id="voiceWaveformCanvas" width="280" height="60"></canvas>
+                </div>
+                <div class="voice-panel__timer" id="voiceTimer">00:00</div>
+                <div class="voice-panel__controls">
+                    <button class="voice-panel__ctrl-btn voice-panel__ctrl-btn--cancel" id="voiceCancelBtn" title="Cancel">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                    <button class="voice-panel__ctrl-btn voice-panel__ctrl-btn--stop" id="voiceStopBtn" title="Stop & Process">
+                        <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+                            <rect x="6" y="6" width="12" height="12" rx="2"/>
+                        </svg>
+                    </button>
+                    <button class="voice-panel__ctrl-btn voice-panel__ctrl-btn--pause" id="voicePauseBtn" title="Pause">
+                        <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18" id="voicePauseIcon">
+                            <rect x="6" y="4" width="4" height="16" rx="1"/>
+                            <rect x="14" y="4" width="4" height="16" rx="1"/>
+                        </svg>
+                        <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18" id="voiceResumeIcon" style="display:none;">
+                            <polygon points="6,4 20,12 6,20"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="voice-panel__live-tag">
+                    <span class="voice-panel__live-dot"></span>
+                    LIVE
+                </div>
+            </div>
+
+            <!-- State: Processing -->
+            <div class="voice-panel__state voice-panel__state--processing" id="voiceStateProcessing" style="display:none;">
+                <div class="voice-panel__processing-anim">
+                    <div class="voice-processing-ring"></div>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="24" height="24" class="voice-processing-icon">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                    </svg>
+                </div>
+                <div class="voice-panel__processing-text">
+                    <span id="voiceProcessingLabel">Uploading audio...</span>
+                </div>
+                <div class="voice-panel__progress">
+                    <div class="voice-panel__progress-bar" id="voiceProgressBar"></div>
+                </div>
+            </div>
+
+            <!-- State: Done -->
+            <div class="voice-panel__state voice-panel__state--done" id="voiceStateDone" style="display:none;">
+                <div class="voice-panel__done-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="#06d6a0" stroke-width="2.5" width="36" height="36">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                    </svg>
+                </div>
+                <p class="voice-panel__done-title">Summary Ready!</p>
+                <p class="voice-panel__done-desc">Your meeting has been transcribed, summarized, and saved to the AI Brain.</p>
+                <div class="voice-panel__done-actions">
+                    <button class="voice-panel__done-btn voice-panel__done-btn--primary" id="voiceViewNotes">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                        View Summary
+                    </button>
+                    <button class="voice-panel__done-btn voice-panel__done-btn--ghost" id="voiceNewRecording">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 2a3 3 0 00-3 3v7a3 3 0 006 0V5a3 3 0 00-3-3z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 10v2a7 7 0 01-14 0v-2"/>
+                        </svg>
+                        New Recording
+                    </button>
+                </div>
+            </div>
+
+            <!-- State: Error -->
+            <div class="voice-panel__state voice-panel__state--error" id="voiceStateError" style="display:none;">
+                <div class="voice-panel__error-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" width="32" height="32">
+                        <circle cx="12" cy="12" r="10"/>
+                        <path stroke-linecap="round" d="M15 9l-6 6M9 9l6 6"/>
+                    </svg>
+                </div>
+                <p class="voice-panel__error-text" id="voiceErrorText">Something went wrong</p>
+                <button class="voice-panel__done-btn voice-panel__done-btn--ghost" id="voiceRetryBtn">Try Again</button>
+            </div>
+        </div>
+    </div>
 </main>
 {% endblock %}
 
@@ -560,5 +586,5 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
 <!-- Custom Scripts -->
 <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
-<script src="/static/meetings/js/meetings.js?v=3"></script>
+<script src="/static/meetings/js/meetings.js?v=4"></script>
 {% endblock %}

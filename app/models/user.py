@@ -19,6 +19,13 @@ user_project = Table(
     Column("project_id", Integer, ForeignKey("projects.id"))
 )
 
+# SubTeam association table (UI "Teams" = DB "SubTeams")
+user_sub_team = Table(
+    "user_sub_team", Base.metadata,
+    Column("user_id", Integer, ForeignKey("users.id")),
+    Column("sub_team_id", Integer, ForeignKey("sub_teams.id"))
+)
+
 # === MAIN MODELS (exact from Login&user info.pdf ERD + auth flow) ===
 
 class User(Base):
@@ -46,6 +53,7 @@ class User(Base):
     company = relationship("Company", back_populates="users")
     teams = relationship("Team", secondary=user_team, back_populates="users")
     projects = relationship("Project", secondary=user_project, back_populates="users")
+    sub_teams = relationship("SubTeam", secondary=user_sub_team, back_populates="users")
     user_roles = relationship("UserRole", back_populates="user")
 
     def __repr__(self):
@@ -75,6 +83,7 @@ class Team(Base):
     company = relationship("Company", back_populates="teams")
     users = relationship("User", secondary=user_team, back_populates="teams")
     projects = relationship("Project", back_populates="team")
+    sub_teams = relationship("SubTeam", back_populates="team")
 
 class Role(Base):
     __tablename__ = "roles"
@@ -90,8 +99,9 @@ class UserRole(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
     role_id = Column(Integer, ForeignKey("roles.id"))
-    team_id = Column(Integer, ForeignKey("teams.id"), nullable=True, index=True)  # scopes role to a specific team
-    project_id = Column(Integer, ForeignKey("projects.id"), nullable=True)  # optional per-project role
+    team_id = Column(Integer, ForeignKey("teams.id"), nullable=True, index=True)  # scopes role to a specific team (UI: project)
+    project_id = Column(Integer, nullable=True)  # legacy column kept for DB compat (FK removed, projects table dropped)
+    sub_team_id = Column(Integer, ForeignKey("sub_teams.id"), nullable=True)  # scopes role to a subteam (UI: team)
 
     user = relationship("User", back_populates="user_roles")
     role = relationship("Role", back_populates="user_roles")
@@ -106,6 +116,22 @@ class Project(Base):
 
     team = relationship("Team", back_populates="projects")
     users = relationship("User", secondary=user_project, back_populates="projects")
+
+
+class SubTeam(Base):
+    """UI 'Teams' = DB 'SubTeams' — groups within a project (team in DB)."""
+    __tablename__ = "sub_teams"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    description = Column(String, nullable=True)
+    color = Column(String, nullable=True, default="#4f46e5")
+    team_id = Column(Integer, ForeignKey("teams.id"), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    team = relationship("Team", back_populates="sub_teams")
+    users = relationship("User", secondary=user_sub_team, back_populates="sub_teams")
+    timeline_entries = relationship("TimelineEntry", back_populates="sub_team")
 
 
 # ═══════════════════════════════════════════════════

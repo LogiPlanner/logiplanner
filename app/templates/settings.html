@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block title %}Settings — LogiPlanner{% endblock %}
-{% block meta_description %}Manage your account, workspace, and team preferences.{% endblock %}
+{% block meta_description %}Manage your project, teams, and account preferences.{% endblock %}
 
 {% block styles %}
 <link rel="stylesheet" href="/static/css/settings.css">
@@ -12,97 +12,270 @@
 {% block content %}
 <main class="stg-main">
     {% call topbar() %}
-        <div class="topbar-left">
+        <div class="topbar__left-inner">
             <div class="topbar__page-title">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><circle cx="12" cy="12" r="3"/></svg>
                 <span>Settings</span>
             </div>
+            <p class="topbar__subtitle" id="settingsSubtitle">Project Configuration</p>
         </div>
     {% endcall %}
 
     <div class="stg-body">
         <!-- Settings Sidebar Nav -->
         <nav class="stg-nav" id="settingsNav">
-            <div class="stg-nav__group">
-                <span class="stg-nav__label">Account</span>
-                <a href="#" class="stg-nav__link active" data-target="account">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                    Profile
-                </a>
-                <a href="#" class="stg-nav__link" data-target="notifications">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
-                    Notifications
-                </a>
-            </div>
-            <div class="stg-nav__group">
-                <span class="stg-nav__label">Workspace</span>
-                <a href="#" class="stg-nav__link" data-target="members">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
-                    Members
-                </a>
-                <a href="#" class="stg-nav__link" data-target="workspace">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
-                    General
-                </a>
-            </div>
+            <a href="#" class="stg-nav__link active" data-target="general">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                General
+            </a>
+            <a href="#" class="stg-nav__link" data-target="team-management">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                Team Management
+            </a>
+            <a href="#" class="stg-nav__link" data-target="access-permissions">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                Access &amp; Permissions
+            </a>
+            <a href="#" class="stg-nav__link" data-target="security">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                Security
+            </a>
+            <a href="#" class="stg-nav__link" data-target="notifications">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+                Notifications
+            </a>
+            <a href="#" class="stg-nav__link" data-target="integrations">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z"/></svg>
+                Integrations
+            </a>
+            <a href="#" class="stg-nav__link stg-nav__link--create" data-target="create-project">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                Create Project
+            </a>
+            <a href="#" class="stg-nav__link stg-nav__link--danger" data-target="danger">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                Danger Zone
+            </a>
         </nav>
 
         <!-- Settings Content -->
         <div class="stg-scroll">
             <div class="stg-content">
 
-                <!-- ═══ ACCOUNT / PROFILE ═══ -->
-                <section class="stg-section active" id="section-account">
+                <!-- ═══ GENERAL (Project Settings) ═══ -->
+                <section class="stg-section active" id="section-general">
                     <div class="stg-section__header">
-                        <h2 class="stg-section__title">Profile</h2>
-                        <p class="stg-section__desc">Your personal information and account details.</p>
+                        <div>
+                            <h2 class="stg-section__title">Project Settings</h2>
+                            <p class="stg-section__desc">Manage your project information and preferences.</p>
+                        </div>
                     </div>
 
-                    <form class="stg-card" id="profileForm">
-                        <div class="stg-card__row stg-card__row--avatar">
-                            <div class="stg-avatar">
-                                <div class="stg-avatar__img" id="profileAvatarImg">
-                                    <span id="avatarInitial">U</span>
-                                </div>
-                            </div>
-                            <div class="stg-avatar__info">
-                                <span class="stg-avatar__name" id="avatarDisplayName">—</span>
-                                <span class="stg-avatar__role" id="avatarDisplayRole">Member</span>
-                            </div>
+                    <form class="stg-card" id="projectForm">
+                        <div class="stg-field">
+                            <label class="stg-field__label" for="projectName">Project Name</label>
+                            <input type="text" id="projectName" class="stg-field__input" required>
                         </div>
 
-                        <div class="stg-card__row">
-                            <div class="stg-field">
-                                <label class="stg-field__label" for="profileName">Full name<span class="form-required" aria-label="required">*</span></label>
-                                <input type="text" id="profileName" class="stg-field__input" required autocomplete="name">
-                            </div>
+                        <div class="stg-field">
+                            <label class="stg-field__label" for="projectDesc">Description</label>
+                            <textarea id="projectDesc" class="stg-field__input stg-field__input--textarea" rows="4" placeholder="Describe your project..."></textarea>
                         </div>
 
-                        <div class="stg-card__row">
-                            <div class="stg-field">
-                                <label class="stg-field__label" for="profileEmail">Email address<span class="form-required" aria-label="required">*</span></label>
-                                <input type="email" id="profileEmail" class="stg-field__input" required autocomplete="email">
-                            </div>
-                        </div>
-
-                        <div class="stg-card__row">
-                            <div class="stg-field">
-                                <label class="stg-field__label">Workspace role</label>
-                                <div class="stg-field__static" id="workspaceRoleDisplay">Viewer</div>
-                            </div>
+                        <div class="stg-field">
+                            <label class="stg-field__label" for="projectVisibility">Project Visibility</label>
+                            <select id="projectVisibility" class="stg-field__input stg-field__input--select">
+                                <option value="private">Private — Only team members can access</option>
+                                <option value="public">Public</option>
+                            </select>
                         </div>
 
                         <div class="stg-card__footer">
-                            <button type="submit" class="stg-btn stg-btn--primary" id="profileSaveBtn">Save changes</button>
+                            <button type="submit" class="stg-btn stg-btn--primary" id="projectSaveBtn">Save Changes</button>
                         </div>
                     </form>
+
+                    <!-- ── Project Members & Invite ── -->
+                    <div class="stg-card" id="projectMembersCard">
+                        <div class="stg-members-header">
+                            <div>
+                                <h3 class="stg-card__subtitle">Project Members</h3>
+                                <p class="stg-card__subdesc">People with access to this project.</p>
+                            </div>
+                            <button type="button" class="stg-btn stg-btn--primary stg-btn--sm" id="openProjectInviteBtn">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                                Invite Member
+                            </button>
+                        </div>
+
+                        <!-- Inline invite form (hidden by default) -->
+                        <div class="stg-inline-invite" id="projectInvitePanel" style="display:none;">
+                            <div class="stg-inline-invite__row">
+                                <input type="email" id="projectInviteEmail" class="stg-field__input" placeholder="colleague@company.com">
+                                <select id="projectInviteRole" class="stg-field__input stg-field__input--select">
+                                    <option value="editor">Editor</option>
+                                    <option value="viewer" selected>Viewer</option>
+                                </select>
+                                <button type="button" class="stg-btn stg-btn--primary stg-btn--sm" id="projectInviteConfirmBtn">Send Invite</button>
+                                <button type="button" class="stg-btn stg-btn--ghost stg-btn--sm" id="projectInviteCancelBtn">Cancel</button>
+                            </div>
+                            <p class="stg-inline-invite__hint">Existing users are added instantly. New users receive an invitation link.</p>
+                        </div>
+
+                        <!-- Members list -->
+                        <div class="stg-member-list" id="projectMemberList">
+                            <div class="stg-member-list__empty">Loading members…</div>
+                        </div>
+
+                        <!-- Invite code section -->
+                        <div class="stg-invite-code-block" id="projectInviteCodeBlock">
+                            <div class="stg-invite-code-block__info">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                                <div>
+                                    <span class="stg-invite-code-block__label">Project Invite Code</span>
+                                    <span class="stg-invite-code-block__hint">Share this code with members to let them join the project.</span>
+                                </div>
+                            </div>
+                            <div class="stg-invite-code-block__code-row">
+                                <code class="stg-invite-code" id="projectInviteCode">—</code>
+                                <button type="button" class="stg-btn stg-btn--ghost stg-btn--sm" id="copyProjectCodeBtn" title="Copy code">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                                    Copy
+                                </button>
+                                <button type="button" class="stg-btn stg-btn--ghost stg-btn--sm stg-btn--owner-only" id="regenerateProjectCodeBtn" title="Generate new code">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                                    Regenerate
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                </section>
+
+                <!-- ═══ TEAM MANAGEMENT (UI: Teams = DB: SubTeams) ═══ -->
+                <section class="stg-section" id="section-team-management">
+                    <div class="stg-section__header">
+                        <div>
+                            <h2 class="stg-section__title">Team Management</h2>
+                            <p class="stg-section__desc">Manage teams within this project and their members.</p>
+                        </div>
+                        <button type="button" class="stg-btn stg-btn--primary" id="createSubteamBtn">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                            Create Team
+                        </button>
+                    </div>
+
+                    <div class="stg-card stg-card--list" id="subteamList">
+                        <div class="stg-empty-state" id="subteamEmptyState">
+                            <p>No teams yet. Create your first team to organize members.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ═══ ACCESS & PERMISSIONS ═══ -->
+                <section class="stg-section" id="section-access-permissions">
+                    <div class="stg-section__header">
+                        <div>
+                            <h2 class="stg-section__title">Roles &amp; Permissions</h2>
+                            <p class="stg-section__desc">Understand different role permissions.</p>
+                        </div>
+                    </div>
+
+                    <div class="stg-role-cards">
+                        <div class="stg-role-card stg-role-card--owner">
+                            <div class="stg-role-card__header">
+                                <h4 class="stg-role-card__title">Owner</h4>
+                                <span class="stg-role-badge stg-role-badge--owner">Owner</span>
+                            </div>
+                            <p class="stg-role-card__desc">Full access to all settings and can delete project.</p>
+                            <ul class="stg-role-card__perms">
+                                <li><span class="stg-perm-dot stg-perm-dot--yes"></span>Manage project settings</li>
+                                <li><span class="stg-perm-dot stg-perm-dot--yes"></span>Manage team members</li>
+                                <li><span class="stg-perm-dot stg-perm-dot--yes"></span>Create and edit content</li>
+                                <li><span class="stg-perm-dot stg-perm-dot--yes"></span>View project content</li>
+                            </ul>
+                        </div>
+
+                        <div class="stg-role-card stg-role-card--admin">
+                            <div class="stg-role-card__header">
+                                <h4 class="stg-role-card__title">Admin</h4>
+                                <span class="stg-role-badge stg-role-badge--admin">Admin</span>
+                            </div>
+                            <p class="stg-role-card__desc">Can manage team, settings, but cannot delete project.</p>
+                            <ul class="stg-role-card__perms">
+                                <li><span class="stg-perm-dot stg-perm-dot--yes"></span>Manage project settings</li>
+                                <li><span class="stg-perm-dot stg-perm-dot--yes"></span>Manage team members</li>
+                                <li><span class="stg-perm-dot stg-perm-dot--yes"></span>Create and edit content</li>
+                                <li><span class="stg-perm-dot stg-perm-dot--yes"></span>View project content</li>
+                            </ul>
+                        </div>
+
+                        <div class="stg-role-card stg-role-card--member">
+                            <div class="stg-role-card__header">
+                                <h4 class="stg-role-card__title">Member</h4>
+                                <span class="stg-role-badge stg-role-badge--member">Member</span>
+                            </div>
+                            <p class="stg-role-card__desc">Can create and edit content, limited settings access.</p>
+                            <ul class="stg-role-card__perms">
+                                <li><span class="stg-perm-dot stg-perm-dot--no"></span>Manage project settings</li>
+                                <li><span class="stg-perm-dot stg-perm-dot--no"></span>Manage team members</li>
+                                <li><span class="stg-perm-dot stg-perm-dot--yes"></span>Create and edit content</li>
+                                <li><span class="stg-perm-dot stg-perm-dot--yes"></span>View project content</li>
+                            </ul>
+                        </div>
+
+                        <div class="stg-role-card stg-role-card--viewer">
+                            <div class="stg-role-card__header">
+                                <h4 class="stg-role-card__title">Viewer</h4>
+                                <span class="stg-role-badge stg-role-badge--viewer">Viewer</span>
+                            </div>
+                            <p class="stg-role-card__desc">Read-only access, cannot edit anything.</p>
+                            <ul class="stg-role-card__perms">
+                                <li><span class="stg-perm-dot stg-perm-dot--no"></span>Manage project settings</li>
+                                <li><span class="stg-perm-dot stg-perm-dot--no"></span>Manage team members</li>
+                                <li><span class="stg-perm-dot stg-perm-dot--no"></span>Create and edit content</li>
+                                <li><span class="stg-perm-dot stg-perm-dot--yes"></span>View project content</li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ═══ SECURITY ═══ -->
+                <section class="stg-section" id="section-security">
+                    <div class="stg-section__header">
+                        <div>
+                            <h2 class="stg-section__title">Security</h2>
+                            <p class="stg-section__desc">Manage your account security settings.</p>
+                        </div>
+                    </div>
+
+                    <div class="stg-card">
+                        <h3 class="stg-card__subtitle">Change Password</h3>
+                        <div class="stg-field">
+                            <label class="stg-field__label" for="currentPassword">Current Password</label>
+                            <input type="password" id="currentPassword" class="stg-field__input" placeholder="Enter current password">
+                        </div>
+                        <div class="stg-field">
+                            <label class="stg-field__label" for="newPassword">New Password</label>
+                            <input type="password" id="newPassword" class="stg-field__input" placeholder="Enter new password">
+                        </div>
+                        <div class="stg-field">
+                            <label class="stg-field__label" for="confirmPassword">Confirm New Password</label>
+                            <input type="password" id="confirmPassword" class="stg-field__input" placeholder="Confirm new password">
+                        </div>
+                        <div class="stg-card__footer">
+                            <button type="button" class="stg-btn stg-btn--primary" id="changePasswordBtn">Update Password</button>
+                        </div>
+                    </div>
                 </section>
 
                 <!-- ═══ NOTIFICATIONS ═══ -->
                 <section class="stg-section" id="section-notifications">
                     <div class="stg-section__header">
-                        <h2 class="stg-section__title">Notifications</h2>
-                        <p class="stg-section__desc">Control how and when LogiPlanner alerts you.</p>
+                        <div>
+                            <h2 class="stg-section__title">Notifications</h2>
+                            <p class="stg-section__desc">Control how and when LogiPlanner alerts you.</p>
+                        </div>
                     </div>
 
                     <div class="stg-card">
@@ -138,87 +311,130 @@
                     </div>
                 </section>
 
-                <!-- ═══ MEMBERS ═══ -->
-                <section class="stg-section" id="section-members">
+                <!-- ═══ INTEGRATIONS ═══ -->
+                <section class="stg-section" id="section-integrations">
                     <div class="stg-section__header">
                         <div>
-                            <h2 class="stg-section__title">Team members</h2>
-                            <p class="stg-section__desc">People who have access to this workspace.</p>
-                        </div>
-                        <button type="button" class="stg-btn stg-btn--secondary" id="openInviteModal">
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                            Invite
-                        </button>
-                    </div>
-
-                    <!-- Invite code banner -->
-                    <div class="stg-invite-banner">
-                        <div class="stg-invite-banner__text">
-                            <span class="stg-invite-banner__label">Invite code</span>
-                            <span class="stg-invite-banner__hint">Share this code so teammates can join directly.</span>
-                        </div>
-                        <div class="stg-invite-banner__actions">
-                            <code class="stg-invite-banner__code" id="projectSettingsInviteCode">--------</code>
-                            <button type="button" class="stg-btn stg-btn--ghost" id="copySettingsInviteCode" title="Copy invite code">
-                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
-                                Copy
-                            </button>
+                            <h2 class="stg-section__title">Integrations</h2>
+                            <p class="stg-section__desc">Manage connected tools and services for this project.</p>
                         </div>
                     </div>
 
-                    <div class="stg-card stg-card--table">
-                        <div class="stg-table__head">
-                            <span class="stg-table__col stg-table__col--user">Member</span>
-                            <span class="stg-table__col stg-table__col--role">Role</span>
-                            <span class="stg-table__col stg-table__col--action"></span>
+                    <!-- Jira (coming soon) -->
+                    <div class="stg-card stg-integration-card stg-integration-card--unavailable">
+                        <div class="stg-integration-card__header">
+                            <div class="stg-integration-card__icon stg-integration-card__icon--jira">
+                                <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M11.975 0C9.472 0 7.5 1.972 7.5 4.475v2.025H3.975C1.472 6.5 0 8.178 0 10.425c0 .003 0 .006.001.01l.044 9.09C.046 21.718 1.581 23 3.5 23H3.975v-9.025c0-2.503 1.472-4.475 3.975-4.475H12V4.475C12 4.475 12 0 11.975 0zM16 7H12.025v5.5H16c2.503 0 3.975 1.972 3.975 4.475V23h.5c1.92 0 3.5-1.582 3.5-3.5L24 10.5c0-1.97-1.472-3.5-3.975-3.5H16z"/></svg>
+                            </div>
+                            <div class="stg-integration-card__info">
+                                <h4 class="stg-integration-card__name">Jira</h4>
+                                <p class="stg-integration-card__desc">Connect your Jira project to track issues and sync documentation.</p>
+                            </div>
+                            <span class="stg-integration-badge stg-integration-badge--soon">Coming soon</span>
                         </div>
-                        <div id="teamMembersList">
-                            <!-- JS renders rows here -->
+                    </div>
+
+                    <!-- WhatsApp (coming soon) -->
+                    <div class="stg-card stg-integration-card stg-integration-card--unavailable">
+                        <div class="stg-integration-card__header">
+                            <div class="stg-integration-card__icon stg-integration-card__icon--whatsapp">
+                                <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                            </div>
+                            <div class="stg-integration-card__info">
+                                <h4 class="stg-integration-card__name">WhatsApp</h4>
+                                <p class="stg-integration-card__desc">Send project updates and notifications via WhatsApp.</p>
+                            </div>
+                            <span class="stg-integration-badge stg-integration-badge--soon">Coming soon</span>
                         </div>
                     </div>
                 </section>
 
-                <!-- ═══ WORKSPACE ═══ -->
-                <section class="stg-section" id="section-workspace">
+                <!-- ═══ CREATE PROJECT ═══ -->
+                <section class="stg-section" id="section-create-project">
                     <div class="stg-section__header">
-                        <h2 class="stg-section__title">Workspace</h2>
-                        <p class="stg-section__desc">Manage workspace identity and AI preferences.</p>
+                        <div>
+                            <h2 class="stg-section__title">Create New Project</h2>
+                            <p class="stg-section__desc">Set up a new project workspace for your team.</p>
+                        </div>
                     </div>
 
-                    <form class="stg-card" id="projectForm">
-                        <div class="stg-card__row">
-                            <div class="stg-field">
-                                <label class="stg-field__label" for="projectName">Workspace name</label>
-                                <input type="text" id="projectName" class="stg-field__input" required>
-                            </div>
+                    <form class="stg-card" id="createProjectForm">
+                        <!-- Step 1: Project Info -->
+                        <h3 class="stg-card__subtitle">Project Info</h3>
+                        <div class="stg-field">
+                            <label class="stg-field__label" for="cp_teamName">Project Name <span style="color:var(--color-error)">*</span></label>
+                            <input type="text" id="cp_teamName" class="stg-field__input" required placeholder="e.g. Marketing Launch">
+                        </div>
+                        <div class="stg-field">
+                            <label class="stg-field__label" for="cp_teamDesc">Description</label>
+                            <textarea id="cp_teamDesc" class="stg-field__input stg-field__input--textarea" rows="3" placeholder="What is this project about?"></textarea>
                         </div>
 
-                        <div class="stg-card__row">
+                        <!-- Step 2: Owner Details -->
+                        <h3 class="stg-card__subtitle" style="margin-top:1.5rem;">Your Role in This Project</h3>
+                        <div class="stg-field-row-2">
                             <div class="stg-field">
-                                <label class="stg-field__label" for="projectDesc">Description</label>
-                                <textarea id="projectDesc" class="stg-field__input stg-field__input--textarea" rows="4" placeholder="What is this workspace about?"></textarea>
+                                <label class="stg-field__label" for="cp_fullName">Full Name <span style="color:var(--color-error)">*</span></label>
+                                <input type="text" id="cp_fullName" class="stg-field__input" required placeholder="Jane Doe">
                             </div>
+                            <div class="stg-field">
+                                <label class="stg-field__label" for="cp_jobTitle">Job Title <span style="color:var(--color-error)">*</span></label>
+                                <input type="text" id="cp_jobTitle" class="stg-field__input" required placeholder="e.g. Project Lead">
+                            </div>
+                        </div>
+                        <div class="stg-field">
+                            <label class="stg-field__label" for="cp_projectStage">Current Project Stage</label>
+                            <select id="cp_projectStage" class="stg-field__input stg-field__input--select">
+                                <option value="">Select a stage…</option>
+                                <option value="Ideation">Ideation</option>
+                                <option value="Planning">Planning</option>
+                                <option value="In Progress">In Progress</option>
+                                <option value="Late Stage">Late Stage</option>
+                                <option value="Maintenance">Maintenance</option>
+                            </select>
+                        </div>
+                        <div class="stg-field">
+                            <label class="stg-field__label" for="cp_projectInfo">Short Project Description</label>
+                            <textarea id="cp_projectInfo" class="stg-field__input stg-field__input--textarea" rows="2" placeholder="Briefly describe your project goals…"></textarea>
                         </div>
 
                         <div class="stg-card__footer">
-                            <button type="submit" class="stg-btn stg-btn--primary" id="projectSaveBtn">Save changes</button>
+                            <p class="stg-create-status" id="createProjectStatus"></p>
+                            <button type="submit" class="stg-btn stg-btn--primary" id="createProjectBtn">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                                Create Project
+                            </button>
                         </div>
                     </form>
+                </section>
 
-                    <!-- AI Sensitivity -->
-                    <div class="stg-card">
-                        <div class="stg-card__row">
-                            <div class="stg-field">
-                                <div class="stg-field__label-row">
-                                    <label class="stg-field__label" for="sensitivitySlider">AI response style</label>
-                                    <span class="stg-field__value" id="sensitivityValue">84%</span>
-                                </div>
-                                <input type="range" id="sensitivitySlider" class="stg-range" min="0" max="100" value="84">
-                                <div class="stg-range__labels">
-                                    <span>Conservative</span>
-                                    <span>Creative</span>
-                                </div>
+                <!-- ═══ DANGER ZONE ═══ -->
+                <section class="stg-section" id="section-danger">
+                    <div class="stg-section__header">
+                        <div>
+                            <h2 class="stg-section__title stg-section__title--danger">Danger Zone</h2>
+                            <p class="stg-section__desc">Irreversible actions for this project.</p>
+                        </div>
+                    </div>
+
+                    <div class="stg-card stg-card--danger-zone">
+                        <div class="stg-danger-row">
+                            <div class="stg-danger-row__info">
+                                <h4 class="stg-danger-row__title">Archive Project</h4>
+                                <p class="stg-danger-row__desc">Make this project read-only. It can be unarchived later.</p>
                             </div>
+                            <button type="button" class="stg-btn stg-btn--outline-danger" id="archiveProjectBtn">Archive</button>
+                        </div>
+                        <div class="stg-danger-row stg-danger-row--last">
+                            <div class="stg-danger-row__info">
+                                <h4 class="stg-danger-row__title">Delete Project</h4>
+                                <p class="stg-danger-row__desc">Permanently delete this project and all its data. This action cannot be undone.</p>
+                                <p class="stg-danger-row__warning">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                                    Only the Project Owner can delete this project
+                                </p>
+                            </div>
+                            <button type="button" class="stg-btn stg-btn--gray" id="deleteProjectBtn" disabled>Delete</button>
                         </div>
                     </div>
                 </section>
@@ -228,26 +444,161 @@
     </div>
 </main>
 
-<!-- Invite Modal -->
-<div class="stg-overlay" id="inviteModalOverlay">
+<!-- Create/Edit Team Modal -->
+<div class="stg-overlay" id="subteamModalOverlay" style="display:none;">
     <div class="stg-modal">
         <div class="stg-modal__header">
-            <h3 class="stg-modal__title">Invite a team member</h3>
-            <button type="button" class="stg-modal__close" id="inviteCancel" aria-label="Close">
+            <h3 class="stg-modal__title" id="subteamModalTitle">Create Team</h3>
+            <button type="button" class="stg-modal__close" id="subteamModalClose">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+        <form id="subteamForm">
+            <input type="hidden" id="editingSubteamId" value="">
+            <div class="stg-field">
+                <label class="stg-field__label" for="subteamName">Team Name</label>
+                <input type="text" id="subteamName" class="stg-field__input" required placeholder="e.g. Design Team">
+            </div>
+            <div class="stg-field">
+                <label class="stg-field__label" for="subteamDescription">Description</label>
+                <textarea id="subteamDescription" class="stg-field__input stg-field__input--textarea" rows="2" placeholder="What does this team do?"></textarea>
+            </div>
+            <div class="stg-field">
+                <label class="stg-field__label">Team Color</label>
+                <div class="stg-color-picker" id="subteamColorPicker">
+                    <button type="button" class="stg-color-swatch active" data-color="#4f46e5" style="background:#4f46e5;" title="Indigo"></button>
+                    <button type="button" class="stg-color-swatch" data-color="#7c3aed" style="background:#7c3aed;" title="Purple"></button>
+                    <button type="button" class="stg-color-swatch" data-color="#06d6a0" style="background:#06d6a0;" title="Teal"></button>
+                    <button type="button" class="stg-color-swatch" data-color="#f59e0b" style="background:#f59e0b;" title="Amber"></button>
+                    <button type="button" class="stg-color-swatch" data-color="#ef4444" style="background:#ef4444;" title="Red"></button>
+                    <button type="button" class="stg-color-swatch" data-color="#3b82f6" style="background:#3b82f6;" title="Blue"></button>
+                    <button type="button" class="stg-color-swatch" data-color="#ec4899" style="background:#ec4899;" title="Pink"></button>
+                    <button type="button" class="stg-color-swatch" data-color="#14b8a6" style="background:#14b8a6;" title="Cyan"></button>
+                </div>
+                <input type="hidden" id="subteamColor" value="#4f46e5">
+            </div>
+            <div class="stg-modal__actions">
+                <button type="button" class="stg-btn stg-btn--ghost" id="subteamCancelBtn">Cancel</button>
+                <button type="submit" class="stg-btn stg-btn--primary" id="subteamSubmitBtn">Create Team</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Delete Subteam Confirm Modal -->
+<div class="stg-overlay" id="deleteSubteamOverlay" style="display:none;">
+    <div class="stg-modal">
+        <div class="stg-modal__header">
+            <h3 class="stg-modal__title stg-modal__title--danger">Delete Team</h3>
+            <button type="button" class="stg-modal__close" id="deleteSubteamClose">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+        <p class="stg-modal__body">Are you sure you want to delete <strong id="deleteSubteamName">this team</strong>? This action cannot be undone.</p>
+        <input type="hidden" id="deleteSubteamId">
+        <div class="stg-modal__actions">
+            <button type="button" class="stg-btn stg-btn--ghost" id="deleteSubteamCancel">Cancel</button>
+            <button type="button" class="stg-btn stg-btn--danger" id="deleteSubteamConfirm">Delete</button>
+        </div>
+    </div>
+</div>
+
+<!-- Manage Members Modal -->
+<div class="stg-overlay" id="manageMembersOverlay" style="display:none;">
+    <div class="stg-modal stg-modal--wide">
+        <div class="stg-modal__header">
+            <div>
+                <h3 class="stg-modal__title" id="manageMembersTitle">Manage Members</h3>
+                <p class="stg-modal__subtitle" id="manageMembersSubtitle"></p>
+            </div>
+            <button type="button" class="stg-modal__close" id="manageMembersClose">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+
+        <!-- Member table -->
+        <div class="stg-members-table" id="manageMembersTable">
+            <div class="stg-members-table__head">
+                <span>MEMBER</span>
+                <span>ROLE</span>
+                <span>ACCESS</span>
+                <span>ACTIONS</span>
+            </div>
+            <div id="manageMembersList"></div>
+        </div>
+
+        <div class="stg-modal__actions stg-modal__actions--between">
+            <div style="display:flex;gap:8px;">
+                <button type="button" class="stg-btn stg-btn--ghost" id="addMemberToTeamBtn">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                    Add from Project
+                </button>
+                <button type="button" class="stg-btn stg-btn--ghost" id="inviteToSubteamBtn">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                    Invite by Email
+                </button>
+            </div>
+            <button type="button" class="stg-btn stg-btn--primary" id="manageMembersDone">Done</button>
+        </div>
+
+        <!-- Add member from project sub-panel -->
+        <div class="stg-add-member-panel" id="addMemberPanel" style="display:none;">
+            <select class="stg-field__input stg-field__input--select" id="addMemberSelect">
+                <option value="">Select a project member…</option>
+            </select>
+            <button type="button" class="stg-btn stg-btn--primary" id="addMemberConfirmBtn">Add</button>
+        </div>
+
+        <!-- Invite by email sub-panel -->
+        <div class="stg-add-member-panel" id="inviteSubteamPanel" style="display:none;">
+            <input type="email" id="subteamInviteEmail" class="stg-field__input" placeholder="colleague@company.com">
+            <select id="subteamInviteRole" class="stg-field__input stg-field__input--select">
+                <option value="editor">Editor</option>
+                <option value="viewer" selected>Viewer</option>
+            </select>
+            <button type="button" class="stg-btn stg-btn--primary" id="subteamInviteConfirmBtn">Send Invite</button>
+        </div>
+
+        <!-- Subteam invite code block -->
+        <div class="stg-invite-code-block stg-invite-code-block--subteam">
+            <div class="stg-invite-code-block__info">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                <div>
+                    <span class="stg-invite-code-block__label">Project Invite Code</span>
+                    <span class="stg-invite-code-block__hint">Members who join with this code are added to this team automatically.</span>
+                </div>
+            </div>
+            <div class="stg-invite-code-block__code-row">
+                <code class="stg-invite-code" id="subteamProjectInviteCode">—</code>
+                <button type="button" class="stg-btn stg-btn--ghost stg-btn--sm" id="copySubteamCodeBtn" title="Copy code">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    Copy
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Invite Modal (members) -->
+<div class="stg-overlay" id="inviteModalOverlay" style="display:none;">
+    <div class="stg-modal">
+        <div class="stg-modal__header">
+            <h3 class="stg-modal__title">Invite a member</h3>
+            <button type="button" class="stg-modal__close" id="inviteCancel">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
         </div>
         <form id="inviteForm">
-            <div class="stg-field" style="margin-bottom:16px;">
+            <div class="stg-field">
                 <label class="stg-field__label" for="inviteEmail">Email address</label>
                 <input type="email" id="inviteEmail" class="stg-field__input" required placeholder="name@company.com">
             </div>
-            <div class="stg-field" style="margin-bottom:24px;">
+            <div class="stg-field">
                 <label class="stg-field__label" for="inviteRole">Role</label>
                 <select id="inviteRole" class="stg-field__input stg-field__input--select">
-                    <option value="owner">Owner — full access</option>
-                    <option value="editor">Editor — can modify tasks & docs</option>
-                    <option value="viewer" selected>Viewer — read-only</option>
+                    <option value="owner">Owner</option>
+                    <option value="editor">Editor</option>
+                    <option value="viewer" selected>Viewer</option>
                 </select>
             </div>
             <div class="stg-modal__actions">
@@ -255,24 +606,6 @@
                 <button type="submit" class="stg-btn stg-btn--primary" id="inviteSubmitBtn">Send invite</button>
             </div>
         </form>
-    </div>
-</div>
-
-<!-- Remove Confirm Modal -->
-<div class="stg-overlay" id="removeModalOverlay">
-    <div class="stg-modal">
-        <div class="stg-modal__header">
-            <h3 class="stg-modal__title stg-modal__title--danger">Remove member</h3>
-            <button type="button" class="stg-modal__close" id="removeCloseBtn" aria-label="Close">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-            </button>
-        </div>
-        <p class="stg-modal__body">Are you sure you want to remove <strong id="removeMemberName">this member</strong>? They will lose all access to this workspace.</p>
-        <input type="hidden" id="removeMemberId">
-        <div class="stg-modal__actions">
-            <button type="button" class="stg-btn stg-btn--ghost" id="removeCancel">Cancel</button>
-            <button type="button" class="stg-btn stg-btn--danger" id="removeConfirmBtn">Remove</button>
-        </div>
     </div>
 </div>
 

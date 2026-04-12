@@ -36,8 +36,7 @@ from collections import defaultdict
 
 import chromadb
 from chromadb.config import Settings as ChromaSettings
-from langchain_openai import ChatOpenAI
-from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_chroma import Chroma
 from langchain_core.documents import Document as LCDocument
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
@@ -75,25 +74,39 @@ class RAGEngine:
         self._llm = None
         self._expansion_llm = None
         self._initialized = False
+        self._chroma_ready = False
+
+    def _ensure_chroma(self):
+        """Lightweight init — only connects to ChromaDB (no heavy ML models)."""
+        if self._chroma_ready:
+            return
+        import chromadb
+        from chromadb.config import Settings as ChromaSettings
+
+        self._chroma_client = chromadb.PersistentClient(
+            path=settings.CHROMA_PERSIST_DIR,
+            settings=ChromaSettings(anonymized_telemetry=False),
+        )
+        self._chroma_ready = True
 
     def _ensure_initialized(self):
-        """Lazy initialization — only connects to ChromaDB and embedding/chat providers when first needed."""
+        """Full initialization — connects to ChromaDB and loads embedding/chat/reranker models."""
         if self._initialized:
             return
 
-        # ChromaDB persistent client
-        self._chroma_client = chromadb.PersistentClient(
-            path=settings.CHROMA_PERSIST_DIR,
-            settings=ChromaSettings(
-                anonymized_telemetry=False,
-            ),
-        )
+        self._ensure_chroma()
 
-        # ── Embeddings (local HuggingFace) ─────────────────────────────────
-        self._embeddings = HuggingFaceEmbeddings(
-            model_name=settings.HF_EMBEDDING_MODEL,
-            model_kwargs={"device": "cpu"},
-            encode_kwargs={"normalize_embeddings": True},
+        from langchain_openai import ChatOpenAI
+        from langchain_huggingface import HuggingFaceEmbeddings
+
+        # ── Embeddings (OpenAI) ─────────────────────────────────
+        if not settings.OPENAI_API_KEY:
+            raise RuntimeError(
+                "OPENAI_API_KEY is not set. Required for the RAG."
+            )
+        self._embeddings = OpenAIEmbeddings(
+            model="text-embedding-3-small",
+            openai_api_key=settings.OPENAI_API_KEY,
         )
 
         # ── Chat LLM (always OpenAI GPT) ────────────────────────────────────
@@ -108,12 +121,8 @@ class RAGEngine:
             max_tokens=2000,
         )
 
-        # ── Cross-encoder reranker (local HuggingFace) ────────────────────────
-        from sentence_transformers import CrossEncoder
-        self._reranker = CrossEncoder(
-            settings.HF_RERANKER_MODEL,
-            max_length=512,
-        )
+        # ── Cross-encoder reranker (Disabled for OpenAI compatibility) ──────────
+        self._reranker = None
 
         # ── Expansion LLM (cheap model for HyDE + doc summaries) ─────────────
         self._expansion_llm = ChatOpenAI(
@@ -136,9 +145,10 @@ class RAGEngine:
         """Generate a collection name for a team. Each team gets its own isolated collection."""
         return f"team_{team_id}_knowledge"
 
-    def _get_vectorstore(self, team_id: int) -> Chroma:
+    def _get_vectorstore(self, team_id: int):
         """Get or create a Chroma vectorstore for a specific team."""
         self._ensure_initialized()
+        from langchain_chroma import Chroma
         collection_name = self._get_collection_name(team_id)
 
         return Chroma(
@@ -384,7 +394,7 @@ class RAGEngine:
         Returns:
             Number of chunks deleted
         """
-        self._ensure_initialized()
+        self._ensure_chroma()
         collection_name = self._get_collection_name(team_id)
 
         try:
@@ -416,7 +426,7 @@ class RAGEngine:
 
     def get_document_chunks(self, team_id: int, document_id: int, limit: int = 20, offset: int = 0) -> dict:
         """Retrieve stored chunks for a specific document from the vector store."""
-        self._ensure_initialized()
+        self._ensure_chroma()
         collection_name = self._get_collection_name(team_id)
 
         safe_limit = max(limit, 0)
@@ -484,7 +494,7 @@ class RAGEngine:
         """
         Delete all chunks belonging to a specific timeline entry from the vector store.
         """
-        self._ensure_initialized()
+        self._ensure_chroma()
         collection_name = self._get_collection_name(team_id)
 
         try:
@@ -570,12 +580,8 @@ class RAGEngine:
         if not fused:
             return []
 
-        # Step 6: Cross-encoder reranking on fused pool
-        # Use the original query for reranking (user intent, not HyDE excerpt)
-        pairs = [[query, doc.page_content] for doc in fused]
-        scores = self._reranker.predict(pairs)
-        ranked = sorted(zip(scores, fused), key=lambda x: x[0], reverse=True)
-        return [doc for _, doc in ranked[:k]]
+        # Step 6: Return Top K directly (Reranking disabled)
+        return fused[:k]
 
     def chat(
         self,
@@ -702,7 +708,7 @@ class RAGEngine:
                 "recent_uploads": [{"filename": ..., "uploaded_at": ...}]
             }
         """
-        self._ensure_initialized()
+        self._ensure_chroma()
         collection_name = self._get_collection_name(team_id)
 
         try:
@@ -752,7 +758,7 @@ class RAGEngine:
 
     def collection_exists(self, team_id: int) -> bool:
         """Check if a team has a knowledge base collection."""
-        self._ensure_initialized()
+        self._ensure_chroma()
         collection_name = self._get_collection_name(team_id)
         try:
             col = self._chroma_client.get_collection(collection_name)
@@ -771,7 +777,7 @@ class RAGEngine:
         Returns list of dicts with keys: content, filename, doc_type,
         uploader_email, uploaded_at, chunk_index, page_number.
         """
-        self._ensure_initialized()
+        self._ensure_chroma()
         collection_name = self._get_collection_name(team_id)
 
         if db is not None:
