@@ -61,7 +61,7 @@ class TimelineEntryCommentBase(BaseModel):
     content: str
 
 class TimelineEntryCommentCreate(TimelineEntryCommentBase):
-    pass
+    parent_id: Optional[int] = None
 
 class TimelineEntryCommentResponse(TimelineEntryCommentBase):
     id: int
@@ -69,6 +69,11 @@ class TimelineEntryCommentResponse(TimelineEntryCommentBase):
     user_id: int
     author_name: Optional[str] = None
     created_at: datetime
+    parent_id: Optional[int] = None
+    likes_count: int = 0
+    dislikes_count: int = 0
+    user_reaction: Optional[int] = None
+    replies: List['TimelineEntryCommentResponse'] = []
 
     class Config:
         from_attributes = True
@@ -100,3 +105,4 @@ class TimelineAttachmentResponse(TimelineAttachmentBase):
         from_attributes = True
 
 TimelineEntryResponse.model_rebuild()
+TimelineEntryCommentResponse.model_rebuild()

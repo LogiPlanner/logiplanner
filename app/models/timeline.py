@@ -44,6 +44,32 @@ class TimelineEntryComment(Base):
     author_name = Column(String, nullable=True)
     content = Column(Text, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Threading support (1 level nesting allowed)
+    parent_id = Column(Integer, ForeignKey("timeline_entry_comments.id", ondelete="CASCADE"), nullable=True, index=True)
+    
+    # Relationships
+    replies = relationship("TimelineEntryComment", back_populates="parent", cascade="all, delete-orphan")
+    parent = relationship("TimelineEntryComment", back_populates="replies", remote_side=[id])
+    reactions = relationship("TimelineEntryCommentReaction", backref="comment", cascade="all, delete-orphan")
+
+    @property
+    def likes_count(self) -> int:
+        return sum(1 for r in self.reactions if r.is_like == 1)
+
+    @property
+    def dislikes_count(self) -> int:
+        return sum(1 for r in self.reactions if r.is_like == 0)
+
+
+class TimelineEntryCommentReaction(Base):
+    __tablename__ = "timeline_entry_comment_reactions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    comment_id = Column(Integer, ForeignKey("timeline_entry_comments.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    is_like = Column(Integer, nullable=False) # 1 for like, 0 for dislike (or boolean)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 class TimelineEntryVersion(Base):
     __tablename__ = "timeline_entry_versions"

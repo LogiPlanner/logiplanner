@@ -1114,3 +1114,119 @@
     background: #4f46e5 !important;
 }
 
+@keyframes aiSpin {
+    100% { transform: rotate(360deg); }
+}
+
+/* ── Nested Comments & Interactions ── */
+.comment-item {
+    font-size: 0.8rem;
+    background: var(--color-surface-lowest);
+    border-radius: 0.5rem;
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    position: relative;
+    border: 1px solid var(--color-surface-high);
+}
+
+.comment-reply {
+    margin-left: 1.5rem;
+    position: relative;
+    margin-top: 0.5rem;
+}
+
+.comment-reply::before {
+    content: '';
+    position: absolute;
+    left: -0.75rem;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--color-outline-variant);
+    border-radius: 99px;
+}
+
+.comment-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.25rem;
+}
+
+.comment-author {
+    font-weight: 600;
+    color: var(--color-on-surface);
+}
+
+.comment-date {
+    color: #94a3b8;
+    font-weight: 400;
+    font-size: 0.7rem;
+    margin-left: 0.5rem;
+}
+
+.comment-content {
+    color: var(--color-on-surface-variant);
+    margin-bottom: 0.5rem;
+}
+
+.comment-actions {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.comment-action-btn {
+    background: none;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    font-size: 0.75rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0;
+    transition: color 0.2s;
+}
+
+.comment-action-btn:hover {
+    color: var(--color-primary);
+}
+
+.comment-action-btn.active {
+    color: var(--color-primary);
+}
+
+.comment-action-btn.active-dislike {
+    color: #ef4444;
+}
+
+.show-more-toggle {
+    background: none;
+    border: none;
+    color: var(--color-primary);
+    cursor: pointer;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0;
+    margin-top: 0.5rem;
+    margin-bottom: 0.5rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.show-more-toggle:hover {
+    text-decoration: underline;
+}
+
+.reply-input-row {
+    display: none;
+    margin-top: 0.75rem;
+    gap: 0.5rem;
+}
+
+.reply-input-row.active {
+    display: flex;
+}

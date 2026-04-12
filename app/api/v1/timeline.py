@@ -150,6 +150,9 @@ def get_team_timeline(
         _verify_subteam_member(current_user, team_id, subteam_id, db)
         query = query.filter(TimelineEntry.sub_team_id == subteam_id)
     entries = query.order_by(TimelineEntry.created_at.desc()).all()
+    for entry in entries:
+        for c in entry.comments:
+            c.user_reaction = next((r.is_like for r in c.reactions if r.user_id == current_user.id), None)
     return entries
 
 
@@ -452,9 +455,99 @@ def add_comment(
         entry_id=entry_id,
         user_id=current_user.id,
         author_name=current_user.full_name or current_user.email.split("@")[0],
-        content=comment.content
+        content=comment.content,
+        parent_id=comment.parent_id
     )
     db.add(db_comment)
     db.commit()
     db.refresh(db_comment)
+    
+    # Simple JSON-based notification stub to console (To be wired up to actual real-time pubsub or DB if one exists)
+    print(f"[NOTIFICATION] {db_comment.author_name} replied to comment/entry {entry_id}.")
+    
+    db_comment.user_reaction = None
     return db_comment
+
+class CommentReactionUpdate(BaseModel):
+    is_like: bool
+
+@router.post("/comments/{comment_id}/react")
+def react_to_comment(
+    comment_id: int,
+    reaction: CommentReactionUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    from app.models.timeline import TimelineEntryCommentReaction
+    comment = db.query(TimelineEntryComment).filter(TimelineEntryComment.id == comment_id).first()
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+        
+    entry = comment.entry
+    _verify_team_member(current_user, entry.team_id, db)
+
+    existing_reaction = db.query(TimelineEntryCommentReaction).filter(
+        TimelineEntryCommentReaction.comment_id == comment_id,
+        TimelineEntryCommentReaction.user_id == current_user.id
+    ).first()
+
+    val = 1 if reaction.is_like else 0
+
+    if existing_reaction:
+        if existing_reaction.is_like == val:
+            # Toggle off if clicking the same button
+            db.delete(existing_reaction)
+            msg = "Reaction removed"
+            is_active = False
+        else:
+            # Change reaction
+            existing_reaction.is_like = val
+            msg = "Reaction updated"
+            is_active = True
+    else:
+        new_reaction = TimelineEntryCommentReaction(
+            comment_id=comment_id,
+            user_id=current_user.id,
+            is_like=val
+        )
+        db.add(new_reaction)
+        msg = "Reaction added"
+        is_active = True
+        
+        # Simple JSON-based notification stub
+        reaction_type = "liked" if val == 1 else "disliked"
+        print(f"[NOTIFICATION] User {current_user.id} {reaction_type} comment {comment_id}.")
+
+    db.commit()
+    
+    # Reload comment properties
+    db.refresh(comment)
+    return {
+        "message": msg,
+        "likes_count": comment.likes_count,
+        "dislikes_count": comment.dislikes_count,
+        "user_reaction": val if is_active else None
+    }
+
+@router.delete("/comments/{comment_id}")
+def delete_comment(
+    comment_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    comment = db.query(TimelineEntryComment).filter(TimelineEntryComment.id == comment_id).first()
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+        
+    # Check permissions
+    if comment.user_id != current_user.id:
+        # Allow team owners/admins to delete any comment in the future, for now strict author-only
+        raise HTTPException(status_code=403, detail="Permission denied to delete comment")
+        
+    entry = comment.entry
+    _verify_team_member(current_user, entry.team_id, db)
+    
+    db.delete(comment)
+    db.commit()
+    
+    return {"message": "Comment deleted successfully"}

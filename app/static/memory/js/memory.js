@@ -144,6 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
         fetchTimeline(teamId, subteamId);
         fetchAnalytics(teamId, subteamId);
         fetchTeamUsers(teamId, subteamId);
+        loadAIInsights(); // Load AI Project Insights
     }
     
     async function fetchTeamUsers(teamId, subteamId = 'all') {
@@ -179,11 +180,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         newItems.forEach(item => {
                             addNotification(`New ${item.entry_type} added: "${item.title}"`);
                         });
+                        // Automatically refresh AI Insights when new items arrive
+                        loadAIInsights();
                     }
                 }
                 allEntries = newData;
                 applyFiltersAndRender();
-                initApexCharts(allEntries);
+                if (typeof initApexCharts === 'function') initApexCharts(allEntries);
             }
         } catch(e) {
             console.error('Failed to fetch timeline', e);
@@ -217,7 +220,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (activeParticipants) activeParticipants.textContent = data.active_participants_count;
                 
                 // Render Focus
-                const focusHtml = Object.entries(data.focus_distribution).map(([tag, pct]) => `
+                const allTags = Object.entries(data.focus_distribution);
+                // Sort tags by percentage descending
+                allTags.sort((a,b) => b[1] - a[1]);
+                
+                const topTagsHtml = allTags.slice(0, 5).map(([tag, pct]) => `
                     <div class="focus-item">
                         <div class="focus-item-header">
                             <span>${escapeHtml(tag)}</span>
@@ -226,7 +233,45 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="progress-bg"><div class="progress-fill" style="width: ${pct}%"></div></div>
                     </div>
                 `).join('');
-                focusDistributionList.innerHTML = focusHtml || '<div class="focus-item"><span>No data</span></div>';
+                
+                let hiddenHtml = '';
+                let toggleHtml = '';
+                if(allTags.length > 5) {
+                    hiddenHtml = `
+                    <div id="hiddenFocusTags" style="display:none; flex-direction:column; gap:1.5rem; margin-top:1.5rem;">
+                        ${allTags.slice(5).map(([tag, pct]) => `
+                            <div class="focus-item">
+                                <div class="focus-item-header">
+                                    <span>${escapeHtml(tag)}</span>
+                                    <span class="focus-pct">${pct}%</span>
+                                </div>
+                                <div class="progress-bg"><div class="progress-fill" style="width: ${pct}%"></div></div>
+                            </div>
+                        `).join('')}
+                    </div>`;
+                    
+                    toggleHtml = `
+                    <button id="toggleFocusTagsBtn" class="show-more-toggle" style="margin-top:1rem; width:100%; justify-content:center;">
+                        View ${allTags.length - 5} More Themes
+                    </button>
+                    `;
+                }
+                
+                focusDistributionList.innerHTML = (topTagsHtml + hiddenHtml + toggleHtml) || '<div class="focus-item"><span>No data</span></div>';
+                
+                const toggleBtn = document.getElementById('toggleFocusTagsBtn');
+                if(toggleBtn) {
+                    toggleBtn.addEventListener('click', () => {
+                        const h = document.getElementById('hiddenFocusTags');
+                        if(h.style.display === 'none') {
+                            h.style.display = 'flex';
+                            toggleBtn.textContent = 'Hide Extra Themes';
+                        } else {
+                            h.style.display = 'none';
+                            toggleBtn.textContent = `View ${allTags.length - 5} More Themes`;
+                        }
+                    });
+                }
             }
         } catch(e) {
             console.error('Failed to fetch analytics', e);
@@ -280,7 +325,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         renderTimeline(filtered);
         renderActiveTags(allEntries);
-        renderQuickRecall(allEntries);
         renderTopContributors(allEntries);
     }
     
@@ -343,21 +387,53 @@ document.addEventListener('DOMContentLoaded', () => {
         `).join('');
     }
     
-    function renderQuickRecall(entries) {
-        const list = document.getElementById('quickRecallList');
-        if (!list) return;
-        const recent = [...entries].sort((a,b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 4);
-        if (recent.length === 0) {
-            list.innerHTML = '<li class="quick-recall-empty">No recent entries</li>';
-            return;
-        }
+    let aiInsightsLoading = false;
+
+    async function loadAIInsights() {
+        if (!currentTeamId || aiInsightsLoading) return;
+        aiInsightsLoading = true;
         
-        list.innerHTML = recent.map(e => `
-            <li onclick="window.editTimelineEntry(${e.id})">
-                <strong style="display:block; margin-bottom:0.25rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(e.title)}</strong>
-                <span style="font-size:0.7rem; color:#94a3b8;">${new Date(e.created_at).toLocaleDateString()}</span>
-            </li>
-        `).join('');
+        const loadingEl = document.getElementById('aiSuggestionsLoading');
+        const emptyEl = document.getElementById('aiSuggestionsEmpty');
+        const listEl = document.getElementById('aiSuggestionsList');
+        
+        if (loadingEl) loadingEl.style.display = 'flex';
+        if (emptyEl) emptyEl.style.display = 'none';
+        if (listEl) listEl.innerHTML = '';
+        
+        try {
+            // Ask AI to summarize the recent events
+            const queryText = encodeURIComponent("Summarize the last 5 project timeline entries in a short paragraph and/or bullet points.");
+            const res = await mFetch(`/api/v1/timeline/team/${currentTeamId}/ask?query=${queryText}`, { headers });
+            
+            if (loadingEl) loadingEl.style.display = 'none';
+            aiInsightsLoading = false;
+
+            if (res.ok) {
+                const data = await res.json();
+                if (data.response) {
+                    // Use marked.js to parse markdown properly
+                    const safeHtml = window.marked ? window.marked.parse(data.response) : escapeHtml(data.response).replace(/\n/g, '<br>');
+                    if (listEl) listEl.innerHTML = safeHtml;
+                } else {
+                    if (emptyEl) emptyEl.style.display = 'flex';
+                }
+            } else {
+                if (listEl) listEl.innerHTML = '<span style="color:#ef4444;">Failed to generate insights.</span>';
+            }
+        } catch(e) {
+            console.error('Failed to load AI Insights', e);
+            aiInsightsLoading = false;
+            if (loadingEl) loadingEl.style.display = 'none';
+            if (listEl) listEl.innerHTML = '<span style="color:#ef4444;">Connection error.</span>';
+        }
+    }
+
+    const refreshBtn = document.getElementById('aiSuggestionsRefresh');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', () => {
+            loadAIInsights();
+        });
     }
 
     function renderTimeline(entries) {
@@ -471,15 +547,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
                         <!-- Comments Section -->
                         <div class="entry-comments" style="margin-top: 1rem; border-top: 1px solid var(--color-surface-high); padding-top: 1rem;">
-                            <div id="commentsList_${entry.id}" style="display:flex; flex-direction:column; gap:0.5rem; margin-bottom: 0.75rem;">
-                                ${entry.comments && entry.comments.length > 0 ? entry.comments.map(c => `
-                                    <div style="font-size: 0.8rem; background: var(--color-surface-lowest); padding: 0.5rem; border-radius: 0.5rem;">
-                                        <div style="font-weight: 600; color: var(--color-on-surface); margin-bottom: 0.25rem;">${escapeHtml(c.author_name)} <span style="color: #94a3b8; font-weight: 400; font-size: 0.7rem; margin-left: 0.5rem;">${new Date(c.created_at).toLocaleDateString()}</span></div>
-                                        <div style="color: var(--color-on-surface-variant);">${escapeHtml(c.content)}</div>
-                                    </div>
-                                `).join('') : ''}
+                            <div id="commentsList_${entry.id}" style="display:flex; flex-direction:column; margin-bottom: 0.75rem;">
+                                ${renderCommentsHtml(entry.comments, entry.id)}
                             </div>
-                            <div style="display:flex; gap:0.5rem;">
+                            <div style="display:flex; gap:0.5rem; margin-top: 0.5rem;">
                                 <input type="text" id="commentInput_${entry.id}" placeholder="Add a comment..." onkeydown="if(event.key === 'Enter') window.addTimelineComment(${entry.id})" style="flex:1; padding: 0.4rem 0.75rem; border-radius: 0.5rem; border: 1px solid var(--color-outline-variant); background: var(--color-surface); font-size: 0.8rem; color: var(--color-on-surface);">
                                 <button onclick="window.addTimelineComment(${entry.id})" style="padding: 0.4rem 0.75rem; border-radius: 0.5rem; background: var(--color-primary); color: white; border: none; font-size: 0.8rem; cursor: pointer;">Post</button>
                             </div>
@@ -612,9 +683,194 @@ document.addEventListener('DOMContentLoaded', () => {
     filterTags.addEventListener('input', applyFiltersAndRender);
 
     // --- EDIT & DELETE & COMMENTS ---
+    
+    function renderCommentsHtml(comments, entryId) {
+        if (!comments || comments.length === 0) return '';
+        
+        let html = '';
+        
+        // Group by parent_id
+        const topLevel = comments.filter(c => !c.parent_id);
+        const children = comments.filter(c => c.parent_id);
+        
+        const renderCommentBlock = (c, isReply = false) => {
+            const replies = children.filter(child => child.parent_id === c.id);
+            const dateStr = new Date(c.created_at).toLocaleDateString();
+            
+            const likeActive = c.user_reaction === 1 ? 'active' : '';
+            const dislikeActive = c.user_reaction === 0 ? 'active-dislike' : '';
+            
+            let replyHtml = '';
+            let replyToggle = '';
+            if (replies.length > 0) {
+                replyToggle = `
+                <button class="show-more-toggle" style="margin-left:1.5rem; margin-top:0.25rem; font-size:0.7rem;" onclick="window.toggleReplies(${c.id})">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                    <span id="replyToggleText_${c.id}">View ${replies.length} replies</span>
+                </button>`;
+                
+                replyHtml = `<div id="replies_${c.id}" style="display:none; flex-direction:column;">` + 
+                            replies.map(r => renderCommentBlock(r, true)).join('') + 
+                            `</div>`;
+            }
+            
+            const wrapperClass = isReply ? 'comment-reply' : 'comment-item';
+            
+            return `
+                <div class="${wrapperClass}">
+                    <div class="comment-header">
+                        <span class="comment-author">${escapeHtml(c.author_name)} <span class="comment-date">${dateStr}</span></span>
+                    </div>
+                    <div class="comment-content">${escapeHtml(c.content)}</div>
+                    
+                    <div class="comment-actions">
+                        <button class="comment-action-btn ${likeActive}" title="Like" onclick="window.reactToComment(${c.id}, true)">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.514" />
+                            </svg>
+                            ${c.likes_count || 0}
+                        </button>
+                        <button class="comment-action-btn ${dislikeActive}" title="Dislike" onclick="window.reactToComment(${c.id}, false)">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px; transform: scaleY(-1);">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.514" />
+                            </svg>
+                            ${c.dislikes_count || 0}
+                        </button>
+                        ${!isReply ? `
+                        <button class="comment-action-btn" title="Reply" onclick="window.toggleReplyBox(${c.id})">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                            </svg>
+                            Reply
+                        </button>
+                        ` : ''}
+                        
+                        <button class="comment-action-btn" title="Delete" onclick="window.deleteTimelineComment(${c.id})">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                        </button>
+                    </div>
+                    
+                    <div id="replyBox_${c.id}" class="reply-input-row">
+                        <input type="text" id="replyInput_${c.id}" placeholder="Write a reply..." onkeydown="if(event.key === 'Enter') window.addTimelineComment(${entryId}, ${c.id})" style="flex:1; padding: 0.3rem 0.75rem; border-radius: 0.5rem; border: 1px solid var(--color-outline-variant); background: var(--color-surface); font-size: 0.75rem; color: var(--color-on-surface);">
+                        <button onclick="window.addTimelineComment(${entryId}, ${c.id})" style="padding: 0.3rem 0.75rem; border-radius: 0.5rem; background: var(--color-surface-high); color: var(--color-on-surface); border: none; font-size: 0.75rem; font-weight:600; cursor: pointer;">Send</button>
+                    </div>
 
-    window.addTimelineComment = async function(entryId) {
-        const input = document.getElementById(`commentInput_${entryId}`);
+                    ${replyToggle}
+                    ${replyHtml}
+                </div>
+            `;
+        };
+        
+        let visibleComments = topLevel;
+        let hiddenCommentsHtml = '';
+        let toggleCommentsHtml = '';
+        
+        if (topLevel.length > 2) {
+            visibleComments = topLevel.slice(topLevel.length - 2);
+            const hiddenComments = topLevel.slice(0, topLevel.length - 2);
+            
+            hiddenCommentsHtml = `
+            <div id="hiddenComments_${entryId}" style="display:none; flex-direction:column;">
+                ${hiddenComments.map(c => renderCommentBlock(c)).join('')}
+            </div>
+            `;
+            
+            toggleCommentsHtml = `
+            <button id="toggleCommentsBtn_${entryId}" class="show-more-toggle" onclick="window.toggleHiddenComments(${entryId}, navigator.language)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+                View ${hiddenComments.length} previous comments
+            </button>
+            `;
+        }
+        
+        const visibleHtml = visibleComments.map(c => renderCommentBlock(c)).join('');
+        return toggleCommentsHtml + hiddenCommentsHtml + visibleHtml;
+    }
+    
+    window.toggleHiddenComments = function(entryId) {
+        const div = document.getElementById(`hiddenComments_${entryId}`);
+        const btn = document.getElementById(`toggleCommentsBtn_${entryId}`);
+        if(div && btn) {
+            if(div.style.display === 'none') {
+                div.style.display = 'flex';
+                btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7" /></svg> Hide previous comments`;
+            } else {
+                div.style.display = 'none';
+                const count = div.children.length; // Approximate top level
+                btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg> View ${count} previous comments`;
+            }
+        }
+    };
+    
+    window.toggleReplies = function(commentId) {
+        const div = document.getElementById(`replies_${commentId}`);
+        const textSpan = document.getElementById(`replyToggleText_${commentId}`);
+        if (div && textSpan) {
+            if (div.style.display === 'none') {
+                div.style.display = 'flex';
+                textSpan.innerText = 'Hide replies';
+            } else {
+                div.style.display = 'none';
+                textSpan.innerText = `View ${div.children.length}  replies`;
+            }
+        }
+    };
+    
+    window.deleteTimelineComment = async function(commentId) {
+        if (!confirm("Are you sure you want to delete this comment?")) return;
+        try {
+            const res = await mFetch(`/api/v1/timeline/comments/${commentId}`, { method: 'DELETE', headers });
+            if (res.ok) {
+                if (currentTeamId) {
+                    fetchTimeline(currentTeamId, currentSubteamId);
+                }
+            } else {
+                if (res.status === 403) {
+                    alert("Permission denied. You can only delete your own comments.");
+                } else {
+                    alert("Failed to delete comment.");
+                }
+            }
+        } catch (e) {
+            console.error("Delete failed:", e);
+        }
+    };
+
+    window.toggleReplyBox = function(commentId) {
+        const box = document.getElementById(`replyBox_${commentId}`);
+        if (box) {
+            box.classList.toggle('active');
+            if(box.classList.contains('active')) {
+                const input = document.getElementById(`replyInput_${commentId}`);
+                if(input) input.focus();
+            }
+        }
+    };
+    
+    window.reactToComment = async function(commentId, isLike) {
+        if (!currentTeamId) return;
+        try {
+            const res = await mFetch(`/api/v1/timeline/comments/${commentId}/react`, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({ is_like: isLike })
+            });
+            if (res.ok) {
+                // silently refresh the view to update UI
+                fetchTimeline(currentTeamId, currentSubteamId);
+            }
+        } catch(e) {
+            console.error('Reaction failed:', e);
+        }
+    };
+
+    window.addTimelineComment = async function(entryId, parentId = null) {
+        const inputId = parentId ? `replyInput_${parentId}` : `commentInput_${entryId}`;
+        const input = document.getElementById(inputId);
         if (!input) return;
         const text = input.value.trim();
         if (!text) return;
@@ -624,7 +880,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await mFetch(`/api/v1/timeline/${entryId}/comments`, {
                 method: 'POST',
                 headers,
-                body: JSON.stringify({ content: text })
+                body: JSON.stringify({ content: text, parent_id: parentId })
             });
             if (res.ok) {
                 // Reload timeline to display newly added comment
@@ -1074,106 +1330,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- ASK AI CHAT LOGIC ---
-    const askAiHeaderBtn = document.getElementById('askAiHeaderBtn');
-    const askAiModal = document.getElementById('askAiModal');
-    const closeAskAiBtn = document.getElementById('closeAskAiBtn');
-    const submitAskAiBtn = document.getElementById('submitAskAiBtn');
-    const askAiInput = document.getElementById('askAiInput');
-    const askAiChatArea = document.getElementById('askAiChatArea');
-
-    function createChatBubble(text, role, isMarkdown = false) {
-        const msgDiv = document.createElement('div');
-        msgDiv.className = `chat-message ${role}`;
-        
-        const avatar = role === 'ai' ? '✨' : 'U'; 
-        
-        let contentHtml = '';
-        if (text === null) {
-            contentHtml = `
-                <div class="ai-typing-indicator" style="display:flex; align-items:center; gap:0.4rem; padding: 0.5rem 0;">
-                    <div class="dot" style="width:6px; height:6px; background:#94a3b8; border-radius:50%; animation: bounce 1.4s infinite ease-in-out both;"></div>
-                    <div class="dot" style="width:6px; height:6px; background:#94a3b8; border-radius:50%; animation: bounce 1.4s infinite ease-in-out both; animation-delay: 0.2s;"></div>
-                    <div class="dot" style="width:6px; height:6px; background:#94a3b8; border-radius:50%; animation: bounce 1.4s infinite ease-in-out both; animation-delay: 0.4s;"></div>
-                </div>
-            `;
-        } else {
-            contentHtml = isMarkdown && window.marked ? window.marked.parse(text) : escapeHtml(text);
-        }
-
-        msgDiv.innerHTML = `
-            <div class="chat-avatar">${avatar}</div>
-            <div class="chat-bubble">${contentHtml}</div>
-        `;
-        return msgDiv;
-    }
-
-    askAiHeaderBtn?.addEventListener('click', () => {
-        askAiModal.classList.add('active');
-        setTimeout(() => askAiInput?.focus(), 100);
-    });
-    
-    closeAskAiBtn?.addEventListener('click', () => {
-        askAiModal.classList.remove('active');
-    });
-    
-    let chatHistory = [];
-
-    async function handleAskAi() {
-        const q = askAiInput.value.trim();
-        if (!q || !currentTeamId) return;
-        
-        // Add User Bubble
-        askAiChatArea.appendChild(createChatBubble(q, 'user'));
-        askAiInput.value = '';
-        askAiInput.style.height = 'auto'; // reset textarea height
-        
-        // Add Loading Bubble
-        const loadingBubble = createChatBubble(null, 'ai');
-        askAiChatArea.appendChild(loadingBubble);
-        askAiChatArea.scrollTop = askAiChatArea.scrollHeight;
-        
-        submitAskAiBtn.disabled = true;
-        submitAskAiBtn.style.opacity = '0.5';
-
-        try {
-            const res = await mFetch(`/api/v1/timeline/team/${currentTeamId}/ask?query=${encodeURIComponent(q)}`, {headers});
-            const data = await res.json();
-            
-            // Remove loading bubble
-            askAiChatArea.removeChild(loadingBubble);
-            
-            if (res.ok) {
-                askAiChatArea.appendChild(createChatBubble(data.response, 'ai', true));
-            } else {
-                askAiChatArea.appendChild(createChatBubble(`Error: ${data.detail}`, 'ai', false));
-            }
-        } catch(e) {
-            if(askAiChatArea.contains(loadingBubble)){
-                askAiChatArea.removeChild(loadingBubble);
-            }
-            askAiChatArea.appendChild(createChatBubble("Network Error or Timeout.", 'ai', false));
-        } finally {
-            submitAskAiBtn.disabled = false;
-            submitAskAiBtn.style.opacity = '1';
-            askAiChatArea.scrollTop = askAiChatArea.scrollHeight;
-        }
-    }
-
-    submitAskAiBtn?.addEventListener('click', handleAskAi);
-    
-    askAiInput?.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            handleAskAi();
-        }
-    });
-
-    // Auto-resize textarea
-    askAiInput?.addEventListener('input', function() {
-        this.style.height = 'auto';
-        this.style.height = (this.scrollHeight) + 'px';
-    });
 
     // --- CONFLICT CHECKING (Live in Modal) ---
     let conflictTimer = null;
