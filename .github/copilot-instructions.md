@@ -116,6 +116,7 @@ app/
 - Prefer the simplest approach that matches the area you are editing. Preserve established patterns in an existing feature unless there is a reason to modernize that slice.
 - `app/static/auth/css/common.css` is the **shared design system** — colors, typography, layout, animations for auth pages. Page-specific CSS files (e.g., `login.css`) hold only overrides.
 - `app/static/auth/js/common.js` holds shared JS utilities (e.g., token helpers). Don't duplicate these.
+- **Deduplication rule:** When the same CSS or JS code appears (or would appear) on two or more pages, extract it into the global shared files — `app/static/css/common.css` for styles and `app/static/js/common.js` (under the `window.__lp` namespace) for logic. Page-specific files should contain only thin callers or overrides, never full copies. Before adding a new widget/component, check whether it already exists in the common files.
 - File naming mirrors templates: `login.html` → `login.css` + `login.js`.
 - Frontend code should keep backend interactions explicit and maintainable. Native `fetch()` is fine, and other libraries are acceptable when they are a better fit for the feature.
 
@@ -144,6 +145,7 @@ When reviewing a pull request, check for:
 - [ ] New frontend code fits the conventions of the feature area it lives in
 - [ ] Added libraries or frameworks are justified and integrated cleanly
 - [ ] New pages include the corresponding CSS/JS under `static/` and extend the correct base template
+- [ ] No duplicated CSS/JS across page-specific files — shared code lives in `common.css` / `common.js`
 
 ### RAG / AI
 - [ ] RAG changes respect the current retrieval pipeline or intentionally update it end-to-end

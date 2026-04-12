@@ -1,4 +1,4 @@
-/* Meetings Page Specific Styles */
+﻿/* Meetings Page Specific Styles */
 .dashboard {
     display: flex;
     height: 100vh;
@@ -214,7 +214,7 @@
     min-width: 0;
 }
 
-/* Inline Notes View (three-pane) — JS toggles display between 'flex' and 'none' */
+/* Inline Notes View (three-pane) â€” JS toggles display between 'flex' and 'none' */
 .notes-view {
     background: #ffffff;
     overflow: hidden;
@@ -647,11 +647,6 @@
     color: var(--color-primary);
 }
 
-.right-sidebar__action--record:hover {
-    color: #ef4444;
-    background: #fef2f2;
-}
-
 .right-sidebar__close {
     width: 36px;
     height: 36px;
@@ -796,15 +791,6 @@
     height: 20px;
 }
 
-.badge-active {
-    font-size: 11px;
-    font-weight: 700;
-    color: var(--color-primary);
-    background: #e0e7ff;
-    padding: 4px 8px;
-    border-radius: 99px;
-}
-
 .rs-section {
     display: flex;
     flex-direction: column;
@@ -818,168 +804,3 @@
     letter-spacing: 1px;
 }
 
-/* Upload Box */
-.upload-box {
-    border: 1px dashed var(--color-border);
-    border-radius: 12px;
-    padding: 24px;
-    text-align: center;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    background: #f8fafc;
-}
-
-.upload-icon {
-    width: 24px;
-    height: 24px;
-    color: var(--color-text-muted);
-}
-
-.upload-box p {
-    font-size: 12px;
-    color: var(--color-text-sec);
-    margin: 0;
-    line-height: 1.5;
-}
-
-.link-text {
-    color: var(--color-primary);
-    font-weight: 600;
-    cursor: pointer;
-}
-
-.privacy-note {
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    font-size: 11px;
-    color: var(--color-primary);
-    background: #f0fdfa;
-    padding: 12px;
-    border-radius: 8px;
-    line-height: 1.4;
-}
-.privacy-note svg {
-    width: 14px;
-    height: 14px;
-    flex-shrink: 0;
-    margin-top: 2px;
-}
-
-.synthesize-btn {
-    background-color: var(--color-primary);
-    color: white;
-    border: none;
-    border-radius: 8px;
-    padding: 12px;
-    font-size: 14px;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    cursor: pointer;
-    box-shadow: var(--shadow-sm);
-    transition: background 0.2s;
-}
-
-.synthesize-btn:hover {
-    background-color: var(--color-primary-dark);
-}
-
-.synthesize-btn svg {
-    width: 18px;
-    height: 18px;
-}
-
-/* Progress */
-.progress-container {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.progress-text {
-    display: flex;
-    justify-content: space-between;
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--color-text-sec);
-}
-
-.progress-bar {
-    height: 4px;
-    background: var(--color-border-lt);
-    border-radius: 2px;
-    overflow: hidden;
-}
-
-.progress-fill {
-    height: 100%;
-    background: var(--color-primary);
-    border-radius: 2px;
-}
-
-/* Key Takeaways */
-.takeaways-list {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.takeaways-list li {
-    display: flex;
-    align-items: flex-start;
-    font-size: 13px;
-    line-height: 1.5;
-    color: var(--color-text-sec);
-}
-
-.takeaways-list li::before {
-    content: "■";
-    color: var(--color-primary-light);
-    font-size: 10px;
-    margin-right: 8px;
-    margin-top: 3px;
-}
-
-/* Actionable Items */
-.task-item {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    font-size: 13px;
-    color: var(--color-text);
-    padding: 12px 16px;
-    border: 1px solid var(--color-border-lt);
-    border-radius: 8px;
-}
-
-.task-item.completed {
-    color: var(--color-text-sec);
-}
-
-.checkbox {
-    width: 18px;
-    height: 18px;
-    border: 2px solid var(--color-border);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.task-item.completed .checkbox {
-    background-color: var(--color-primary);
-    border-color: var(--color-primary);
-}
-
-.task-item.completed .checkbox svg {
-    width: 12px;
-    height: 12px;
-}

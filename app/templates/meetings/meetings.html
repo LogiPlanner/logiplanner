@@ -42,28 +42,6 @@
         border-left: 4px solid #ef4444;
     }
 
-    .record-btn-pulsing {
-        animation: pulse-red 1.5s infinite;
-        color: #ef4444 !important;
-    }
-
-    @keyframes pulse-red {
-        0% {
-            transform: scale(1);
-            opacity: 1;
-        }
-
-        50% {
-            transform: scale(1.1);
-            opacity: 0.8;
-        }
-
-        100% {
-            transform: scale(1);
-            opacity: 1;
-        }
-    }
-
     .toolbar-left {
         background: #fdfdfd;
         border-radius: 20px;
@@ -143,7 +121,6 @@
                     <!-- Real-time users injected via WebSocket presence -->
                 </div>
             </button>
-            <button class="view-tab" id="tabAISummary" type="button">AI Summary</button>
         </div>
 
         <div class="header-actions">
@@ -425,77 +402,6 @@
                 </div>
             </div>
 
-            <div class="right-sidebar__mode right-sidebar__mode--summary" id="summarySidebar">
-                <div class="rs-header">
-                    <div class="rs-title">
-                        <svg class="sparkles-icon" viewBox="0 0 24 24" fill="none" stroke="#4f46e5">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-                        </svg>
-                        AI Summary
-                    </div>
-                    <div style="display:flex; gap:8px; align-items:center;">
-                        <div class="badge-active" id="aiStatusBadge">READY</div>
-                        <button class="icon-btn right-sidebar__action right-sidebar__action--record" id="summaryRecordBtn" title="Record Meeting">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round"
-                                    d="M12 2C9.243 2 7 4.243 7 7v6c0 2.757 2.243 5 5 5s5-2.243 5-5V7c0-2.757-2.243-5-5-5z" />
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M19 13v-1M5 13v-1M12 22v-4M8 22h8" />
-                            </svg>
-                        </button>
-                        <button class="icon-btn right-sidebar__close" id="closeRightSidebarBtnSummary" title="Close sidebar">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 6l12 12M18 6l-12 12" />
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-
-                <div class="rs-section">
-                    <div class="rs-section-title">RECORDING UPLOAD</div>
-                    <div class="upload-box" id="uploadBox" style="position: relative;">
-                        <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="#9ca3af">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                        </svg>
-                        <p><span class="link-text" id="uploadClick">Click to upload</span> MP3 audio</p>
-                        <input type="file" id="audioFileInput" accept="audio/*" style="display:none;">
-                    </div>
-
-                    <div class="privacy-note mt-3">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                        </svg>
-                        Use the mic button above to record. AI will transcribe audio, summarize, and auto-<br>delete
-                        original file for privacy.
-                    </div>
-
-                    <div class="progress-container" id="uploadProgress" style="display:none;">
-                        <div class="progress-text">
-                            <span id="uploadStatusLabel">PROCESSING...</span>
-                            <span id="uploadPercent">0%</span>
-                        </div>
-                        <div class="progress-bar">
-                            <div class="progress-fill" id="uploadFill" style="width: 0%;"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="rs-section" id="aiResults" style="display:none;">
-                    <div class="rs-section-title">KEY TAKEAWAYS</div>
-                    <ul class="takeaways-list" id="takeawaysList">
-                        <!-- Dynamic -->
-                    </ul>
-
-                    <button class="synthesize-btn mt-3" style="width: 100%;">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                        </svg>
-                        Saved to AI Brain!
-                    </button>
-                </div>
-            </div>
         </aside>
     </div>
 
@@ -524,6 +430,151 @@
                     style="padding: 6px 12px; background: white; border: 1px solid #d1d5db; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 500;">Cancel</button>
                 <button id="confirmOkBtn"
                     style="padding: 6px 12px; background: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 500;">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Voice Recorder FAB -->
+    <div class="voice-recorder" id="voiceRecorder">
+        <button class="voice-fab" id="voiceFab" title="Record Meeting">
+            <svg class="voice-fab__mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 2a3 3 0 00-3 3v7a3 3 0 006 0V5a3 3 0 00-3-3z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 10v2a7 7 0 01-14 0v-2"/>
+                <line x1="12" y1="19" x2="12" y2="23" stroke-linecap="round"/>
+                <line x1="8" y1="23" x2="16" y2="23" stroke-linecap="round"/>
+            </svg>
+            <span class="voice-fab__label">Record</span>
+            <span class="voice-fab__pulse"></span>
+        </button>
+
+        <div class="voice-panel" id="voicePanel">
+            <div class="voice-panel__header">
+                <div class="voice-panel__title-row">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 2a3 3 0 00-3 3v7a3 3 0 006 0V5a3 3 0 00-3-3z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 10v2a7 7 0 01-14 0v-2"/>
+                    </svg>
+                    <span>Voice Recorder</span>
+                </div>
+                <button class="voice-panel__close" id="voicePanelClose" title="Close">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- State: Idle -->
+            <div class="voice-panel__state voice-panel__state--idle" id="voiceStateIdle">
+                <div class="voice-panel__waveform-idle">
+                    <div class="voice-idle-ring">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="32" height="32">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 2a3 3 0 00-3 3v7a3 3 0 006 0V5a3 3 0 00-3-3z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 10v2a7 7 0 01-14 0v-2"/>
+                        </svg>
+                    </div>
+                </div>
+                <p class="voice-panel__hint">Tap to start recording your meeting</p>
+                <button class="voice-panel__record-btn" id="voiceStartBtn">
+                    <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+                        <circle cx="12" cy="12" r="8"/>
+                    </svg>
+                    Start Recording
+                </button>
+                <div class="voice-panel__divider"><span>or</span></div>
+                <button class="voice-panel__upload-btn" id="voiceUploadBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+                    </svg>
+                    Upload Audio File
+                </button>
+                <input type="file" id="voiceFileInput" accept="audio/*" style="display:none;">
+            </div>
+
+            <!-- State: Recording -->
+            <div class="voice-panel__state voice-panel__state--recording" id="voiceStateRecording" style="display:none;">
+                <div class="voice-panel__waveform" id="voiceWaveform">
+                    <canvas id="voiceWaveformCanvas" width="280" height="60"></canvas>
+                </div>
+                <div class="voice-panel__timer" id="voiceTimer">00:00</div>
+                <div class="voice-panel__controls">
+                    <button class="voice-panel__ctrl-btn voice-panel__ctrl-btn--cancel" id="voiceCancelBtn" title="Cancel">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                    <button class="voice-panel__ctrl-btn voice-panel__ctrl-btn--stop" id="voiceStopBtn" title="Stop & Process">
+                        <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+                            <rect x="6" y="6" width="12" height="12" rx="2"/>
+                        </svg>
+                    </button>
+                    <button class="voice-panel__ctrl-btn voice-panel__ctrl-btn--pause" id="voicePauseBtn" title="Pause">
+                        <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18" id="voicePauseIcon">
+                            <rect x="6" y="4" width="4" height="16" rx="1"/>
+                            <rect x="14" y="4" width="4" height="16" rx="1"/>
+                        </svg>
+                        <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18" id="voiceResumeIcon" style="display:none;">
+                            <polygon points="6,4 20,12 6,20"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="voice-panel__live-tag">
+                    <span class="voice-panel__live-dot"></span>
+                    LIVE
+                </div>
+            </div>
+
+            <!-- State: Processing -->
+            <div class="voice-panel__state voice-panel__state--processing" id="voiceStateProcessing" style="display:none;">
+                <div class="voice-panel__processing-anim">
+                    <div class="voice-processing-ring"></div>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="24" height="24" class="voice-processing-icon">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                    </svg>
+                </div>
+                <div class="voice-panel__processing-text">
+                    <span id="voiceProcessingLabel">Uploading audio...</span>
+                </div>
+                <div class="voice-panel__progress">
+                    <div class="voice-panel__progress-bar" id="voiceProgressBar"></div>
+                </div>
+            </div>
+
+            <!-- State: Done -->
+            <div class="voice-panel__state voice-panel__state--done" id="voiceStateDone" style="display:none;">
+                <div class="voice-panel__done-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="#06d6a0" stroke-width="2.5" width="36" height="36">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                    </svg>
+                </div>
+                <p class="voice-panel__done-title">Summary Ready!</p>
+                <p class="voice-panel__done-desc">Your meeting has been transcribed, summarized, and saved to the AI Brain.</p>
+                <div class="voice-panel__done-actions">
+                    <button class="voice-panel__done-btn voice-panel__done-btn--primary" id="voiceViewNotes">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                        View Summary
+                    </button>
+                    <button class="voice-panel__done-btn voice-panel__done-btn--ghost" id="voiceNewRecording">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 2a3 3 0 00-3 3v7a3 3 0 006 0V5a3 3 0 00-3-3z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 10v2a7 7 0 01-14 0v-2"/>
+                        </svg>
+                        New Recording
+                    </button>
+                </div>
+            </div>
+
+            <!-- State: Error -->
+            <div class="voice-panel__state voice-panel__state--error" id="voiceStateError" style="display:none;">
+                <div class="voice-panel__error-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" width="32" height="32">
+                        <circle cx="12" cy="12" r="10"/>
+                        <path stroke-linecap="round" d="M15 9l-6 6M9 9l6 6"/>
+                    </svg>
+                </div>
+                <p class="voice-panel__error-text" id="voiceErrorText">Something went wrong</p>
+                <button class="voice-panel__done-btn voice-panel__done-btn--ghost" id="voiceRetryBtn">Try Again</button>
             </div>
         </div>
     </div>

@@ -6,6 +6,30 @@ document.addEventListener('DOMContentLoaded', () => {
     const passInput = document.getElementById('password');
     const toggle = document.getElementById('togglePassword');
 
+    // ── Check if already logged in ──
+    (async function checkSession() {
+        const token = localStorage.getItem('access_token');
+        if (!token) return;
+        try {
+            const res = await fetch('/api/v1/profile-status', {
+                headers: { 'Authorization': 'Bearer ' + token },
+            });
+            if (!res.ok) return;
+            const data = await res.json();
+            if (data.full_name) {
+                const banner = document.getElementById('alreadyLoggedInBanner');
+                const nameEl = document.getElementById('loggedInName');
+                const avatarEl = document.getElementById('loggedInAvatar');
+                if (banner) {
+                    const name = data.full_name;
+                    if (nameEl) nameEl.textContent = name;
+                    if (avatarEl) avatarEl.textContent = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+                    banner.style.display = 'flex';
+                }
+            }
+        } catch (e) { /* silent — user not logged in */ }
+    })();
+
     // Password visibility toggle
     if (toggle && passInput) {
         toggle.addEventListener('click', () => {

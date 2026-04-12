@@ -10,6 +10,8 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import inspect
+from sqlalchemy.dialects import postgresql
 
 
 # revision identifiers, used by Alembic.
@@ -19,8 +21,26 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+def _table_exists(table: str) -> bool:
+    bind = op.get_bind()
+    return table in inspect(bind).get_table_names()
+
+
+def _index_exists(table: str, index: str) -> bool:
+    bind = op.get_bind()
+    return any(idx['name'] == index for idx in inspect(bind).get_indexes(table))
+
+
 def upgrade() -> None:
     conn = op.get_bind()
+    entry_type_enum = postgresql.ENUM(
+        'DECISION',
+        'MILESTONE',
+        'SUMMARY',
+        'UPLOAD',
+        name='entrytype',
+        create_type=False,
+    )
 
     # Create enum type only if it doesn't already exist (create_all may have already created it)
     conn.execute(sa.text(
@@ -40,7 +60,7 @@ def upgrade() -> None:
         op.create_table('timeline_entries',
             sa.Column('id', sa.Integer(), nullable=False),
             sa.Column('project_id', sa.Integer(), nullable=False),
-            sa.Column('entry_type', sa.Enum('DECISION', 'MILESTONE', 'SUMMARY', 'UPLOAD', name='entrytype', create_type=False), nullable=False),
+            sa.Column('entry_type', entry_type_enum, nullable=False),
             sa.Column('title', sa.String(), nullable=False),
             sa.Column('content', sa.Text(), nullable=False),
             sa.Column('source_reference', sa.String(), nullable=True),
@@ -50,10 +70,13 @@ def upgrade() -> None:
             sa.ForeignKeyConstraint(['verified_by_id'], ['users.id'], ),
             sa.PrimaryKeyConstraint('id')
         )
+    if _table_exists('timeline_entries') and not _index_exists('timeline_entries', op.f('ix_timeline_entries_id')):
         op.create_index(op.f('ix_timeline_entries_id'), 'timeline_entries', ['id'], unique=False)
 
 
 def downgrade() -> None:
-    op.drop_index(op.f('ix_timeline_entries_id'), table_name='timeline_entries')
-    op.drop_table('timeline_entries')
+    if _table_exists('timeline_entries') and _index_exists('timeline_entries', op.f('ix_timeline_entries_id')):
+        op.drop_index(op.f('ix_timeline_entries_id'), table_name='timeline_entries')
+    if _table_exists('timeline_entries'):
+        op.drop_table('timeline_entries')
     op.execute(sa.text("DROP TYPE IF EXISTS entrytype"))

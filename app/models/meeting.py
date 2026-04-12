@@ -22,6 +22,7 @@ class MeetingFolder(Base):
     id = Column(Integer, primary_key=True, index=True)
     team_id = Column(Integer, ForeignKey("teams.id"), nullable=False)
     name = Column(String, nullable=False)
+    is_protected = Column(Boolean, default=False, nullable=False)  # Prevents deletion (e.g., AI Generated folder)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

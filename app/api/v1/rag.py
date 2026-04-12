@@ -55,6 +55,7 @@ from app.rag.processor import (
     list_folder_files,
     validate_file,
     get_doc_type,
+    validate_public_http_url,
 )
 
 router = APIRouter()
@@ -894,6 +895,10 @@ async def ingest_url(
     url = data.url.strip()
     if not url.startswith(("http://", "https://")):
         raise HTTPException(status_code=400, detail="URL must start with http:// or https://")
+    try:
+        url = validate_public_http_url(url)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
     doc_record = Document(
         team_id=data.team_id,

@@ -9,8 +9,7 @@
     function forceLogout() {
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
-        localStorage.removeItem('selected_team_id');
-        localStorage.removeItem('selected_subteam_id');
+        sessionStorage.removeItem('lp_pending_setup');
         window.location.href = '/login';
     }
 
@@ -340,4 +339,370 @@
         })
         .catch(function() {});
 
+})();
+
+/* ═══════════════════════════════════════════════════════════════
+   VOICE RECORDER — Shared FAB widget
+   Call: window.__lp.initVoiceRecorder({ teamId, fetchNotes, onDone, timeoutMsg })
+   ═══════════════════════════════════════════════════════════════ */
+(function () {
+    if (!window.__lp) window.__lp = {};
+
+    window.__lp.initVoiceRecorder = function (cfg) {
+        var _teamId = cfg.teamId;
+        var _fetchNotes = cfg.fetchNotes;       // () => Promise<Array>
+        var _onDone = cfg.onDone || function () {};
+        var _timeoutMsg = cfg.timeoutMsg || 'Still processing — check back shortly.';
+
+        var voiceFab = document.getElementById('voiceFab');
+        var voicePanel = document.getElementById('voicePanel');
+        var voicePanelClose = document.getElementById('voicePanelClose');
+        var voiceStartBtn = document.getElementById('voiceStartBtn');
+        var voiceStopBtn = document.getElementById('voiceStopBtn');
+        var voiceCancelBtn = document.getElementById('voiceCancelBtn');
+        var voicePauseBtn = document.getElementById('voicePauseBtn');
+        var voiceNewRecording = document.getElementById('voiceNewRecording');
+        var voiceRetryBtn = document.getElementById('voiceRetryBtn');
+        var voiceTimer = document.getElementById('voiceTimer');
+        var voiceWaveformCanvas = document.getElementById('voiceWaveformCanvas');
+        var voiceProgressBar = document.getElementById('voiceProgressBar');
+        var voiceProcessingLabel = document.getElementById('voiceProcessingLabel');
+        var voiceErrorText = document.getElementById('voiceErrorText');
+        var voicePauseIcon = document.getElementById('voicePauseIcon');
+        var voiceResumeIcon = document.getElementById('voiceResumeIcon');
+        var voiceUploadBtn = document.getElementById('voiceUploadBtn');
+        var voiceFileInput = document.getElementById('voiceFileInput');
+
+        if (!voiceFab) return;
+
+        var panelOpen = false;
+        var mediaRecorder = null;
+        var audioChunks = [];
+        var isRecording = false;
+        var isPaused = false;
+        var recordingStartTime = 0;
+        var recordingElapsed = 0;
+        var timerInterval = null;
+        var audioContext = null;
+        var analyser = null;
+        var animationFrame = null;
+
+        // ── Panel open / close ──
+        voiceFab.addEventListener('click', function () {
+            if (isRecording) { stopRecording(); return; }
+            panelOpen = !panelOpen;
+            voicePanel.classList.toggle('voice-panel--open', panelOpen);
+        });
+
+        voicePanelClose.addEventListener('click', function () {
+            if (isRecording) cancelRecording();
+            closePanel();
+        });
+
+        function closePanel() {
+            panelOpen = false;
+            voicePanel.classList.remove('voice-panel--open');
+            voiceFab.classList.remove('voice-fab--hidden');
+        }
+
+        function showState(stateId) {
+            ['voiceStateIdle', 'voiceStateRecording', 'voiceStateProcessing', 'voiceStateDone', 'voiceStateError']
+                .forEach(function (id) {
+                    var el = document.getElementById(id);
+                    if (el) el.style.display = (id === stateId) ? 'flex' : 'none';
+                });
+        }
+
+        // ── Timer ──
+        function startTimer() {
+            recordingStartTime = Date.now();
+            recordingElapsed = 0;
+            timerInterval = setInterval(updateTimerDisplay, 100);
+        }
+
+        function updateTimerDisplay() {
+            var now = isPaused ? recordingElapsed : recordingElapsed + (Date.now() - recordingStartTime);
+            var totalSec = Math.floor(now / 1000);
+            var min = String(Math.floor(totalSec / 60)).padStart(2, '0');
+            var sec = String(totalSec % 60).padStart(2, '0');
+            voiceTimer.textContent = min + ':' + sec;
+        }
+
+        function stopTimer() { clearInterval(timerInterval); }
+
+        // ── Waveform visualization ──
+        function startWaveform(stream) {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            analyser = audioContext.createAnalyser();
+            analyser.fftSize = 256;
+            var source = audioContext.createMediaStreamSource(stream);
+            source.connect(analyser);
+
+            var ctx = voiceWaveformCanvas.getContext('2d');
+            var bufferLength = analyser.frequencyBinCount;
+            var dataArray = new Uint8Array(bufferLength);
+            var W = voiceWaveformCanvas.width;
+            var H = voiceWaveformCanvas.height;
+
+            function draw() {
+                animationFrame = requestAnimationFrame(draw);
+                analyser.getByteFrequencyData(dataArray);
+                ctx.clearRect(0, 0, W, H);
+                var barCount = 40, gap = 3;
+                var barWidth = (W - gap * (barCount - 1)) / barCount;
+                var step = Math.floor(bufferLength / barCount);
+                for (var i = 0; i < barCount; i++) {
+                    var val = dataArray[i * step] / 255;
+                    var barH = Math.max(3, val * H * 0.85);
+                    var x = i * (barWidth + gap);
+                    var y = (H - barH) / 2;
+                    var t = i / barCount;
+                    var r = Math.round(99 + t * 40);
+                    var g = Math.round(102 - t * 10);
+                    var b = Math.round(241 + t * 5);
+                    ctx.fillStyle = 'rgba(' + r + ',' + g + ',' + b + ',' + (0.6 + val * 0.4) + ')';
+                    ctx.beginPath();
+                    ctx.roundRect(x, y, barWidth, barH, 2);
+                    ctx.fill();
+                }
+            }
+            draw();
+        }
+
+        function stopWaveform() {
+            if (animationFrame) cancelAnimationFrame(animationFrame);
+            if (audioContext && audioContext.state !== 'closed') audioContext.close().catch(function () {});
+            audioContext = null;
+            analyser = null;
+        }
+
+        // ── Upload audio file ──
+        if (voiceUploadBtn && voiceFileInput) {
+            voiceUploadBtn.addEventListener('click', function () {
+                if (!_teamId) {
+                    showVoiceError('No project selected. Please select a team first.');
+                    return;
+                }
+                voiceFileInput.click();
+            });
+
+            voiceFileInput.addEventListener('change', function () {
+                var file = voiceFileInput.files && voiceFileInput.files[0];
+                if (!file) return;
+                voiceFileInput.value = '';
+                showState('voiceStateProcessing');
+                voiceProcessingLabel.textContent = 'Uploading audio...';
+                voiceProgressBar.style.width = '0%';
+                uploadRecording(file, file.name);
+            });
+        }
+
+        // ── Start recording ──
+        voiceStartBtn.addEventListener('click', startRecording);
+
+        function startRecording() {
+            if (!_teamId) {
+                showVoiceError('No project selected. Please select a team first.');
+                return;
+            }
+            navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
+                var mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+                    ? 'audio/webm;codecs=opus'
+                    : MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '';
+
+                mediaRecorder = mimeType
+                    ? new MediaRecorder(stream, { mimeType: mimeType })
+                    : new MediaRecorder(stream);
+
+                audioChunks = [];
+
+                mediaRecorder.ondataavailable = function (e) {
+                    if (e.data.size > 0) audioChunks.push(e.data);
+                };
+
+                mediaRecorder.onstop = function () {
+                    var mimeUsed = mediaRecorder.mimeType || 'audio/webm';
+                    var ext = mimeUsed.includes('mp4') ? '.mp4' : '.webm';
+                    var blob = new Blob(audioChunks, { type: mimeUsed });
+                    audioChunks = [];
+                    stream.getTracks().forEach(function (t) { t.stop(); });
+                    stopWaveform();
+                    uploadRecording(blob, 'meeting_recording' + ext);
+                };
+
+                mediaRecorder.start(250);
+                isRecording = true;
+                isPaused = false;
+
+                showState('voiceStateRecording');
+                voiceFab.classList.add('voice-fab--recording');
+                voiceFab.querySelector('.voice-fab__label').textContent = 'Stop';
+                startTimer();
+                startWaveform(stream);
+            }).catch(function () {
+                showVoiceError('Microphone access denied. Please allow microphone permissions and try again.');
+            });
+        }
+
+        // ── Stop recording ──
+        voiceStopBtn.addEventListener('click', stopRecording);
+
+        function stopRecording() {
+            if (!mediaRecorder || mediaRecorder.state === 'inactive') return;
+            isRecording = false;
+            isPaused = false;
+            stopTimer();
+            mediaRecorder.stop();
+            voiceFab.classList.remove('voice-fab--recording');
+            voiceFab.querySelector('.voice-fab__label').textContent = 'Record';
+            showState('voiceStateProcessing');
+            voiceProcessingLabel.textContent = 'Uploading audio...';
+            voiceProgressBar.style.width = '0%';
+        }
+
+        // ── Cancel recording ──
+        voiceCancelBtn.addEventListener('click', cancelRecording);
+
+        function cancelRecording() {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.onstop = function () {
+                    if (mediaRecorder.stream) mediaRecorder.stream.getTracks().forEach(function (t) { t.stop(); });
+                };
+                mediaRecorder.stop();
+            }
+            isRecording = false;
+            isPaused = false;
+            audioChunks = [];
+            stopTimer();
+            stopWaveform();
+            voiceFab.classList.remove('voice-fab--recording');
+            voiceFab.querySelector('.voice-fab__label').textContent = 'Record';
+            voiceTimer.textContent = '00:00';
+            showState('voiceStateIdle');
+        }
+
+        // ── Pause / Resume ──
+        voicePauseBtn.addEventListener('click', function () {
+            if (!mediaRecorder) return;
+            if (isPaused) {
+                mediaRecorder.resume();
+                isPaused = false;
+                recordingStartTime = Date.now();
+                timerInterval = setInterval(updateTimerDisplay, 100);
+                voicePauseIcon.style.display = '';
+                voiceResumeIcon.style.display = 'none';
+            } else {
+                mediaRecorder.pause();
+                isPaused = true;
+                recordingElapsed += Date.now() - recordingStartTime;
+                clearInterval(timerInterval);
+                voicePauseIcon.style.display = 'none';
+                voiceResumeIcon.style.display = '';
+            }
+        });
+
+        // ── Upload recording ──
+        function uploadRecording(blob, filename) {
+            voiceProgressBar.style.width = '10%';
+            voiceProcessingLabel.textContent = 'Uploading audio...';
+
+            var formData = new FormData();
+            formData.append('team_id', _teamId);
+            formData.append('file', blob, filename);
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/v1/meetings/upload-audio', true);
+
+            var tkn = localStorage.getItem('access_token');
+            if (tkn) xhr.setRequestHeader('Authorization', 'Bearer ' + tkn);
+
+            xhr.upload.onprogress = function (e) {
+                if (e.lengthComputable) {
+                    var pct = Math.round((e.loaded / e.total) * 60);
+                    voiceProgressBar.style.width = pct + '%';
+                }
+            };
+
+            xhr.onload = function () {
+                if (xhr.status === 200) {
+                    voiceProgressBar.style.width = '65%';
+                    voiceProcessingLabel.textContent = 'AI is transcribing & summarizing...';
+                    pollForCompletion();
+                } else {
+                    var detail = 'Upload failed.';
+                    try { detail = JSON.parse(xhr.responseText).detail || detail; } catch (_) {}
+                    showVoiceError(detail);
+                }
+            };
+
+            xhr.onerror = function () { showVoiceError('Network error. Check your connection.'); };
+            xhr.send(formData);
+        }
+
+        // ── Poll for AI processing completion ──
+        function pollForCompletion() {
+            var baseline = null;
+            var pollCount = 0;
+            var maxPolls = 30;
+            var interval = 2000;
+
+            _fetchNotes()
+                .then(function (notes) { baseline = Array.isArray(notes) ? notes.length : 0; })
+                .catch(function () { baseline = 0; });
+
+            var timer = setInterval(function () {
+                pollCount++;
+                var fakePct = Math.min(95, 65 + (pollCount / maxPolls) * 30);
+                voiceProgressBar.style.width = fakePct + '%';
+                if (baseline === null) return;
+
+                _fetchNotes().then(function (notes) {
+                    if (Array.isArray(notes) && notes.length > baseline) {
+                        clearInterval(timer);
+                        voiceProgressBar.style.width = '100%';
+                        setTimeout(function () { showState('voiceStateDone'); }, 400);
+                        _onDone();
+                    }
+                }).catch(function () {});
+
+                if (pollCount >= maxPolls) {
+                    clearInterval(timer);
+                    voiceProgressBar.style.width = '100%';
+                    voiceProcessingLabel.textContent = _timeoutMsg;
+                    setTimeout(function () { showState('voiceStateDone'); _onDone(); }, 1500);
+                }
+            }, interval);
+        }
+
+        // ── Error handling ──
+        function showVoiceError(msg) {
+            voiceErrorText.textContent = msg;
+            showState('voiceStateError');
+            voiceFab.classList.remove('voice-fab--recording');
+            voiceFab.querySelector('.voice-fab__label').textContent = 'Record';
+        }
+
+        // ── Retry / New recording ──
+        voiceRetryBtn.addEventListener('click', function () {
+            voiceTimer.textContent = '00:00';
+            showState('voiceStateIdle');
+        });
+
+        voiceNewRecording.addEventListener('click', function () {
+            voiceTimer.textContent = '00:00';
+            showState('voiceStateIdle');
+        });
+
+        // ── Close panel on click outside ──
+        document.addEventListener('click', function (e) {
+            if (!panelOpen) return;
+            var recorder = document.getElementById('voiceRecorder');
+            if (recorder && !recorder.contains(e.target)) {
+                if (!isRecording) closePanel();
+            }
+        });
+
+        // Return closePanel for page-specific button handlers
+        return { closePanel: closePanel };
+    };
 })();

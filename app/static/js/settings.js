@@ -13,6 +13,7 @@ document.addEventListener("DOMContentLoaded", () => {
     /* ── State ── */
     let userRole      = "viewer";
     let currentTeamId = null;
+    let editingSubteamId = null;
 
     /* ═══════════════════ INIT ═══════════════════ */
 
@@ -240,8 +241,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     /* ═══════════════════ SUBTEAM MANAGEMENT (Team Management tab) ═══════════════════ */
 
-    let editingSubteamId = null;
-
     async function loadSubteams() {
         if (!currentTeamId) return;
         const res = await apiCall(`/api/v1/settings/teams/${currentTeamId}/subteams`, "GET");
@@ -349,13 +348,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 color:       document.getElementById("subteamColor").value
             };
             let res;
-            if (editingSubteamId) {
+            if (editingSubteamId != null) {
                 res = await apiCall(`/api/v1/settings/teams/${currentTeamId}/subteams/${editingSubteamId}`, "PUT", payload);
             } else {
                 res = await apiCall(`/api/v1/settings/teams/${currentTeamId}/subteams`, "POST", payload);
             }
             if (res) {
-                showToast(editingSubteamId ? "Team updated" : "Team created", "success");
+                showToast(editingSubteamId !== null ? "Team updated" : "Team created", "success");
                 closeModal("subteamModalOverlay");
                 await loadSubteams();
             }
@@ -572,13 +571,28 @@ document.addEventListener("DOMContentLoaded", () => {
             const data = await res.json();
             const docs = data.documents || [];
 
+            const driveAllowedHosts = new Set(["drive.google.com"]);
+            const githubAllowedHosts = new Set(["github.com", "raw.githubusercontent.com"]);
+
             const driveCount  = docs.filter(d => {
                 if (d.doc_type === "folder") return true;
-                return d.source_url && d.source_url.includes("drive.google.com");
+                if (!d.source_url) return false;
+                try {
+                    const host = new URL(d.source_url).hostname.toLowerCase();
+                    return driveAllowedHosts.has(host);
+                } catch {
+                    return false;
+                }
             }).length;
-            const githubCount = docs.filter(d =>
-                d.source_url && (d.source_url.includes("github.com") || d.source_url.includes("raw.githubusercontent.com"))
-            ).length;
+            const githubCount = docs.filter(d => {
+                if (!d.source_url) return false;
+                try {
+                    const host = new URL(d.source_url).hostname.toLowerCase();
+                    return githubAllowedHosts.has(host);
+                } catch {
+                    return false;
+                }
+            }).length;
 
             const driveEl  = document.getElementById("intDriveCount");
             const githubEl = document.getElementById("intGithubCount");

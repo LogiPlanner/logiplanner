@@ -20,25 +20,38 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.create_table(
-        'meeting_boards',
-        sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-        sa.Column('team_id', sa.Integer(), nullable=False),
-        sa.Column('name', sa.String(), nullable=False),
-        sa.Column('state_json', sa.Text(), nullable=True),
-        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
-        sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
-        sa.ForeignKeyConstraint(['team_id'], ['teams.id'], name=op.f('meeting_boards_team_id_fkey')),
-        sa.PrimaryKeyConstraint('id', name=op.f('meeting_boards_pkey')),
-    )
-    op.create_index(op.f('ix_meeting_boards_id'), 'meeting_boards', ['id'], unique=False)
-    op.create_index(op.f('ix_meeting_boards_team_id'), 'meeting_boards', ['team_id'], unique=False)
-
     bind = op.get_bind()
     inspector = inspect(bind)
+
+    if 'meeting_boards' not in inspector.get_table_names():
+        op.create_table(
+            'meeting_boards',
+            sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+            sa.Column('team_id', sa.Integer(), nullable=False),
+            sa.Column('name', sa.String(), nullable=False),
+            sa.Column('state_json', sa.Text(), nullable=True),
+            sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+            sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
+            sa.ForeignKeyConstraint(['team_id'], ['teams.id'], name=op.f('meeting_boards_team_id_fkey')),
+            sa.PrimaryKeyConstraint('id', name=op.f('meeting_boards_pkey')),
+        )
+
+    inspector = inspect(bind)
+    index_names = {idx['name'] for idx in inspector.get_indexes('meeting_boards')}
+    if op.f('ix_meeting_boards_id') not in index_names:
+        op.create_index(op.f('ix_meeting_boards_id'), 'meeting_boards', ['id'], unique=False)
+    if op.f('ix_meeting_boards_team_id') not in index_names:
+        op.create_index(op.f('ix_meeting_boards_team_id'), 'meeting_boards', ['team_id'], unique=False)
+
     if 'whiteboard_states' in inspector.get_table_names():
+        existing_team_ids = {
+            row['team_id']
+            for row in bind.execute(sa.text('SELECT team_id FROM meeting_boards')).mappings().all()
+        }
         rows = bind.execute(sa.text('SELECT team_id, state_json FROM whiteboard_states')).mappings().all()
         for row in rows:
+            if row['team_id'] in existing_team_ids:
+                continue
             bind.execute(
                 sa.text(
                     'INSERT INTO meeting_boards (team_id, name, state_json, created_at) '
@@ -50,6 +63,7 @@ def upgrade() -> None:
                     'state_json': row['state_json'],
                 },
             )
+        op.drop_table('whiteboard_states')
 
 
 def downgrade() -> None:
