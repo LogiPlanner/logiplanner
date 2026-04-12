@@ -34,6 +34,11 @@ class TimelineEntry(Base):
     comments = relationship("TimelineEntryComment", backref="entry", cascade="all, delete-orphan")
     versions = relationship("TimelineEntryVersion", backref="entry", cascade="all, delete-orphan")
     attachments = relationship("TimelineAttachment", backref="entry", cascade="all, delete-orphan")
+    reactions = relationship("TimelineEntryReaction", backref="entry", cascade="all, delete-orphan")
+
+    @property
+    def likes_count(self) -> int:
+        return sum(1 for r in self.reactions if r.is_like == 1)
 
 class TimelineEntryComment(Base):
     __tablename__ = "timeline_entry_comments"
@@ -60,6 +65,15 @@ class TimelineEntryComment(Base):
     @property
     def dislikes_count(self) -> int:
         return sum(1 for r in self.reactions if r.is_like == 0)
+
+class TimelineEntryReaction(Base):
+    __tablename__ = "timeline_entry_reactions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    entry_id = Column(Integer, ForeignKey("timeline_entries.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    is_like = Column(Integer, nullable=False) 
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
 class TimelineEntryCommentReaction(Base):

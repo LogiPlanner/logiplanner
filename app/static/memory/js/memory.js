@@ -527,7 +527,20 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <span class="entry-badge badge-${entry.entry_type}">${entry.entry_type}</span>
                                 ${impactHtml}
                             </div>
-                            <span class="entry-time">${dateStr} • ${timeStr}</span>
+                            <div style="display:flex; align-items:center; gap:0.5rem;">
+                                <span class="entry-time">${dateStr} • ${timeStr}</span>
+                                <div class="fb-post-options">
+                                    <button class="fb-post-options-toggle" onclick="window.togglePostOptions(${entry.id})">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:18px;height:18px;">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z" />
+                                        </svg>
+                                    </button>
+                                    <div id="postOptions_${entry.id}" class="fb-post-options-dropdown">
+                                        <button class="fb-post-options-btn" onclick="window.editTimelineEntry(${entry.id}); window.togglePostOptions(${entry.id})">Edit Entry</button>
+                                        <button class="fb-post-options-btn danger" onclick="window.confirmDeleteTimelineEntry(${entry.id}); window.togglePostOptions(${entry.id})">Delete Entry</button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                         <h4 class="entry-title">${escapeHtml(entry.title)}</h4>
                         <p class="entry-content">${escapeHtml(entry.content)}</p>
@@ -538,21 +551,34 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <span class="author-name">${escapeHtml(author)}</span>
                                 ${collaboratorsHtml}
                             </div>
-                            <div class="entry-actions">
-                                ${sourceHtml}
-                                <button class="action-btn" onclick="window.editTimelineEntry(${entry.id})">Edit</button>
-                                <button class="action-btn delete" onclick="window.confirmDeleteTimelineEntry(${entry.id})">Delete</button>
-                            </div>
                         </div>
 
-                        <!-- Comments Section -->
-                        <div class="entry-comments" style="margin-top: 1rem; border-top: 1px solid var(--color-surface-high); padding-top: 1rem;">
+                        <!-- Action Bar for Entry -->
+                        <div class="fb-post-actions">
+                            <button class="fb-post-action-btn ${entry.user_reaction === 1 ? 'active' : ''}" onclick="window.reactToEntry(${entry.id})">
+                                <svg viewBox="0 0 24 24" fill="${entry.user_reaction === 1 ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.5" style="width:18px;height:18px;">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.514" />
+                                </svg>
+                                Like ${entry.likes_count > 0 ? `(${entry.likes_count})` : ''}
+                            </button>
+                            <button class="fb-post-action-btn" onclick="window.togglePostComments(${entry.id})">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:18px;height:18px;">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 20.25c4.97 0 9-3.694 9-8.25s-4.03-8.25-9-8.25S3 7.444 3 12c0 2.104.859 4.023 2.273 5.48.432.447.74 1.04.586 1.641a4.483 4.483 0 01-.923 1.785A5.969 5.969 0 006 21c1.282 0 2.47-.402 3.445-1.087.81.22 1.668.337 2.555.337z" />
+                                </svg>
+                                Thread ${entry.comments && entry.comments.length > 0 ? `(${entry.comments.length})` : ''}
+                            </button>
+                        </div>
+
+                        <!-- Comments Section (Hidden by default) -->
+                        <div id="postComments_${entry.id}" class="fb-post-comments" style="display:none; margin-top: 0.5rem; padding-top: 0.5rem;">
                             <div id="commentsList_${entry.id}" style="display:flex; flex-direction:column; margin-bottom: 0.75rem;">
                                 ${renderCommentsHtml(entry.comments, entry.id)}
                             </div>
-                            <div style="display:flex; gap:0.5rem; margin-top: 0.5rem;">
-                                <input type="text" id="commentInput_${entry.id}" placeholder="Add a comment..." onkeydown="if(event.key === 'Enter') window.addTimelineComment(${entry.id})" style="flex:1; padding: 0.4rem 0.75rem; border-radius: 0.5rem; border: 1px solid var(--color-outline-variant); background: var(--color-surface); font-size: 0.8rem; color: var(--color-on-surface);">
-                                <button onclick="window.addTimelineComment(${entry.id})" style="padding: 0.4rem 0.75rem; border-radius: 0.5rem; background: var(--color-primary); color: white; border: none; font-size: 0.8rem; cursor: pointer;">Post</button>
+                            <div style="display:flex; gap:0.5rem; align-items:flex-start;">
+                                <div class="fb-avatar" style="margin-top:2px;">You</div>
+                                <div style="flex:1; display:flex; flex-direction:column; gap:4px;">
+                                    <input type="text" id="commentInput_${entry.id}" placeholder="Start a thread..." onkeydown="if(event.key === 'Enter') window.addTimelineComment(${entry.id})" style="padding: 0.5rem 0.75rem; border-radius: 12px; border: 1px solid var(--color-surface-high); background: var(--color-surface-lowest); font-size: 13px; color: var(--color-on-surface); width:100%; outline: none;" autocomplete="off">
+                                </div>
                             </div>
                         </div>
 
@@ -698,67 +724,57 @@ document.addEventListener('DOMContentLoaded', () => {
             const dateStr = new Date(c.created_at).toLocaleDateString();
             
             const likeActive = c.user_reaction === 1 ? 'active' : '';
-            const dislikeActive = c.user_reaction === 0 ? 'active-dislike' : '';
             
             let replyHtml = '';
             let replyToggle = '';
             if (replies.length > 0) {
                 replyToggle = `
-                <button class="show-more-toggle" style="margin-left:1.5rem; margin-top:0.25rem; font-size:0.7rem;" onclick="window.toggleReplies(${c.id})">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
-                    <span id="replyToggleText_${c.id}">View ${replies.length} replies</span>
-                </button>`;
+                <div style="margin-left:0; margin-top:4px;">
+                    <button class="show-more-toggle" onclick="window.toggleReplies(${c.id})">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:14px;height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
+                        <span id="replyToggleText_${c.id}">View ${replies.length} replies in thread</span>
+                    </button>
+                </div>`;
                 
                 replyHtml = `<div id="replies_${c.id}" style="display:none; flex-direction:column;">` + 
                             replies.map(r => renderCommentBlock(r, true)).join('') + 
                             `</div>`;
             }
             
-            const wrapperClass = isReply ? 'comment-reply' : 'comment-item';
+            const wrapperClass = isReply ? 'fb-comment-reply-row' : '';
+            const authorInitials = c.author_name ? c.author_name.substring(0,1).toUpperCase() : 'U';
             
             return `
-                <div class="${wrapperClass}">
-                    <div class="comment-header">
-                        <span class="comment-author">${escapeHtml(c.author_name)} <span class="comment-date">${dateStr}</span></span>
-                    </div>
-                    <div class="comment-content">${escapeHtml(c.content)}</div>
-                    
-                    <div class="comment-actions">
-                        <button class="comment-action-btn ${likeActive}" title="Like" onclick="window.reactToComment(${c.id}, true)">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.514" />
-                            </svg>
-                            ${c.likes_count || 0}
-                        </button>
-                        <button class="comment-action-btn ${dislikeActive}" title="Dislike" onclick="window.reactToComment(${c.id}, false)">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px; transform: scaleY(-1);">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.514" />
-                            </svg>
-                            ${c.dislikes_count || 0}
-                        </button>
-                        ${!isReply ? `
-                        <button class="comment-action-btn" title="Reply" onclick="window.toggleReplyBox(${c.id})">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-                            </svg>
-                            Reply
-                        </button>
-                        ` : ''}
+                <div class="${wrapperClass} fb-comment-row">
+                    <div class="fb-avatar">${authorInitials}</div>
+                    <div class="fb-comment-body">
+                        <div class="fb-comment-bubble">
+                            <div class="fb-comment-author">${escapeHtml(c.author_name)}</div>
+                            <div class="fb-comment-text">${escapeHtml(c.content)}</div>
+                            ${c.likes_count > 0 ? `
+                            <div class="fb-likes-count">
+                                <span>👍</span> ${c.likes_count}
+                            </div>
+                            ` : ''}
+                        </div>
                         
-                        <button class="comment-action-btn" title="Delete" onclick="window.deleteTimelineComment(${c.id})">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                        </button>
-                    </div>
-                    
-                    <div id="replyBox_${c.id}" class="reply-input-row">
-                        <input type="text" id="replyInput_${c.id}" placeholder="Write a reply..." onkeydown="if(event.key === 'Enter') window.addTimelineComment(${entryId}, ${c.id})" style="flex:1; padding: 0.3rem 0.75rem; border-radius: 0.5rem; border: 1px solid var(--color-outline-variant); background: var(--color-surface); font-size: 0.75rem; color: var(--color-on-surface);">
-                        <button onclick="window.addTimelineComment(${entryId}, ${c.id})" style="padding: 0.3rem 0.75rem; border-radius: 0.5rem; background: var(--color-surface-high); color: var(--color-on-surface); border: none; font-size: 0.75rem; font-weight:600; cursor: pointer;">Send</button>
-                    </div>
+                        <div class="fb-comment-actions">
+                            <button class="fb-action-btn ${likeActive}" onclick="window.reactToComment(${c.id}, true)">Like</button>
+                            ${!isReply ? `
+                            <button class="fb-action-btn" onclick="window.toggleReplyBox(${c.id})">Reply</button>
+                            ` : ''}
+                            <button class="fb-action-btn" style="color:#ef4444;" onclick="window.deleteTimelineComment(${c.id})">Delete</button>
+                            <span class="fb-comment-date">${dateStr}</span>
+                        </div>
+                        
+                        <div id="replyBox_${c.id}" class="reply-input-row" style="margin-top:8px;">
+                            <div class="fb-avatar" style="width:24px; height:24px; font-size:10px;">You</div>
+                            <input type="text" id="replyInput_${c.id}" placeholder="Reply to thread..." onkeydown="if(event.key === 'Enter') window.addTimelineComment(${entryId}, ${c.id})" style="flex:1; padding: 0.4rem 0.75rem; border-radius: 12px; border: 1px solid var(--color-surface-high); background: var(--color-surface-lowest); font-size: 13px; color: var(--color-on-surface); outline: none;" autocomplete="off">
+                        </div>
 
-                    ${replyToggle}
-                    ${replyHtml}
+                        ${replyToggle}
+                        ${replyHtml}
+                    </div>
                 </div>
             `;
         };
@@ -767,9 +783,9 @@ document.addEventListener('DOMContentLoaded', () => {
         let hiddenCommentsHtml = '';
         let toggleCommentsHtml = '';
         
-        if (topLevel.length > 2) {
-            visibleComments = topLevel.slice(topLevel.length - 2);
-            const hiddenComments = topLevel.slice(0, topLevel.length - 2);
+        if (topLevel.length > 1) {
+            visibleComments = topLevel.slice(0, 1);
+            const hiddenComments = topLevel.slice(1);
             
             hiddenCommentsHtml = `
             <div id="hiddenComments_${entryId}" style="display:none; flex-direction:column;">
@@ -778,18 +794,40 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
             
             toggleCommentsHtml = `
-            <button id="toggleCommentsBtn_${entryId}" class="show-more-toggle" onclick="window.toggleHiddenComments(${entryId}, navigator.language)">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-                </svg>
-                View ${hiddenComments.length} previous comments
+            <button id="toggleCommentsBtn_${entryId}" class="show-more-toggle" style="margin-top:8px; margin-bottom:12px;" onclick="window.toggleHiddenComments(${entryId})">
+                <svg viewBox="0 0 24 24" fill="none" class="w-4 h-4 mr-1" stroke="currentColor" stroke-width="1.5" style="width:14px;height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg> 
+                View ${hiddenComments.length} more threads
             </button>
             `;
         }
         
         const visibleHtml = visibleComments.map(c => renderCommentBlock(c)).join('');
-        return toggleCommentsHtml + hiddenCommentsHtml + visibleHtml;
+        return visibleHtml + hiddenCommentsHtml + toggleCommentsHtml;
     }
+    
+    window.togglePostOptions = function(entryId) {
+        const doc = document.getElementById(`postOptions_${entryId}`);
+        if(doc) doc.classList.toggle('active');
+    };
+
+    window.togglePostComments = function(entryId) {
+        const doc = document.getElementById(`postComments_${entryId}`);
+        if(doc) {
+            doc.style.display = doc.style.display === 'none' ? 'block' : 'none';
+        }
+    };
+    
+    window.reactToEntry = async function(entryId) {
+        if (!currentTeamId) return;
+        try {
+            const res = await mFetch(`/api/v1/timeline/${entryId}/react`, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({ is_like: true })
+            });
+            if (res.ok) fetchTimeline(currentTeamId, currentSubteamId);
+        } catch(e) { console.error('Entry reaction failed:', e); }
+    };
     
     window.toggleHiddenComments = function(entryId) {
         const div = document.getElementById(`hiddenComments_${entryId}`);
@@ -797,11 +835,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if(div && btn) {
             if(div.style.display === 'none') {
                 div.style.display = 'flex';
-                btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7" /></svg> Hide previous comments`;
+                btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" class="w-4 h-4 mr-1" stroke="currentColor" stroke-width="1.5" style="width:14px;height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg> Hide threads`;
             } else {
                 div.style.display = 'none';
                 const count = div.children.length; // Approximate top level
-                btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg> View ${count} previous comments`;
+                btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" class="w-4 h-4 mr-1" stroke="currentColor" stroke-width="1.5" style="width:14px;height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg> View ${count} more threads`;
             }
         }
     };

@@ -41,6 +41,9 @@ class TimelineEntryResponse(TimelineEntryBase):
     created_at: datetime
     updated_at: Optional[datetime] = None
     
+    likes_count: int = 0
+    user_reaction: Optional[int] = None
+    
     comments: List['TimelineEntryCommentResponse'] = []
     versions: List['TimelineEntryVersionResponse'] = []
     attachments: List['TimelineAttachmentResponse'] = []

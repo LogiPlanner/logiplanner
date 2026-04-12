@@ -151,6 +151,7 @@ def get_team_timeline(
         query = query.filter(TimelineEntry.sub_team_id == subteam_id)
     entries = query.order_by(TimelineEntry.created_at.desc()).all()
     for entry in entries:
+        entry.user_reaction = next((r.is_like for r in entry.reactions if r.user_id == current_user.id), None)
         for c in entry.comments:
             c.user_reaction = next((r.is_like for r in c.reactions if r.user_id == current_user.id), None)
     return entries
@@ -470,6 +471,54 @@ def add_comment(
 
 class CommentReactionUpdate(BaseModel):
     is_like: bool
+
+@router.post("/{entry_id}/react")
+def react_to_entry(
+    entry_id: int,
+    reaction: CommentReactionUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    from app.models.timeline import TimelineEntryReaction
+    entry = db.query(TimelineEntry).filter(TimelineEntry.id == entry_id).first()
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found")
+        
+    _verify_team_member(current_user, entry.team_id, db)
+
+    existing_reaction = db.query(TimelineEntryReaction).filter(
+        TimelineEntryReaction.entry_id == entry_id,
+        TimelineEntryReaction.user_id == current_user.id
+    ).first()
+
+    val = 1 if reaction.is_like else 0
+
+    if existing_reaction:
+        if existing_reaction.is_like == val:
+            db.delete(existing_reaction)
+            msg = "Reaction removed"
+            is_active = False
+        else:
+            existing_reaction.is_like = val
+            msg = "Reaction updated"
+            is_active = True
+    else:
+        new_reaction = TimelineEntryReaction(
+            entry_id=entry_id,
+            user_id=current_user.id,
+            is_like=val
+        )
+        db.add(new_reaction)
+        msg = "Reaction added"
+        is_active = True
+
+    db.commit()
+    db.refresh(entry)
+    return {
+        "message": msg,
+        "likes_count": entry.likes_count,
+        "user_reaction": val if is_active else None
+    }
 
 @router.post("/comments/{comment_id}/react")
 def react_to_comment(
